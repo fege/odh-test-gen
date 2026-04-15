@@ -4,6 +4,14 @@ __pycache__/
 *.egg-info/
 .venv/
 
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+coverage.txt
+coverage.html
+
 # Secrets & credentials
 *.pem
 *.key

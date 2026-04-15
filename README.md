@@ -117,3 +117,56 @@ Claude Code skills for generating test plans and test cases from RHOAI strategie
 └── test-plan.resolve-feedback/
     └── SKILL.md
 ```
+
+## Development
+
+### Prerequisites
+
+Install the package in development mode with dev dependencies:
+
+```bash
+uv pip install -e ".[dev]"
+```
+
+This installs:
+- The `test-plan` package in editable mode (changes are immediately available)
+- `pyyaml` - YAML frontmatter parsing
+- `pytest` - Test framework
+- `pytest-cov` - Coverage reporting
+
+### Running Tests
+
+Run all tests:
+```bash
+uv run pytest tests/ -v
+```
+
+Run a specific test file:
+```bash
+uv run pytest tests/test_schema_validation.py -v
+```
+
+Run tests with coverage:
+```bash
+uv run pytest tests/ -v --cov=scripts --cov-report=term-missing
+```
+
+Run a specific test:
+```bash
+uv run pytest tests/test_schema_validation.py::TestPlanSchemaValidation::test_field_validation -v
+```
+
+### Test Structure
+
+```
+tests/
+├── constants.py                      # Shared test data constants
+├── unit/                             # Unit tests (fast, isolated)
+│   ├── test_schema_validation.py     # Schema validation (test-plan, test-case, test-gaps)
+│   ├── test_frontmatter_operations.py # Read, write, update operations
+│   └── test_frontmatter_cli_unit.py  # CLI interface tests
+└── integration/                      # Integration tests (subprocess, file I/O)
+    ├── test_artifact_utils_validation.py # Review schema validation
+    ├── test_filter_for_revision.py   # Revision filter (subprocess)
+    └── test_preserve_review_state.py # State persistence
+```

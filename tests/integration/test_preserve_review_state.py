@@ -1,19 +1,11 @@
 import json
 import os
 import shutil
-import sys
 import tempfile
 import unittest
 
-
-SCRIPTS_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "scripts")
-)
-if SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, SCRIPTS_DIR)
-
-from artifact_utils import read_frontmatter_validated, write_frontmatter
-import preserve_review_state
+from scripts.artifact_utils import read_frontmatter_validated, write_frontmatter
+from scripts import preserve_review_state
 
 
 def _base_review_payload():
@@ -120,7 +112,3 @@ class TestPreserveReviewState(unittest.TestCase):
         final_history = preserve_review_state._extract_revision_history(review_path)
         self.assertEqual(final_history, current_history)
         self.assertEqual(final_history.count("### Cycle 1 Revision"), 1)
-
-
-if __name__ == "__main__":
-    unittest.main()

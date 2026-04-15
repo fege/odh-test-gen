@@ -4,21 +4,12 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from pathlib import Path
+
+from scripts.artifact_utils import read_frontmatter_validated, write_frontmatter
 
 
-SCRIPTS_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "scripts")
-)
-if SCRIPTS_DIR not in sys.path:
-    sys.path.insert(0, SCRIPTS_DIR)
-
-from artifact_utils import read_frontmatter_validated, write_frontmatter
-
-
-FILTER_SCRIPT = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "scripts",
-                 "filter_for_revision.py")
-)
+FILTER_SCRIPT = str(Path(__file__).parent.parent.parent / "scripts" / "filter_for_revision.py")
 
 
 def _write_review(feature_dir, payload):
@@ -135,7 +126,3 @@ class TestFilterForRevision(unittest.TestCase):
         data, _ = read_frontmatter_validated(review_path, "test-plan-review")
         self.assertEqual(data["verdict"], "Revise")
         self.assertEqual(data["error"], "score_regression:8->7")
-
-
-if __name__ == "__main__":
-    unittest.main()

@@ -42,7 +42,7 @@ import os
 import sys
 from datetime import date
 
-from artifact_utils import (
+from scripts.artifact_utils import (
     SCHEMAS,
     detect_schema_type,
     get_schema_yaml,
