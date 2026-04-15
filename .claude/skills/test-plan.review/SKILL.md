@@ -58,7 +58,28 @@ Launch a **forked** score agent with these substitutions:
 - `{STRATEGY_TEXT}` = raw strategy description text from Step 1
 - `{CALIBRATION_DIR}` = `${CLAUDE_SKILL_DIR}/calibration/`
 
-The score agent returns a structured rubric assessment with per-criterion scores and a grounding cross-reference table.
+The score agent evaluates the test plan against a 5-criterion rubric (specificity, grounding, scope fidelity, actionability, consistency) and returns a structured assessment with per-criterion scores and a grounding cross-reference table.
+
+**Completeness checks performed by the score agent:**
+
+| Section | Check |
+|---------|-------|
+| 1.1 Purpose | Does it clearly state what is being tested and why? |
+| 1.2 Scope | Are in-scope and out-of-scope explicitly defined? |
+| 1.3 Test Objectives | Are there 3-7 concrete, measurable objectives? |
+| 2.1 Test Levels | Are the selected levels appropriate for the feature type? |
+| 2.3 Priorities | Are P0/P1/P2 definitions specific to this feature, not generic? |
+| 3.1 Cluster Config | Are versions and dependencies specified or marked TBD? |
+| 3.2 Test Data | Are test data requirements concrete enough to act on? |
+| 4 Endpoints/Methods | Are entries grounded in source documents, not fabricated? |
+| 6.1 E2E Scenarios | Is the E2E Scenario Summary populated with TC-E2E-* entries? (Note: expected to be empty until create-cases runs) |
+| 6.2 E2E Coverage | Does each P0 endpoint from Section 4 have E2E scenario coverage in Section 6.2? (Note: expected to be empty until create-cases runs) |
+| 7.1 Disconnected | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
+| 7.2 Upgrade | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
+| 7.3 Performance | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
+| 7.4 RBAC | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
+| 8 Risks | Are risks specific to this feature, not boilerplate? |
+| 9 Environment | Is there enough detail to set up a test environment? |
 
 ### Step 3: Review (fork)
 
@@ -70,6 +91,14 @@ Launch a **forked** review agent with these substitutions:
 - `{FIRST_PASS}` = `true` (first assessment cycle)
 
 The review agent writes `<feature_dir>/TestPlanReview.md` with rubric scores, feedback, and validated frontmatter.
+
+**Consistency checks performed by the review agent:**
+- Do the endpoints in Section 4 align with the scope in Section 1.2?
+- Do the test levels in Section 2.1 match the interface types in Section 4?
+- Are priority assignments in Section 4 consistent with the definitions in Section 2.3?
+- Does Section 10.2 list all endpoints from Section 4?
+- Are NFR categories in Section 7 consistent with the feature scope? (e.g., a feature that pulls images should not mark Disconnected as N/A)
+- Does Section 6.2 E2E Coverage Matrix include all P0 endpoints from Section 4? (Note: expected to be empty until create-cases runs)
 
 ### Step 4: Check Criteria and Revise (max 2 cycles)
 

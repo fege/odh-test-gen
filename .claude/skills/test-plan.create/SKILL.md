@@ -83,8 +83,8 @@ Invoke these three forked analyzer skills **in parallel** using the Skill tool. 
 Pass the full strategy content (and ADR content if available) inline in the skill arguments so each sub-agent has the source material.
 
 - **`test-plan.analyze.endpoints`**: Extracts feature scope (in-scope, out-of-scope, test objectives) and identifies API endpoints/methods under test. Produces findings for Sections 1 and 4.
-- **`test-plan.analyze.risks`**: Determines test levels, test types, priority definitions, and risks with mitigations. Produces findings for Sections 2 and 6.
-- **`test-plan.analyze.infra`**: Identifies test environment configuration, test data, test users, infrastructure, and tooling requirements. Produces findings for Sections 3 and 7.
+- **`test-plan.analyze.risks`**: Determines test levels, test types, priority definitions, risks with mitigations, and non-functional requirement assessments. Produces findings for Sections 2, 7, and 8.
+- **`test-plan.analyze.infra`**: Identifies test environment configuration, test data, test users, infrastructure, and tooling requirements. Produces findings for Sections 3 and 9.
 
 Once all three sub-agents return:
 1. Merge their structured findings into the test plan template (Step 3)
@@ -96,7 +96,7 @@ Once all three sub-agents return:
 1. Create the feature directory using Bash: `mkdir -p <feature_name>/test_cases`
 2. Read the template from `${CLAUDE_SKILL_DIR}/test-plan-template.md` using the Read tool
 3. Generate `<feature_name>/TestPlan.md` by filling in the template with the gathered information. Follow the template structure exactly — do not add, remove, or reorder sections. Do NOT write frontmatter manually — Step 3.1 handles it.
-4. For Section 8.2 ({Endpoint/Method} Coverage): fill in the Endpoint column using the endpoints identified in Section 4. Leave the Test Cases and Coverage columns empty — they will be filled later in the process.
+4. For Section 10.2 ({Endpoint/Method} Coverage): fill in the Endpoint column using the endpoints identified in Section 4. Leave the Test Cases and Coverage columns empty — they will be filled later in the process.
 5. Generate `<feature_name>/README.md` with:
    - Feature name and one-line description
    - Links to Jira strategy, ADR (if provided)
@@ -185,8 +185,13 @@ The reviewer handles auto-revision internally (up to 2 cycles) and writes `<feat
 **Handle the review output:**
 
 1. **Read the verdict** from `<feature_name>/TestPlanReview.md` frontmatter
-2. **Present summary**: Show the user the final score, verdict, and any remaining gaps from `TestPlanGaps.md`, so they have full visibility into the test plan's quality before proceeding to test case generation
-3. If verdict is **Rework**, advise the user to provide additional source documents (ADR, API spec) to resolve quality issues before generating test cases
+2. **Auto-fix** (if any): Apply clearly correct improvements suggested by the reviewer (e.g., consistency fixes, missing entries in Section 10.2, generic priority definitions that should be feature-specific). Edit the TestPlan.md directly using the Edit tool.
+3. **Present summary**: Show the user:
+   - Final score and verdict from TestPlanReview.md
+   - Any auto-fixes applied
+   - Any remaining gaps from `TestPlanGaps.md`
+   - Full visibility into the test plan's quality before proceeding to test case generation
+4. **If verdict is Rework**: Advise the user to provide additional source documents (ADR, API spec, design doc) to resolve quality issues before generating test cases
 
 ### What this skill does NOT do
 
@@ -195,7 +200,10 @@ The reviewer handles auto-revision internally (up to 2 cycles) and writes `<feat
 - Does NOT fetch the Google Doc ADR — it reads a local file only
 - Does NOT resolve GitHub PR review comments (use `/test-plan.resolve-feedback <PR_URL>` after publishing)
 - Section 5 (Test Cases): left as placeholder — to be filled later in the process
-- Section 8.1 (Test Case Summary): left as placeholder — to be filled later in the process
-- Section 8.2 Test Cases and Coverage columns: left empty — to be filled later in the process
+- Section 6 (E2E Test Scenarios): left as placeholder — to be filled by `/test-plan.create-cases`
+- Section 7 (Non-Functional Requirements): filled by `test-plan.analyze.risks` — each category must be addressed or marked Not Applicable
+- Section 10.1 (Test Case Summary): left as placeholder — to be filled later in the process
+- Section 10.2 Test Cases column: left empty — to be filled by `/test-plan.create-cases`
+- Section 10.2 Coverage column: left empty — to be filled by `/coverage-assessment`
 
 $ARGUMENTS

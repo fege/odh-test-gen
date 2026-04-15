@@ -97,6 +97,11 @@ Process **one category at a time** from Section 5.2. For each category:
    - `strat_key`: use the value extracted from the test plan's frontmatter in Step 1
    - Write the frontmatter directly — validation happens in Step 5.7
 
+3. **E2E test cases (mandatory)**: After processing all categories, generate TC-E2E-*.md test cases that validate the user journeys defined in the strategy:
+   - Every P0 endpoint from Section 4 MUST be covered by at least one E2E scenario
+   - Each E2E test case should represent a complete user journey, not just a single endpoint call
+   - Use `TC-E2E-<NUMBER>` naming convention (e.g., TC-E2E-001, TC-E2E-002)
+
 This category-by-category approach ensures cross-category awareness (no duplicate coverage) while keeping each batch focused.
 
 **Anti-hallucination rules:**
@@ -121,8 +126,10 @@ After all categories are complete:
 Update `<feature_dir>/TestPlan.md` using the Edit tool:
 1. **Section 5** — Update the note to reflect test cases have been generated, with a link to `test_cases/INDEX.md`
 2. **Section 5.1** — Fill in the Test Case Organization table with category, test case count, and priority distribution
-3. **Section 8.1** — Fill in the Test Case Summary table with counts per category and priority breakdown
-4. **Section 8.2** — Fill in the Test Cases column with TC IDs mapped to each endpoint. Leave the Coverage column empty — it will be filled later by `/coverage-assessment`
+3. **Section 6.1** — Fill in the E2E Scenario Summary table with the generated TC-E2E-* scenarios (ID, scenario name, endpoints covered, priority)
+4. **Section 6.2** — Fill in the E2E Coverage Matrix mapping each endpoint from Section 4 to its E2E scenario IDs
+5. **Section 10.1** — Fill in the Test Case Summary table with counts per category and priority breakdown
+6. **Section 10.2** — Fill in the Test Cases column with TC IDs mapped to each endpoint. Leave the Coverage column empty — it will be filled later by `/coverage-assessment`
 
 ### Step 5.5: Update README
 
@@ -135,10 +142,11 @@ Update `<feature_dir>/README.md` to add a link to the test cases index:
 After generating all test case files and updating the test plan, validate coverage:
 
 1. **Endpoint coverage**: Check that every endpoint/method from Section 4 (that is NOT marked as "pending details") has at least one test case. Flag any uncovered endpoints.
-2. **Test objective coverage**: Check that every test objective from Section 1.3 is addressed by at least one test case. Flag any uncovered objectives.
-3. **Priority distribution**: Verify that P0 endpoints have P0 test cases — a critical endpoint should not only have P2 test cases.
-4. **Gap cross-reference**: If `TestPlanGaps.md` was read in Step 1.5, verify that no test cases were created for endpoints or areas flagged as pending/missing. If any were, remove them and flag the inconsistency.
-5. **Append to TestPlanGaps.md**: If `<feature_dir>/TestPlanGaps.md` exists, append a `## Test Case Coverage Gaps` section with any coverage gaps found (uncovered endpoints, missing objectives, priority mismatches). If the file does not exist, create it with just this section.
+2. **E2E coverage**: Verify that every P0 endpoint from Section 4 is covered by at least one TC-E2E-* test case. If any P0 endpoint lacks E2E coverage, generate the missing E2E test case(s) before proceeding.
+3. **Test objective coverage**: Check that every test objective from Section 1.3 is addressed by at least one test case. Flag any uncovered objectives.
+4. **Priority distribution**: Verify that P0 endpoints have P0 test cases — a critical endpoint should not only have P2 test cases.
+5. **Gap cross-reference**: If `TestPlanGaps.md` was read in Step 1.5, verify that no test cases were created for endpoints or areas flagged as pending/missing. If any were, remove them and flag the inconsistency.
+6. **Append to TestPlanGaps.md**: If `<feature_dir>/TestPlanGaps.md` exists, append a `## Test Case Coverage Gaps` section with any coverage gaps found (uncovered endpoints, missing objectives, priority mismatches, missing E2E scenarios). If the file does not exist, create it with just this section.
 
 ### Step 5.7: Validate Frontmatter
 
@@ -154,7 +162,7 @@ If any file fails validation, fix the frontmatter in that file and re-run the va
 
 ### What this skill does NOT do
 
-- Does NOT modify the test plan's Sections 1-4, 6-7 — those are owned by `/test-plan.create`
+- Does NOT modify the test plan's Sections 1-4, 7-9 — those are owned by `/test-plan.create`
 - Does NOT fill Automation Status or Notes in TC files — those are filled later by `/coverage-assessment`
 - Does NOT create test cases for out-of-scope items or pending endpoints
 

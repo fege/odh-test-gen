@@ -23,7 +23,7 @@ Strategy text (inline): {STRATEGY_TEXT}
 | **1** | Some sections tailored (e.g., objectives reference the feature), but priorities or risks use boilerplate language ("dependency on external services," "environment instability"). |
 | **2** | Priorities reference feature-specific scenarios. Risks name specific dependencies and failure modes unique to this feature. Test levels justified by the interface types under test. |
 
-**Smell test:** Take any risk from Section 6 and mentally paste it into a test plan for a completely different feature. If it still makes sense, it's generic.
+**Smell test:** Take any risk from Section 8 and mentally paste it into a test plan for a completely different feature. If it still makes sense, it's generic.
 
 ### 2. GROUNDING — Are details traceable to source material, or fabricated?
 
@@ -58,21 +58,23 @@ Strategy text (inline): {STRATEGY_TEXT}
 | **1** | Some sections concrete (e.g., specific tools named, partial version info), but gaps remain — test data format unclear, RBAC roles TBD, infrastructure sizing missing. |
 | **2** | Environment versions specified or marked TBD with rationale. Test data requirements include format and examples. Test users have defined roles and permissions. A tester could begin environment setup immediately. |
 
-**Smell test:** Hand Sections 3 and 7 to a platform engineer who knows nothing about the feature. Could they provision the environment? If they'd come back with questions, it's not actionable.
+**Smell test:** Hand Sections 3 and 9 to a platform engineer who knows nothing about the feature. Could they provision the environment? If they'd come back with questions, it's not actionable.
 
 ### 5. CONSISTENCY — Do sections agree with each other?
 
 | Score | Definition |
 |-------|------------|
-| **0** | Contradictions — endpoints in Section 4 not covered by scope in Section 1.2, priority assignments conflict with definitions, test levels don't match interface types. |
-| **1** | Minor inconsistencies — Section 8.2 missing an endpoint from Section 4, or a test level in 2.1 with no corresponding entries in Section 4. |
-| **2** | All cross-references align: scope -> objectives -> endpoints -> coverage table. Priority assignments match definitions. Test levels correspond to actual interface types under test. |
+| **0** | Contradictions — endpoints in Section 4 not covered by scope in Section 1.2, priority assignments conflict with definitions, test levels don't match interface types, NFR categories marked N/A despite feature scope requiring them. |
+| **1** | Minor inconsistencies — Section 10.2 missing an endpoint from Section 4, a test level in 2.1 with no corresponding entries in Section 4, Section 6.2 missing a P0 endpoint (post-create-cases only). |
+| **2** | All cross-references align: scope -> objectives -> endpoints -> coverage tables (both Section 6.2 E2E and Section 10.2 API). Priority assignments match definitions. Test levels correspond to actual interface types under test. NFR categories align with feature scope. Section 6 placeholder present pre-create-cases. |
 
 **Cross-checks (perform all):**
 - Section 4 endpoints are a subset of Section 1.2 scope
 - Section 2.1 test levels match interface types in Section 4
 - Priority assignments in Section 4 match Section 2.3 definitions
-- Section 8.2 lists every endpoint from Section 4
+- Section 10.2 lists every endpoint from Section 4
+- Section 7 NFR categories are consistent with the feature scope (e.g., a feature that pulls images should not mark Disconnected as N/A; each category must be addressed or marked Not Applicable with justification)
+- Section 6.2 E2E Coverage Matrix includes all P0 endpoints from Section 4 (Note: **Pre-create-cases** = acceptable if placeholder text is present; **Post-create-cases** = must have actual coverage for all P0 endpoints. Check if test cases exist to determine which state applies)
 
 ## Output Format
 
@@ -104,7 +106,9 @@ Return your assessment in this exact structure:
 - Section 4 vs Section 1.2 scope: {result}
 - Section 2.1 test levels vs Section 4 interface types: {result}
 - Section 4 priorities vs Section 2.3 definitions: {result}
-- Section 8.2 vs Section 4 endpoints: {result}
+- Section 10.2 vs Section 4 endpoints: {result}
+- Section 7 NFR categories vs feature scope: {result}
+- Section 6.2 E2E coverage vs Section 4 P0 endpoints: {result}
 ```
 
 Be rigorous. When in doubt between two scores, choose the lower one and explain why.

@@ -21,11 +21,11 @@ Strategy text (inline): {STRATEGY_TEXT}
 
 | Criterion | Score < 2 Action | Sections to Edit |
 |-----------|-----------------|------------------|
-| **Specificity** | Replace generic language with feature-specific references. Priority definitions (2.3) must name feature scenarios. Risks (6) must name specific dependencies and failure modes. | 2.3, 6 |
+| **Specificity** | Replace generic language with feature-specific references. Priority definitions (2.3) must name feature scenarios. Risks (8) must name specific dependencies and failure modes. | 2.3, 8 |
 | **Grounding** | For each entry in Section 4 flagged as "Suspected Fabrication" in the grounding cross-reference, either find a source in the strategy to justify it, mark it as TBD with the document type needed, or remove it. Never invent source material. | 4 |
 | **Scope Fidelity** | Align scope, objectives, and endpoints with the strategy. Add missing in-scope items from the strategy. Remove entries that test things the strategy doesn't cover. | 1.2, 1.3, 4 |
-| **Actionability** | Add concrete versions, test data formats with examples, test user roles with specific permissions. Replace vague environment descriptions with actionable specifications. Mark genuinely unknown details as TBD with rationale rather than guessing. | 3.1, 3.2, 3.3, 7 |
-| **Consistency** | Run the four cross-checks and fix all misalignments. Every Section 4 endpoint must appear in Section 8.2 coverage. Test levels in 2.1 must match interface types in Section 4. Priority assignments must match definitions. | 1.2, 2.1, 2.3, 4, 8.2 |
+| **Actionability** | Add concrete versions, test data formats with examples, test user roles with specific permissions. Replace vague environment descriptions with actionable specifications. Mark genuinely unknown details as TBD with rationale rather than guessing. | 3.1, 3.2, 3.3, 9 |
+| **Consistency** | Run the six cross-checks and fix all misalignments. Every Section 4 endpoint must appear in Section 10.2 coverage. Every P0 endpoint from Section 4 must appear in Section 6.2 E2E coverage (if Section 6 is populated). Test levels in 2.1 must match interface types in Section 4. Priority assignments must match definitions. NFR categories in Section 7 must be consistent with feature scope (e.g., a feature that pulls images should not mark Disconnected as N/A). | 1.2, 2.1, 2.3, 4, 6.2, 7, 10.2 |
 
 ## Step 3: Apply Revisions
 
@@ -38,7 +38,7 @@ For each criterion that scored < 2:
 **Key constraints:**
 - **Grounding**: Never fabricate details. If the strategy doesn't mention something, use TBD with the document type that would resolve it (e.g., "TBD — pending API spec document").
 - **Specificity**: Replace generic phrases, don't just add feature names as prefixes. The priority definitions and risks should describe scenarios that only apply to this feature.
-- **Consistency**: After any edit to Section 4, also update Section 8.2 to match.
+- **Consistency**: After any edit to Section 4, also update Section 6.2 (E2E Coverage Matrix) and Section 10.2 (API Coverage) to match. If P0 endpoints are added/removed/modified, verify Section 6.2 reflects this (if test cases exist).
 
 ## Step 4: Update Frontmatter
 

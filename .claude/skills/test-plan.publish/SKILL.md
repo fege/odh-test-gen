@@ -114,15 +114,31 @@ If the user declines, stop.
 
 ### Step 4: Create Branch and Commit
 
-1. Create and switch to the new branch:
+1. Fetch latest changes and create branch from `main`:
    ```bash
-   git checkout -b test-plan/<strat_key>-v<version>
+   git fetch origin main
+   git checkout -b test-plan/<strat_key>-v<version> main
    ```
-   If the branch already exists, inform the user and ask whether to overwrite or abort. If the user chooses to overwrite, delete and recreate the branch from the current HEAD:
+   If the branch already exists, inform the user and ask whether to:
+   - **Overwrite**: Delete and recreate the branch from `main` (loses existing commits)
+   - **Add commit on top**: Keep the existing branch and add new changes as a new commit (preserves PR history)
+   - **Abort**: Cancel the operation
+
+   If the user chooses **overwrite**, delete and recreate the branch from `main`:
    ```bash
+   git fetch origin main
    git branch -D test-plan/<strat_key>-v<version>
-   git checkout -b test-plan/<strat_key>-v<version>
+   git checkout -b test-plan/<strat_key>-v<version> main
    ```
+
+   If the user chooses **add commit on top**, check out the existing branch and ensure it's up to date:
+   ```bash
+   git checkout test-plan/<strat_key>-v<version>
+   git pull origin test-plan/<strat_key>-v<version>
+   ```
+   Then proceed to step 2 (staging) and step 3 (commit) as normal. In step 4, use `git push` (not `--force`).
+
+   **Rationale**: Creating the branch from `main` (rather than from the current HEAD) ensures that only the test plan artifacts are included in the PR, not any unrelated changes that may exist in the user's current working branch. The "add commit on top" option is useful for iterative updates without losing PR review history.
 
 2. Stage all artifacts in the feature directory:
    ```bash
@@ -138,13 +154,19 @@ If the user declines, stop.
    ```
 
 4. Push the branch:
-   ```bash
-   git push origin test-plan/<strat_key>-v<version>
-   ```
+   - If the user chose **overwrite** in step 1, use `--force`:
+     ```bash
+     git push --force origin test-plan/<strat_key>-v<version>
+     ```
+   - If the user chose **add commit on top** or this is a new branch, use regular push:
+     ```bash
+     git push origin test-plan/<strat_key>-v<version>
+     ```
+
    If publishing to a different repo (`--repo`), push to that remote instead. Set up the remote if needed:
    ```bash
    git remote add publish-target https://github.com/<owner>/<repo>.git
-   git push publish-target test-plan/<strat_key>-v<version>
+   git push [--force if overwrite] publish-target test-plan/<strat_key>-v<version>
    git remote remove publish-target
    ```
 
