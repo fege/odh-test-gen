@@ -172,3 +172,63 @@ test_case_id: TC-API-001
 **Expected Results**:
 - Result
 """
+
+# ─── TestPlan.md test data for repo_discovery tests ─────────────────────────
+
+TESTPLAN_WITH_ENDPOINTS = """---
+feature: Test Feature
+strat_key: RHAISTRAT-1262
+---
+### 4: Endpoints/Methods Under Test
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| /api/v1/notebooks | GET | List notebooks |
+| /api/v1/models | POST | Create model |
+"""
+
+TESTPLAN_WITH_SCOPE_COMPONENTS = """---
+feature: Test Feature
+---
+### 1.2 Scope
+
+This feature covers the dashboard UI and model-registry integration.
+"""
+
+TESTPLAN_FOR_TC_PRECONDITIONS = """---
+feature: Test
+---
+### 1.2 Scope
+Test scope
+
+### 4: Endpoints
+None
+"""
+
+TC_WITH_COMPONENT_MENTIONS = """---
+test_case_id: TC-API-001
+priority: P0
+---
+**Objective**: Test
+
+**Preconditions**:
+- RHOAI cluster with notebooks deployed
+- Model-registry available
+
+**Test Steps**:
+1. Test step
+
+**Expected Results**:
+- Result
+"""
+
+TESTPLAN_WITH_DUPLICATES = """---
+feature: Test
+---
+### 1.2 Scope
+Dashboard and notebooks
+
+### 4: Endpoints
+/api/v1/notebooks
+/api/v1/dashboard/status
+"""

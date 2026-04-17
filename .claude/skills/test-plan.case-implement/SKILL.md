@@ -73,13 +73,13 @@ If feature source is a local path:
 2. Check `<feature_dir>/test_cases/` directory exists
 3. Check `<feature_dir>/test_cases/INDEX.md` exists
 4. Check at least one `TC-*.md` file exists in `test_cases/`
-5. Read `TestPlan.md` frontmatter using `scripts/artifact_utils.py` to extract: `strat_key`, `feature`, `version`
+5. Read `TestPlan.md` frontmatter using `scripts/utils/frontmatter_utils.py::read_frontmatter()` to extract: `strat_key`, `feature`, `version`
 
 If any check fails, inform the user and stop.
 
 #### 0.3 Locate odh-test-context repository
 
-Use `scripts/repo_utils.py::find_known_repo('odh-test-context')` to locate odh-test-context:
+Use `scripts/utils/repo_utils.py::find_known_repo('odh-test-context')` to locate odh-test-context:
 
 The script checks common locations:
 - `~/Code/odh-test-context`
@@ -97,41 +97,65 @@ If NOT found, the script prompts user via AskUserQuestion:
 >
 > Choice [1/2/3]:
 
-Script returns:
-- `odh_test_context_path` (str or None)
-- `odh_test_context_available` (bool)
+Returns:
+- `odh_test_context_path` (str or None if user declined)
 
 #### 0.4 Identify code repository
 
-Use `scripts/artifact_utils.py::extract_repo_indicators()` to extract indicators from test content:
+Use `scripts/utils/repo_discovery.py::extract_repo_indicators(testplan_path, tc_files)` to extract indicators:
 1. Read endpoints from `TestPlan.md` Section 4
-2. Extract components from `TestPlan.md` Section 1.2 (Scope)
+2. Extract components from `TestPlan.md` Section 1.2 (Scope)  
 3. Sample 3 TC-*.md files and extract component mentions from preconditions
 
-Returns: `{'components': [...], 'endpoints': [...], 'repo_mentions': [...]}`
+Uses hardcoded component keywords for common opendatahub-io repos (dashboard, notebooks, model-registry, pipelines, kserve, modelmesh, distributed-workloads, trustyai, etc.)
 
-#### 0.5 Map components to repositories
+Returns: `{'components': [...], 'endpoints': [...]}`
 
-Use `scripts/repo_utils.py::map_components_to_repos()`:
+#### 0.5 Map components to repositories and confirm with user
 
-If `odh_test_context_available == True`:
-1. Reads all `*.json` files from `<odh_test_context_path>/tests/`
-2. Builds component → repo mapping dynamically
-3. Matches detected components to repos
+Use `scripts/utils/component_map.py::COMPONENT_REPO_MAP` to map detected components to repos:
 
-If `odh_test_context_available == False`:
-1. Uses hardcoded fallback mapping for common components
+1. For each component from Step 0.4, look it up in `COMPONENT_REPO_MAP`
+2. Collect matched repos: `{component: repo}`
+3. Get unique repos from matched values
 
-Returns: `{'likely_repos': [...], 'confidence': 0-100}`
+**Always ask user for confirmation:**
 
-If multiple repos match, ask user via AskUserQuestion to choose.
-If no repos match, ask user to provide repository name (e.g., `opendatahub-io/notebooks`).
+If **exactly 1 unique repo** matched:
+1. Present via AskUserQuestion:
+   > ✓ Auto-detected code repository: **{repo}**
+   > 
+   > Based on components: {component_list}
+   > 
+   > Proceed with this repository? [yes/specify-different]
+
+2. If **yes**: Set `code_repo = repo`, proceed to Step 0.6
+3. If **specify-different**: Ask for repo name (e.g., `opendatahub-io/notebooks`)
+
+If **multiple unique repos** matched:
+1. Present via AskUserQuestion:
+   > Multiple repositories detected from components:
+   > 1. **{repo1}** (from: {components})
+   > 2. **{repo2}** (from: {components})
+   > 
+   > Which is the primary target? [1/2/specify-different]
+
+2. Set `code_repo` based on choice
+
+If **no repos** matched:
+1. Show detected components that didn't match
+2. Ask via AskUserQuestion:
+   > No repository match found for components: {components}
+   > 
+   > Please specify the GitHub repository (e.g., opendatahub-io/repo-name):
+
+3. Set `code_repo` from user input
 
 Store: `code_repo` (e.g., `opendatahub-io/odh-dashboard`)
 
 #### 0.6 Locate code repository locally
 
-1. Use `scripts/repo_utils.py::find_target_repo(code_repo)` to check common locations:
+1. Use `scripts/utils/repo_utils.py::find_target_repo(code_repo)` to check common locations:
    - `~/Code/<repo_name>`
    - `~/Code/<org>-<repo_name>`
    - `~/<repo_name>`
@@ -143,7 +167,7 @@ Store: `code_repo` (e.g., `opendatahub-io/odh-dashboard`)
 
 3. If NOT found (returns None):
    - Ask user via AskUserQuestion: `Clone <code_repo>? [yes/no/specify-path]`
-   - If **yes**: Use `scripts/repo_utils.py::clone_repo(repo_url, "~/Code/<repo_name>")`
+   - If **yes**: Use `scripts/utils/repo_utils.py::clone_repo(repo_url, "~/Code/<repo_name>")`
    - If **specify-path**: Ask for manual path, validate it exists
    - If **no**: Stop (cannot proceed without code repo)
 
@@ -153,7 +177,7 @@ Returns: `code_repo_path` (str or None)
 
 #### 1.0 Load odh-test-context for code repository
 
-Use `scripts/repo_utils.py::load_repo_test_context(repo_name, odh_test_context_path)`:
+Use `scripts/utils/repo_utils.py::load_repo_test_context(repo_name, odh_test_context_path)`:
 
 If odh-test-context is available:
 1. Checks for `<odh_test_context_path>/tests/<repo_name>.json`
@@ -171,7 +195,7 @@ Returns:
 
 #### 1.0b Load downstream E2E repository context
 
-Use `scripts/repo_utils.py::load_repo_test_context('opendatahub-tests', odh_test_context_path)`:
+Use `scripts/utils/repo_utils.py::load_repo_test_context('opendatahub-tests', odh_test_context_path)`:
 
 Returns:
 - `downstream_context` (dict with framework, conventions, markers, agent_readiness)
@@ -179,7 +203,7 @@ Returns:
 
 #### 1.1 Detect test framework
 
-Use `scripts/repo_utils.py::get_framework(test_context)`:
+Use `scripts/utils/repo_utils.py::get_framework(test_context)`:
 
 If `test_context` exists: returns `test_context['testing']['framework']`
 
@@ -195,18 +219,17 @@ Returns: `framework` (str: pytest, unittest, playwright, robot)
 #### 1.2 Load test conventions
 
 If `use_odh_context == True`:
-1. Use `scripts/repo_utils.py::extract_conventions_from_context(test_context)` to extract:
+1. Use `scripts/utils/repo_utils.py::extract_conventions_from_context(test_context)` to extract:
    - File patterns, function patterns, import style, markers
    - Linting tools and commands
    - Testing directories and execution commands
 2. Generate conventions summary markdown
 3. Write to `<feature_dir>/test_implementation_conventions.md`
 
-If `use_odh_context == False` (manual discovery):
-1. Invoke forked sub-agent **`test-plan.analyze.repo-conventions`** with code repo path
-2. Sub-agent discovers conventions by analyzing existing tests
-3. Sub-agent returns structured markdown
-4. Write sub-agent output to `<feature_dir>/test_implementation_conventions.md`
+If `use_odh_context == False` (no odh-test-context available):
+1. Conventions will be minimal (framework only, from Step 1.1)
+2. Test generation will rely more heavily on Tiger Team pattern guides (Step 1.2b)
+3. Generated tests may be less optimized for the specific repo
 
 Store: `conventions` (dict or markdown content)
 
@@ -242,48 +265,46 @@ If found:
 
 ---
 
-**Step 2: If NOT found, offer to generate via Tiger Team (ONLY if Step 1 found nothing)**
+**Step 2: If NOT found, auto-generate via Tiger Team**
 
-**IMPORTANT**: Only proceed with generation if Step 1 found NO existing pattern guides in the component repo.
+**IMPORTANT**: Only proceed if Step 1 found NO pattern guides in component repo.
 
-If no pattern guides exist in component repo:
+If no pattern guides exist:
 
-1. Use `scripts/repo_utils.py::find_known_repo('tiger-team')` to locate Tiger Team
-2. Ask user via AskUserQuestion:
-   > Testing pattern guides not found in <code_repo>. 
-   > 
-   > Tiger Team can generate detailed guides with code patterns, examples, and anti-patterns to help create idiomatic tests.
-   >
-   > Generate pattern guides? [yes/no]
+1. Use `scripts/utils/repo_utils.py::find_known_repo('tiger-team')` to locate Tiger Team
 
-3. **If yes**:
-   - If Tiger Team not found locally, ask to clone:
-     ```bash
-     git clone https://github.com/RedHatQE/Red-Hat-Quality-Tiger-Team ~/Code/Red-Hat-Quality-Tiger-Team
-     ```
-   - Invoke test-rules-generator skill:
+2. **If Tiger Team found locally** (returns path):
+   - **Auto-generate** pattern guides (no user prompt):
      ```bash
      /test-rules-generator <code_repo_path>
      ```
-   - Tiger Team analyzes repo and generates pattern guide .md files in `<code_repo_path>/.claude/rules/`:
-     - `go-tests.md` (if Go tests exist)
-     - `pytest-tests.md` (if Python/pytest tests exist)
-     - `typescript-unit-tests.md` (if TypeScript/Jest tests exist)
-     - `testing-standards.md` (cross-cutting standards)
-   - Read the relevant guide for our framework
+   - Tiger Team creates guides in `<code_repo_path>/.claude/rules/`:
+     - `pytest-tests.md` (if Python/pytest)
+     - `go-tests.md` (if Go)
+     - `typescript-unit-tests.md` (if TypeScript/Jest)
+     - `testing-standards.md` (cross-cutting)
+   - Read the guide for our framework
    - Store as `testing_pattern_guide`
-   - Log: "✓ Generated pattern guides in <code_repo_path>/.claude/rules/"
+   - Log: "✓ Auto-generated pattern guides using Tiger Team"
 
-4. **If no**:
-   - Set `testing_pattern_guide = None`
-   - Log: "⚠ Using odh-test-context conventions only. Tests may be less idiomatic."
+3. **If Tiger Team NOT found** (returns None):
+   - Ask via AskUserQuestion:
+     > Tiger Team not found locally. Clone and generate test pattern guides? [yes/no]
+   
+   - If **yes**:
+     - Clone: `git clone https://github.com/RedHatQE/Red-Hat-Quality-Tiger-Team ~/Code/Red-Hat-Quality-Tiger-Team`
+     - Generate as above
+   
+   - If **no**:
+     - Set `testing_pattern_guide = None`
+     - Log: "⚠ Skipped pattern guide generation. Using basic conventions only."
 
 Store: `testing_pattern_guide` (str or None)
 
 ---
 
 **How pattern guides are used**:
-- Passed to `test-plan.generate.test-function` sub-agent in Step 5.3
+- Passed to `test-plan.create.test-function` sub-agent in Step 5.3
 - Sub-agent reads the guide to learn repo-specific test patterns
 - Generates tests matching: naming, structure, mocking patterns, assertion styles, setup/teardown
 - **NOT used for placement** (placement = odh-test-context + Step 2.2 scoring)
@@ -322,7 +343,7 @@ From `downstream_context`:
 
 For each TC-*.md file in `test_cases/`:
 
-1. **Read TC content** using `scripts/artifact_utils.py::parse_tc_file(tc_file)`:
+1. **Read TC content** using `scripts/utils/parse_tc_file(tc_file)`:
    - Parses frontmatter: test_case_id, priority, category
    - Extracts from body: preconditions, test_steps, expected_results, endpoints
    - Returns TC dict
@@ -454,10 +475,10 @@ If **no**, allow user to override decisions (ask which TCs to change and new pla
 #### 2.4 Locate downstream repository
 
 If any TCs are placed `downstream` or `both`:
-1. Use `scripts/repo_utils.py::find_target_repo("opendatahub-io/opendatahub-tests")`
+1. Use `scripts/utils/repo_utils.py::find_target_repo("opendatahub-io/opendatahub-tests")`
 2. If NOT found (returns None):
    - Ask user: Clone opendatahub-io/opendatahub-tests? [yes/no/specify-path]
-   - If yes: Use `scripts/repo_utils.py::clone_repo(url, target_path)`
+   - If yes: Use `scripts/utils/repo_utils.py::clone_repo(url, target_path)`
    - If specify-path: Ask for manual path
    - If no: Stop (cannot proceed without downstream repo)
 3. Set `downstream_repo_path`
@@ -489,7 +510,7 @@ Ask for confirmation via AskUserQuestion: `Proceed? [yes/no]`
 #### 3.2 Filter already-implemented test cases
 
 For each selected TC:
-1. Read frontmatter using `scripts/artifact_utils.py::read_frontmatter(tc_file)`
+1. Read frontmatter using `scripts/utils/read_frontmatter(tc_file)`
 2. Check if `automation_status == 'Implemented'` OR `implementation_status == 'implemented'`
 3. If already implemented: add to `already_implemented` list
 4. Else: add to `to_implement` list
@@ -505,7 +526,7 @@ Set `selected_test_cases = to_implement`
 #### 3.3 Read and parse TC files
 
 For each TC in `selected_test_cases`:
-1. Use `scripts/artifact_utils.py::parse_tc_file(tc_file)` to read and parse
+1. Use `scripts/utils/parse_tc_file(tc_file)` to read and parse
 2. Store in `test_cases` list as dict with all TC data + placement decisions from Step 2.2
 
 ### Step 4: Map Test Cases to Test Files
@@ -660,13 +681,13 @@ Adapt header based on linting tools, import style from conventions.
 
 #### 5.3 Generate test functions via forked sub-agents (PARALLEL)
 
-**Invoke forked sub-agent `test-plan.generate.test-function` for each TC in parallel:**
+**Invoke forked sub-agent `test-plan.create.test-function` for each TC in parallel:**
 
 ```python
 # Launch ALL sub-agents in parallel (one per TC)
 for tc in test_cases_for_file:
     invoke_skill_forked(
-        "test-plan.generate.test-function",
+        "test-plan.create.test-function",
         args={
             'tc_file': tc['file'],
             'function_name': function_names[i],
@@ -721,7 +742,7 @@ If syntax is INVALID:
 
 #### 6.1 Identify fixture candidates
 
-Use `scripts/artifact_utils.py::identify_fixture_candidates(test_cases)`:
+Use `scripts/utils/test_analyzer.py::identify_common_setup_requirements(test_cases)`:
 1. Extracts all preconditions from all TCs
 2. Counts occurrences of each precondition
 3. Identifies preconditions used by 2+ TCs
@@ -808,7 +829,7 @@ Present validation summary to user.
 For each TC in `test_cases`:
 
 1. Find the test file and function for this TC from `file_mapping`
-2. Update TC frontmatter using `scripts/artifact_utils.py`:
+2. Update TC frontmatter using frontmatter script:
    ```bash
    uv run python scripts/frontmatter.py set <feature_dir>/test_cases/<tc_id>.md \
        automation_status="Implemented" \
@@ -879,16 +900,9 @@ Target repository: <target_repo_path>
 
 ## Sub-Agents (Forked, Non-User-Invocable)
 
-This skill uses the following forked sub-agents:
+This skill uses the following forked sub-agent:
 
-### test-plan.analyze.repo-conventions
-- **When**: Step 1.2 (manual convention discovery when odh-test-context not available)
-- **Input**: Code repository path
-- **Output**: Structured markdown with test conventions (file patterns, fixtures, code style)
-- **Purpose**: Analyze existing test files to discover patterns and conventions
-- **user-invocable**: false
-
-### test-plan.generate.test-function
+### test-plan.create.test-function
 - **When**: Step 5.3 (test code generation from TC specs)
 - **Input**: TC file, function name, framework, conventions, target repo, placement
 - **Output**: Python test function code (decorator + def + docstring + implementation)
@@ -900,7 +914,7 @@ This skill uses the following forked sub-agents:
 
 This skill uses the following utility scripts:
 
-### scripts/repo_utils.py (NEW)
+### scripts/utils/repo_utils.py
 - `find_known_repo(repo_type)` - Locate known repos ('odh-test-context', 'tiger-team'), returns (path, clone_url)
 - `find_target_repo(repo_name)` - Find target code repo in common locations
 - `clone_repo(repo_url, target_path)` - Clone Git repository from GitHub
@@ -909,12 +923,31 @@ This skill uses the following utility scripts:
 - `extract_conventions_from_context(test_context)` - Extract conventions from odh-test-context
 - `get_framework(test_context)` - Get test framework from odh-test-context data
 
-### scripts/artifact_utils.py (EXTENDED)
-- `read_frontmatter(file_path)` - Read YAML frontmatter from file (existing)
-- `write_frontmatter(file_path, data)` - Write YAML frontmatter to file (existing)
-- `parse_tc_file(tc_file)` - Parse TC file (frontmatter + body sections) (NEW)
-- `extract_repo_indicators(testplan, tc_files)` - Extract repo indicators from test plan (NEW)
-- `identify_fixture_candidates(test_cases)` - Find common preconditions for fixtures (NEW)
+### scripts/utils/schemas.py
+- `SCHEMAS` - Schema definitions for all artifact types
+- `validate(data, schema_type)` - Validate frontmatter against schema
+- `apply_defaults(data, schema_type)` - Apply default values
+- `detect_schema_type(path)` - Detect schema from filename
+- `get_schema_yaml(schema_type)` - Get schema as YAML string
+- `ValidationError` - Exception for validation failures
+
+### scripts/utils/frontmatter_utils.py
+- `read_frontmatter(file_path)` - Read YAML frontmatter from file, returns (dict, body)
+- `read_frontmatter_validated(file_path, schema_type)` - Read and validate frontmatter
+- `write_frontmatter(file_path, data, schema_type)` - Write validated frontmatter
+- `update_frontmatter(file_path, updates, schema_type)` - Update specific fields
+
+### scripts/utils/tc_parser.py
+- `parse_tc_file(tc_file, read_frontmatter_func)` - Parse TC file into structured data (extracts Objective, Preconditions, Test Steps, Expected Results)
+
+### scripts/utils/repo_discovery.py
+- `extract_repo_indicators(testplan_path, tc_files)` - Extract components and endpoints from TestPlan.md using hardcoded keywords
+
+### scripts/utils/test_analyzer.py
+- `identify_common_setup_requirements(test_cases)` - Identify preconditions used by 2+ TCs (framework-agnostic)
+
+### scripts/utils/component_map.py
+- `COMPONENT_REPO_MAP` - Authoritative component → repo mapping from odh-build-metadata
 
 ## Dependencies
 
@@ -961,7 +994,7 @@ odh-test-context                 Intelligent Scoring
 
 ### For Test Code Generation (Step 5.3):
 ```
-Tiger Team pattern guides     odh-test-context         test-plan.generate.test-function
+Tiger Team pattern guides     odh-test-context         test-plan.create.test-function
 (code patterns, examples)  +  (basic conventions)  →   (sub-agent)
           ↓                           ↓                       ↓
    "Use Ginkgo BeforeSuite,    "Framework: pytest,      Generated test code
