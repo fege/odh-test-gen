@@ -61,6 +61,9 @@ If feature source is a GitHub branch:
    ```bash
    gh repo clone <owner/repo> <temp_dir> -- --depth=1 --branch=<branch_name>
    ```
+   If clone fails (branch doesn't exist, network error, etc.):
+   - Show error message to user
+   - Stop execution
 4. Set `feature_dir` to `<temp_dir>/<feature_name>`
 
 If feature source is a local path:
@@ -603,6 +606,19 @@ Ask for confirmation via AskUserQuestion: `Proceed with this mapping? [yes/no]`
 
 ### Step 5: Generate Test Code
 
+**First, identify common setup requirements (before generating tests):**
+
+Use `scripts/utils/test_analyzer.py::identify_common_setup_requirements(test_cases)`:
+- Extracts all preconditions from all TCs
+- Identifies preconditions used by 2+ TCs
+- Returns list sorted by usage count
+
+Store: `common_setup_requirements`
+
+This will be passed to the sub-agent so it can generate fixtures/setup functions.
+
+---
+
 For each entry in `file_mapping`:
 
 #### 5.1 Check if file and test function exist
@@ -694,6 +710,8 @@ Adapt header based on linting tools, import style from conventions.
 
 **Invoke forked sub-agent `test-plan.create.test-function` for each TC in parallel:**
 
+**NOTE**: Before generating test functions, run Step 6 to identify common setup requirements.
+
 ```python
 # Launch ALL sub-agents in parallel (one per TC)
 for tc in test_cases_for_file:
@@ -704,13 +722,15 @@ for tc in test_cases_for_file:
             'function_name': function_names[i],
             'framework': framework,
             'conventions_file': f"{feature_dir}/test_implementation_conventions.md",
+            'pattern_guide': testing_pattern_guide if testing_pattern_guide else None,
+            'common_setup': common_setup_requirements,  # From Step 6
             'target_repo': code_repo_path,
             'placement': tc['placement_location']
         }
     )
 
 # Wait for all sub-agents to complete
-# Each returns: Python test function code
+# Each returns: Test function code (framework-specific) + fixture code if needed
 ```
 
 Sub-agent receives:
@@ -742,48 +762,56 @@ echo '<final_content>' > /tmp/test_file.py
 python -m py_compile /tmp/test_file.py
 ```
 
-If syntax is valid:
-- Add to `files_to_write` dict: `files_to_write[full_path] = final_content`
-
+If syntax is valid: proceed to Step 5.6
 If syntax is INVALID:
 - Save as draft: `files_to_write[full_path + '.draft'] = final_content`
 - Warn user: `Syntax validation failed for <file_path> - saved as .draft for manual review`
+- Skip Step 5.6 for this file (cannot score invalid syntax)
 
-### Step 6: Generate Supporting Artifacts
+#### 5.6 Score test quality and auto-revise if needed
 
-#### 6.1 Identify fixture candidates
+For each generated test file (with valid syntax):
 
-Use `scripts/utils/test_analyzer.py::identify_common_setup_requirements(test_cases)`:
-1. Extracts all preconditions from all TCs
-2. Counts occurrences of each precondition
-3. Identifies preconditions used by 2+ TCs
-4. Suggests fixture name and implementation for each
+1. **Invoke forked sub-agent `test-plan.score.test-function`** for quality assessment:
+   ```
+   test-plan.score.test-function --test-code-file <temp_test_file> --tc-file <tc_file> --conventions-file <conventions_file> --framework <framework>
+   ```
 
-Returns: `fixture_candidates` dict
+2. **Sub-agent returns**: Score (0-10), verdict (Ready/Good/Revise/Rework), issues found
 
-#### 6.2 Extract test data requirements
+3. **Handle verdict**:
 
-For each TC:
-1. Check if frontmatter or body mentions test data
-2. Extract test data requirements
-3. Store in `test_data_requirements`: `[{tc_id, data_description}]`
+   **If verdict == "Ready" or "Good"** (score 7-10):
+   - Add to `files_to_write`
+   - Log: "✓ Test quality score: {score}/10 ({verdict})"
 
-#### 6.3 Generate IMPLEMENTATION_GUIDE.md
+   **If verdict == "Revise"** (score 4-6):
+   - Log: "⚠ Test quality score: {score}/10 - auto-revising"
+   - Re-invoke `test-plan.create.test-function` sub-agent with feedback:
+     ```
+     Additional instructions: {issues from scorer}
+     ```
+   - Re-score the revised code
+   - If revised score >= 7: Accept
+   - If revised score still < 7: Accept anyway (attempted revision), log warning
 
-Create guide with sections:
-1. **Header**: Feature name, strategy, version, target repos, framework, timestamp
-2. **Generated Test Files**: Table with file path, TC IDs, LOC, status
-3. **Pre-requisites**: Install dependencies, configure environment, set up test data
-4. **Suggested Fixtures**: If `fixture_candidates` exist, show suggested fixtures
-5. **Manual Review Checklist**: Items to verify before committing
-6. **Running Tests**: Commands to run all tests, by priority, by category, specific test
-7. **Next Steps**: Review code, run tests, enhance assertions, commit to branch, open PR
+   **If verdict == "Rework"** (score 0-3):
+   - Log: "❌ Test quality score: {score}/10 - significant issues"
+   - Save as draft for manual review
+   - Show issues to user
 
-Write to `<feature_dir>/IMPLEMENTATION_GUIDE.md`
+4. **Present quality report** to user after all tests scored:
+   ```
+   Test Quality Summary:
+   - {N} tests scored 9-10 (Ready)
+   - {N} tests scored 7-8 (Good)
+   - {N} tests auto-revised (initially 4-6, revised to 7+)
+   - {N} tests flagged for manual review (score 0-3)
+   ```
 
-### Step 7: Write Tests to Target Repository
+### Step 6: Write Tests to Repositories
 
-#### 7.1 Write test files
+#### 6.1 Write test files
 
 For each entry in `files_to_write`:
 1. Create parent directories: `mkdir -p <dirname>`
@@ -791,7 +819,7 @@ For each entry in `files_to_write`:
 3. Run syntax check: `python -m py_compile <file_path>`
 4. If syntax check fails, warn user but continue
 
-#### 7.2 Validate imports in repo context
+#### 6.2 Validate imports in repo context
 
 For each written file:
 1. Try importing in the target repo's Python environment:
@@ -801,7 +829,7 @@ For each written file:
    ```
 2. If import fails, warn user with error message but do not block
 
-#### 7.3 Container validation (optional)
+#### 6.3 Container validation (optional)
 
 If `validate_in_container == True`:
 
@@ -835,7 +863,7 @@ If `validate_in_container == True`:
 
 Present validation summary to user.
 
-### Step 8: Update Test Case Frontmatter
+### Step 7: Update Test Case Frontmatter and Present Summary
 
 For each TC in `test_cases`:
 
@@ -858,7 +886,7 @@ If feature source is a GitHub branch:
    git push origin <branch_name>
    ```
 
-### Step 9: Present Summary Report
+#### 7.2 Present Summary Report
 
 Display summary to user:
 
@@ -888,12 +916,25 @@ TC-API-002     API       P1        ✅          tests/api/test_notebooks_api.py
 TC-E2E-003     E2E       P0        ✅          tests/e2e/test_notebooks_e2e.py
 ...
 
+Test Quality
+----------------------------------------------------------
+- <N> tests scored 9-10 (Ready - excellent quality)
+- <N> tests scored 7-8 (Good - minor improvements)
+- <N> tests auto-revised (improved from 4-6 to 7+)
+- <N> tests flagged for review (score 0-3)
+
+Suggested Fixtures (if any common setup found)
+----------------------------------------------------------
+{for each common requirement from Step 6}
+- '<requirement>' used by <count> TCs (<tc_ids>)
+  → Consider extracting to fixture/setup function
+
 Next Steps
 ----------------------------------------------------------
-1. Review implementation guide: <feature_dir>/IMPLEMENTATION_GUIDE.md
-2. Review generated tests: cd <target_repo_path>
-3. Run tests locally: pytest <test_files>
-4. Address TODOs: Search for # TODO: in generated files
+1. Review generated tests: cd <target_repo_path>
+2. Run tests locally: pytest <test_files>
+3. Address TODOs: Search for # TODO: in generated files
+4. Create fixtures for common setup (if suggested above)
 5. Commit and create PR:
    cd <target_repo_path>
    git checkout -b test/<feature_name>
@@ -904,21 +945,29 @@ Next Steps
 
 ✓ Test implementation complete
 
-Implementation guide: <feature_dir>/IMPLEMENTATION_GUIDE.md
 Target repository: <target_repo_path>
+Downstream repository: <downstream_repo_path> (if applicable)
 ==========================================
 ```
 
 ## Sub-Agents (Forked, Non-User-Invocable)
 
-This skill uses the following forked sub-agent:
+This skill uses the following forked sub-agents:
 
 ### test-plan.create.test-function
 - **When**: Step 5.3 (test code generation from TC specs)
-- **Input**: TC file, function name, framework, conventions, target repo, placement
-- **Output**: Python test function code (decorator + def + docstring + implementation)
-- **Purpose**: Generate pytest/unittest test function from TC specification
+- **Input**: TC file, function name, framework, conventions, pattern guide, common setup, target repo, placement
+- **Output**: Test function code (framework-specific: pytest/Go/TypeScript/etc.)
+- **Purpose**: Generate test function from TC specification matching repository conventions
 - **Parallelization**: Invoked once per TC, all run in parallel for speed
+- **user-invocable**: false
+
+### test-plan.score.test-function
+- **When**: Step 5.6 (quality assessment after test generation)
+- **Input**: Generated test code, TC file, conventions file, framework
+- **Output**: Score (0-10), verdict (Ready/Good/Revise/Rework), issues found
+- **Purpose**: Score test quality using 5-criteria rubric (coverage, assertions, conventions, test data, code quality)
+- **Triggers auto-revision**: If score 4-6, regenerates test with feedback
 - **user-invocable**: false
 
 ## Utility Scripts

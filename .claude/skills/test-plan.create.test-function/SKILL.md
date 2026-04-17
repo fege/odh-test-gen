@@ -17,6 +17,7 @@ The orchestrating skill will pass you file paths in `$ARGUMENTS`:
 - **`--framework`**: Test framework (pytest, Go testing, Jest, etc.)
 - **`--conventions-file`**: Path to conventions markdown (from odh-test-context)
 - **`--pattern-guide`** (optional): Path to Tiger Team pattern guide (pytest-tests.md, go-tests.md, etc.)
+- **`--common-setup`** (optional): JSON list of common preconditions used by 2+ TCs (generate fixtures for these)
 - **`--target-repo`**: Path to code repository
 - **`--placement`**: Where test will live (same_repo or downstream)
 
@@ -47,6 +48,11 @@ Parse `$ARGUMENTS` to extract these paths, then read the files.
    - Assertion styles
    - Anti-patterns to avoid
 
+4. **Read common setup** (`--common-setup`, if provided):
+   - List of preconditions used by multiple TCs
+   - For each common precondition, generate fixture/setup function
+   - Reference these fixtures in the test function instead of duplicating setup code
+
 ### Step 2: Generate Test Function
 
 Create test function code with:
@@ -60,7 +66,9 @@ Create test function code with:
 
 2. **Function Signature**:
    - Use provided function name exactly
-   - Add fixture/mock parameters based on preconditions
+   - Add fixture/mock parameters:
+     - If precondition matches a common_setup item → use fixture parameter
+     - If precondition is unique to this TC → implement inline in test
    - Follow repository parameter patterns
 
 3. **Docstring**:
