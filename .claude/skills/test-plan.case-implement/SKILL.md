@@ -56,15 +56,27 @@ If no feature source can be determined, ask the user for:
 
 If feature source is a GitHub branch:
 1. Parse branch name from URL or short form (e.g., `test-plan/RHAISTRAT-400`)
-2. Create temporary directory: `mktemp -d`
-3. Fetch artifacts using `gh`:
-   ```bash
-   gh repo clone <owner/repo> <temp_dir> -- --depth=1 --branch=<branch_name>
-   ```
-   If clone fails (branch doesn't exist, network error, etc.):
-   - Show error message to user
-   - Stop execution
-4. Set `feature_dir` to `<temp_dir>/<feature_name>`
+2. Parse owner/repo from URL (e.g., `fege/test-plan`)
+3. **Check if repo exists locally** using `scripts/utils/repo_utils.py::find_repo_in_common_locations(repo_name)`:
+   - If found (returns path):
+     - Update to latest:
+       ```bash
+       cd <local_repo_path>
+       git fetch origin
+       git checkout <branch_name> 2>/dev/null || git checkout -b <branch_name> origin/<branch_name>
+       git pull origin <branch_name>
+       ```
+     - Set `feature_dir` to `<local_repo_path>/<feature_name>`
+     - Log: "✓ Using local clone: <local_repo_path> (updated)"
+   - If NOT found (returns None):
+     - Clone using `scripts/utils/repo_utils.py::clone_repo(repo_url, "~/Code/<repo_name>")`
+     - Checkout branch:
+       ```bash
+       cd ~/Code/<repo_name>
+       git checkout <branch_name>
+       ```
+     - Set `feature_dir` to `~/Code/<repo_name>/<feature_name>`
+     - Log: "✓ Cloned to ~/Code/<repo_name>"
 
 If feature source is a local path:
 1. Verify path exists and is a directory
@@ -215,9 +227,12 @@ If NOT (manual detection):
 2. Checks for unittest indicators (import unittest in .py files)
 3. Checks for Playwright indicators (playwright.config.js/ts)
 4. Checks for Robot Framework indicators (*.robot files)
-5. If unknown: asks user via AskUserQuestion
+5. Checks for Go testing indicators (*_test.go files, Ginkgo imports)
+6. Checks for Jest indicators (jest.config.js, .spec.ts files, describe/it blocks)
+7. Checks for Cypress indicators (.cy.ts/.cy.js files, cy. commands)
+8. If unknown: asks user via AskUserQuestion
 
-Returns: `framework` (str: pytest, unittest, playwright, robot)
+Returns: `framework` (str: pytest, unittest, playwright, robot, ginkgo, go-testing, jest, cypress)
 
 #### 1.2 Load test conventions
 
@@ -233,6 +248,11 @@ If `use_odh_context == False` (no odh-test-context available):
 1. Conventions will be minimal (framework only, from Step 1.1)
 2. Test generation will rely more heavily on Tiger Team pattern guides (Step 1.2b)
 3. Generated tests may be less optimized for the specific repo
+4. **For new components**: Consider contributing to odh-test-context for future use:
+   - Repository: https://github.com/opendatahub-io/odh-test-context
+   - Add JSON file: `tests/<repo_name>.json` with discovered framework, test directories, conventions, linting tools
+   - See existing files in `tests/` directory as examples
+   - Improves test quality for all future test generation on this component
 
 Store: `conventions` (dict or markdown content)
 
@@ -393,160 +413,66 @@ If container recipe NOT available:
 
 ### Step 2: Per-TC Placement Analysis
 
-#### 2.1 Extract repository capabilities
+Extract repository capabilities from context (from Step 1):
+- `code_repo_readiness` = `test_context.get('agent_readiness', 'unknown')`
+- `code_repo_has_tests` = `'tests' in test_context.get('testing', {}).get('directories', [])`
+- `downstream_readiness` = `downstream_context.get('agent_readiness', 'medium')`
 
-From `test_context` (if available):
-- `code_repo_readiness = test_context.get('agent_readiness', 'unknown')` (values: high, medium, low, none, unknown)
-- `code_repo_has_tests = 'tests' in test_context.get('testing', {}).get('directories', [])`
-- `code_repo_framework = test_context.get('testing', {}).get('framework')`
-- `code_repo_test_dirs = test_context.get('testing', {}).get('directories', [])`
+Invoke the **`test-plan.analyze.placement`** forked subagent to analyze test cases and recommend placement:
 
-From `downstream_context`:
-- `downstream_readiness = downstream_context.get('agent_readiness', 'medium')`
-- `downstream_framework = downstream_context.get('testing', {}).get('framework', 'pytest')`
-
-#### 2.2 Analyze each TC individually for placement
-
-For each TC-*.md file in `test_cases/`:
-
-1. **Read TC content** using `scripts/utils/parse_tc_file(tc_file)`:
-   - Parses frontmatter: test_case_id, priority, category
-   - Extracts from body: preconditions, test_steps, expected_results, endpoints
-   - Returns TC dict
-
-2. **Extract TC characteristics** by analyzing TC text (preconditions + steps + expected results):
-   - `is_unit`: contains "single function", "isolated", "mock", "unit test", "no dependencies"
-   - `is_integration`: contains "multiple components", "database", "service", "integration"
-   - `is_api`: contains "HTTP", "REST", "API", "endpoint", "/api/"
-   - `is_e2e`: contains "end-to-end", "E2E", "user workflow", "full flow", "UI", "browser"
-   - `requires_cluster`: contains "OpenShift", "Kubernetes", "cluster", "deployment", "pod", "namespace"
-   - `requires_full_stack`: contains "RHOAI", "ODH", "full deployment", "multiple services"
-
-3. **Classify test level** based on characteristics:
-   - If `is_e2e` OR `requires_full_stack` → level = `e2e`
-   - Else if `is_unit` → level = `unit`
-   - Else if `is_api` → level = `api`
-   - Else if `is_integration` OR `requires_cluster` → level = `integration`
-   - Else → level = `component`
-
-4. **Score placement options** (`same_repo`, `downstream`, `both`):
-
-   Initialize scores: `same_repo = 0`, `downstream = 0`, `both = 0`
-
-   **Factor 1: Test level preferences**
-   - If level == `unit`:
-     - If `code_repo_has_tests`: `same_repo += 10`, reason: "Unit tests belong in component repo"
-     - Else: `downstream += 5`, reason: "Component repo has no test infrastructure"
-   - If level == `e2e`:
-     - `downstream += 10`, reason: "E2E requires full ODH/RHOAI deployment (downstream only)"
-   - If level == `api`:
-     - If `code_repo_has_tests`: `both += 8`, reason: "API contract in component repo, E2E in downstream"
-     - Else: `downstream += 7`, reason: "No component repo tests, all API tests downstream"
-   - If level == `integration`:
-     - If `code_repo_readiness == 'high'` AND `code_repo_has_tests`: `same_repo += 7`, reason: "Component repo has high readiness for integration tests"
-     - Else: `downstream += 8`, reason: "Component repo not ready, use downstream for integration"
-   - If level == `component`:
-     - If `code_repo_has_tests`: `same_repo += 8`, reason: "Component-level tests fit in component repo"
-     - Else: `downstream += 6`, reason: "No component repo test infra"
-
-   **Factor 2: TC requires cluster/full stack**
-   - If `requires_full_stack`:
-     - `downstream += 5`
-     - `same_repo = max(0, same_repo - 5)`
-     - reason: "Requires full RHOAI/ODH stack (downstream preferred)"
-   - Else if `requires_cluster`:
-     - If `code_repo_readiness in ['high', 'medium']`: `same_repo += 2`, reason: "Component repo can handle cluster tests"
-     - Else: `downstream += 3`, reason: "Cluster requirement better suited for downstream"
-
-   **Factor 3: TC priority (P0 gets extra weight for downstream E2E coverage)**
-   - If `priority == 'P0'` AND level in [`api`, `e2e`, `integration`]:
-     - `downstream += 3`
-     - `both += 2`
-     - reason: "P0 critical - ensure downstream E2E coverage"
-
-   **Factor 4: Code repo agent readiness**
-   - If `code_repo_readiness == 'high'`: `same_repo += 3`, reason: "Code repo is highly test-ready"
-   - Else if `code_repo_readiness in ['low', 'none']`: `downstream += 4`, reason: "Code repo has low/no test readiness"
-
-5. **Determine initial placement** based on highest score:
-   - If `both` score == max: `scored_placement = both`
-   - Else if `downstream` score == max: `scored_placement = downstream`
-   - Else: `scored_placement = same_repo`
-
-6. **Determine final placement** based on highest score:
-   - `final_placement = scored_placement` (use the highest-scoring option)
-
-7. **Store decision** in TC dict:
-   - `tc['level'] = level`
-   - `tc['placement_location'] = placement` (one of: same_repo, downstream, both)
-   - `tc['placement_score'] = {same_repo: X, downstream: Y, both: Z}`
-   - `tc['placement_reasons'] = [list of reasons]`
-
-Repeat for all TCs.
-
-#### 2.3 Display placement summary
-
-Present placement decisions in a table:
-
-```
-==========================================
-Per-TC Placement Analysis
-==========================================
-
-TC-UNIT-001 (unit, P1)
-  Characteristics: is_unit
-  Classified as: unit
-  Scores: same_repo=10, downstream=0, both=0
-  → Decision: same_repo
-  → Reasons: Unit tests belong in component repo
-
-TC-API-002 (api, P0)
-  Characteristics: is_api
-  Classified as: api
-  Scores: same_repo=0, downstream=0, both=10
-  → Decision: both
-  → Reasons: API contract in component repo, E2E in downstream; P0 critical - ensure downstream E2E coverage
-
-TC-E2E-003 (e2e, P0)
-  Characteristics: is_e2e, requires_full_stack
-  Classified as: e2e
-  Scores: same_repo=0, downstream=18, both=2
-  → Decision: downstream
-  → Reasons: E2E requires full ODH/RHOAI deployment (downstream only); Requires full RHOAI/ODH stack (downstream preferred); P0 critical - ensure downstream E2E coverage
-
-==========================================
-Placement Decisions Summary
-==========================================
-Same repo only: 5 TCs
-  - TC-UNIT-001 (unit, P1)
-  - TC-UNIT-002 (unit, P2)
-  ...
-
-Downstream only: 3 TCs
-  - TC-E2E-003 (e2e, P0)
-  - TC-E2E-004 (e2e, P1)
-  ...
-
-Both repos: 2 TCs
-  - TC-API-002 (api, P0)
-  - TC-API-005 (api, P1)
-==========================================
+```python
+placement_results = invoke_skill_forked(
+    "test-plan.analyze.placement",
+    args={
+        'feature_dir': feature_dir,
+        'code_repo': code_repo,
+        'code_repo_readiness': code_repo_readiness,
+        'code_repo_has_tests': code_repo_has_tests,
+        'downstream_readiness': downstream_readiness
+    }
+)
 ```
 
-Ask user for confirmation via AskUserQuestion:
-> Proceed with these placement decisions? [yes/no]
+The subagent:
 
-If **no**, allow user to override decisions (ask which TCs to change and new placement).
+### Step 2: Per-TC Placement Analysis
 
-#### 2.4 Locate downstream repository
+Extract repository capabilities from Step 1:
+- `code_repo_readiness` from `test_context.get('agent_readiness', 'unknown')`
+- `code_repo_has_tests` from checking if 'tests' in `test_context.get('testing', {}).get('directories', [])`
+- `downstream_readiness` from `downstream_context.get('agent_readiness', 'medium')`
 
-If any TCs are placed `downstream` or `both`:
+Invoke **`test-plan.analyze.placement`** forked subagent:
+
+```python
+placement_decisions = invoke_skill_forked(
+    "test-plan.analyze.placement",
+    args={
+        'feature_dir': feature_dir,
+        'code_repo': code_repo,
+        'code_repo_readiness': code_repo_readiness,
+        'code_repo_has_tests': code_repo_has_tests,
+        'downstream_readiness': downstream_readiness
+    }
+)
+```
+
+The subagent analyzes each TC and returns placement recommendations with:
+- Test level classification (unit, integration, k8s-integration, api, e2e)
+- Placement scores (same_repo, downstream, both)
+- Recommended placement with reasoning
+- User confirmation (accept all or review/override per TC)
+
+**Placement Philosophy** (applied by subagent):
+- **P0 strongly prefers upstream** for fast feedback (blocks PRs early)
+- **K8s API ≠ Full Stack**: K8s integration tests can use envtest in component repo
+- **E2E requires appropriate stack**: Mocked E2E → component repo, full-stack E2E → downstream
+
+Store the returned placement decisions in `test_cases` list (each TC dict includes `placement_location`, `level`, `scores`, `reasons`).
+
+If any TCs are placed `downstream` or `both`, locate downstream repository:
 1. Use `scripts/utils/repo_utils.py::find_target_repo("opendatahub-io/opendatahub-tests")`
-2. If NOT found (returns None):
-   - Ask user: Clone opendatahub-io/opendatahub-tests? [yes/no/specify-path]
-   - If yes: Use `scripts/utils/repo_utils.py::clone_repo(url, target_path)`
-   - If specify-path: Ask for manual path
-   - If no: Stop (cannot proceed without downstream repo)
+2. If NOT found: Ask user to clone using `clone_repo(url, target_path)`
 3. Set `downstream_repo_path`
 
 ### Step 3: Select Test Cases to Implement
@@ -698,14 +624,17 @@ For each entry in `file_mapping`:
      ```python
      for tc in already_implemented:
          # Update TC frontmatter to reflect current state
-         uv run python scripts/frontmatter.py set <feature_dir>/test_cases/<tc['id']>.md \
-             automation_status="Implemented" \
+         result=$(uv run python scripts/frontmatter.py set <feature_dir>/test_cases/<tc['id']>.md \
+             automation_status="Complete" \
              automation_file="<tc['existing_file']>" \
-             automation_function="<tc['existing_function']>" \
-             automated_by="claude-test-plan.case-implement" \
-             automated_date="<today_iso>"
+             automation_function="<tc['existing_function']>" 2>&1)
          
-         print(f"  → Updated {tc['id']} frontmatter: automation_status=Implemented")
+         if [ $? -eq 0 ]; then
+             print(f"  → Updated {tc['id']} frontmatter: automation_status=Complete")
+         else
+             echo "Warning: Failed to update {tc['id']} frontmatter: $result"
+             # Ask user via AskUserQuestion whether to continue or stop
+         fi
      ```
    - Set `mode = "append"` (only for `needs_implementation` TCs)
    
@@ -762,7 +691,7 @@ Adapt header based on linting tools, import style from conventions.
 
 **Invoke forked sub-agent `test-plan.create.test-function` for each TC in parallel:**
 
-**NOTE**: Before generating test functions, run Step 6 to identify common setup requirements.
+**NOTE**: `common_setup_requirements` was already identified at the beginning of Step 5 and will be passed to each sub-agent.
 
 ```python
 # Launch ALL sub-agents in parallel (one per TC)
@@ -884,7 +813,7 @@ For each generated test file (with valid syntax):
      Score details: {score_file_path}
      ```
 
-4. **Present quality report** to user after all tests scored:
+5. **Present quality report** to user after all tests scored:
    ```
    Test Quality Summary:
    - {N} tests scored 9-10 (Ready)
@@ -955,12 +884,22 @@ For each TC in `test_cases`:
 2. Update TC frontmatter using frontmatter script:
    ```bash
    uv run python scripts/frontmatter.py set <feature_dir>/test_cases/<tc_id>.md \
-       automation_status="Implemented" \
+       automation_status="Complete" \
        automation_file="<relative_path_to_test_file>" \
-       automation_function="<test_function_name>" \
-       automated_by="claude-test-plan.case-implement" \
-       automated_date="<today_iso>"
+       automation_function="<test_function_name>"
    ```
+   
+   If the command fails with a validation error:
+   - Show the error to the user
+   - Ask via AskUserQuestion:
+     > Frontmatter update failed for {tc_id}:
+     > {error message}
+     >
+     > Options:
+     > 1. Skip frontmatter update (test is generated, just not tracked in TC file)
+     > 2. Fix field values manually and retry
+     > 3. Stop execution
+   - Handle user choice accordingly
 
 If feature source is a GitHub branch:
 1. Commit updated TC files back to the branch:
@@ -1034,132 +973,8 @@ Downstream repository: <downstream_repo_path> (if applicable)
 ==========================================
 ```
 
-## Sub-Agents (Forked, Non-User-Invocable)
+---
 
-This skill uses the following forked sub-agents:
-
-### test-plan.create.test-function
-- **When**: Step 5.3 (test code generation from TC specs)
-- **Input**: TC file, function name, framework, conventions, pattern guide, common setup, target repo, placement
-- **Output**: Test function code (framework-specific: pytest/Go/TypeScript/etc.)
-- **Purpose**: Generate test function from TC specification matching repository conventions
-- **Parallelization**: Invoked once per TC, all run in parallel for speed
-- **user-invocable**: false
-
-### test-plan.score.test-function
-- **When**: Step 5.6 (quality assessment after test generation)
-- **Input**: Generated test code, TC file, conventions file, framework
-- **Output**: Score (0-10), verdict (Ready/Good/Revise/Rework), issues found
-- **Purpose**: Score test quality using 5-criteria rubric (coverage, assertions, conventions, test data, code quality)
-- **Triggers auto-revision**: If score 4-6, regenerates test with feedback
-- **user-invocable**: false
-
-## Utility Scripts
-
-This skill uses the following utility scripts:
-
-### scripts/utils/repo_utils.py
-- `find_known_repo(repo_type)` - Locate known repos ('odh-test-context', 'tiger-team'), returns (path, clone_url)
-- `find_target_repo(repo_name)` - Find target code repo in common locations
-- `clone_repo(repo_url, target_path)` - Clone Git repository from GitHub
-- `map_components_to_repos(components, odh_path)` - Map component names to GitHub repos
-- `load_repo_test_context(repo_name, odh_path)` - Load test context JSON from odh-test-context
-- `extract_conventions_from_context(test_context)` - Extract conventions from odh-test-context
-- `get_framework(test_context)` - Get test framework from odh-test-context data
-
-### scripts/utils/schemas.py
-- `SCHEMAS` - Schema definitions for all artifact types
-- `validate(data, schema_type)` - Validate frontmatter against schema
-- `apply_defaults(data, schema_type)` - Apply default values
-- `detect_schema_type(path)` - Detect schema from filename
-- `get_schema_yaml(schema_type)` - Get schema as YAML string
-- `ValidationError` - Exception for validation failures
-
-### scripts/utils/frontmatter_utils.py
-- `read_frontmatter(file_path)` - Read YAML frontmatter from file, returns (dict, body)
-- `read_frontmatter_validated(file_path, schema_type)` - Read and validate frontmatter
-- `write_frontmatter(file_path, data, schema_type)` - Write validated frontmatter
-- `update_frontmatter(file_path, updates, schema_type)` - Update specific fields
-
-### scripts/utils/tc_parser.py
-- `parse_tc_file(tc_file, read_frontmatter_func)` - Parse TC file into structured data (extracts Objective, Preconditions, Test Steps, Expected Results)
-
-### scripts/utils/repo_discovery.py
-- `extract_repo_indicators(testplan_path, tc_files)` - Extract components and endpoints from TestPlan.md using hardcoded keywords
-
-### scripts/utils/test_analyzer.py
-- `identify_common_setup_requirements(test_cases)` - Identify preconditions used by 2+ TCs (framework-agnostic)
-
-### scripts/utils/component_map.py
-- `COMPONENT_REPO_MAP` - Authoritative component → repo mapping from odh-build-metadata
-
-## Dependencies
-
-### Required
-- **Python 3.8+** - For test code generation and validation
-- **uv** - For running frontmatter scripts
-- **git** - For cloning repositories
-- **gh CLI** - For fetching artifacts from GitHub branches (if feature source is remote)
-
-### Recommended (High Value)
-- **odh-test-context** repository at `~/Code/odh-test-context` (or custom path)
-  - Provides pre-analyzed test context for ~162 opendatahub-io repos
-  - Includes: framework detection, conventions, linting, container recipes, agent_readiness
-  - **Significantly improves** placement decisions and test quality
-  - Source: https://github.com/opendatahub-io/odh-test-context
-  - If missing: Skill offers to clone or proceed with manual discovery
-
-- **Red-Hat-Quality-Tiger-Team** repository at `~/Code/Red-Hat-Quality-Tiger-Team` (or custom path)
-  - Provides `test-rules-generator` skill for generating test placement policies
-  - Discovers repo-specific constraints (legal, infrastructure, team policy)
-  - **Rules act as hard constraints** that override intelligent scoring
-  - Source: https://github.com/RedHatQE/Red-Hat-Quality-Tiger-Team
-  - If missing: Skill offers to clone or proceed without rules (scoring decides placement)
-
-### Optional
-- **podman** or **docker** - For container validation of generated tests (if odh-test-context provides container_recipe)
-- **pytest** - If target repo uses pytest framework
-
-## How Dependencies Work Together
-
-### For Placement Decisions (Step 2.2):
-```
-odh-test-context                 Intelligent Scoring
-(conventions data)          +    (Step 2.2 logic)
-     ↓                                  ↓
-"Repo has agent_readiness=high,   Scores placement options
- tests/ dir exists, pytest"       based on TC characteristics
-     ↓                                  ↓
-     └──────────────────┬───────────────┘
-                        │
-            Final Placement Decision
-            (same_repo / downstream / both)
-```
-
-### For Test Code Generation (Step 5.3):
-```
-Tiger Team pattern guides     odh-test-context         test-plan.create.test-function
-(code patterns, examples)  +  (basic conventions)  →   (sub-agent)
-          ↓                           ↓                       ↓
-   "Use Ginkgo BeforeSuite,    "Framework: pytest,      Generated test code
-    mock with gofakeit,         file pattern: test_*.py" matching repo style
-    assert with Gomega"                  
-```
-
-**Component Roles**:
-1. **odh-test-context** - Repo structure data (framework, dirs, agent_readiness) → Used for placement scoring
-2. **Tiger Team pattern guides** - Code style guides (how to write tests) → Used by test generator sub-agent
-3. **Intelligent scoring** - Placement algorithm (where tests go) → Makes final decision
-
-## What this skill does NOT do
-
-- Does NOT generate test plan or test case specifications — use `/test-plan.create` and `/test-plan.create-cases` for that
-- Does NOT execute tests or verify they pass — generated tests must be reviewed and run manually
-- Does NOT commit tests to target repository — user must review, run, and commit manually
-- Does NOT support non-Python test frameworks — currently supports pytest, unittest, playwright (Python-based)
-- Does NOT guarantee 100% correct test code — always requires manual review and enhancement
-- Does NOT resolve test failures or debug test issues — troubleshooting is manual
-- Does NOT update test plan coverage metrics — use `/coverage-assessment` for that
-- Does NOT create fixtures or test data files automatically — only suggests them in IMPLEMENTATION_GUIDE.md
+**For reference documentation** (sub-agents, utility scripts, dependencies, architecture), see [README.md](README.md).
 
 $ARGUMENTS
