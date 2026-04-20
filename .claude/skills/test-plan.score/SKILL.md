@@ -36,15 +36,15 @@ Parse `$ARGUMENTS` to extract:
 ### Step 1: Read Test Plan and Source Strategy
 
 1. Read `<feature_dir>/TestPlan.md`
-2. Read frontmatter to extract `strat_key`:
+2. Read frontmatter to extract `source_key`:
    ```bash
    uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md
    ```
-3. Fetch the source strategy from Jira using the `strat_key`:
+3. Fetch the source strategy from Jira using the `source_key`:
    ```
-   mcp__atlassian__getJiraIssue with issueIdOrKey=<strat_key>
+   mcp__atlassian__getJiraIssue with issueIdOrKey=<source_key>
    ```
-   If MCP is unavailable, check for a local strategy file in `artifacts/strat-tasks/<strat_key>.md`. If neither is available, warn the user and proceed — grounding and scope fidelity will be scored based on plan consistency only.
+   If MCP is unavailable, check for a local strategy file in `artifacts/strat-tasks/<source_key>.md`. If neither is available, warn the user and proceed — grounding and scope fidelity will be scored based on plan consistency only.
 
 ### Step 2: Score (fork)
 

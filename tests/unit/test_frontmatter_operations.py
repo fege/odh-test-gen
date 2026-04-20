@@ -62,6 +62,6 @@ class TestFrontmatterUpdate:
 
             # All other fields should be preserved
             assert updated_data["feature"] == VALID_TEST_PLAN_DATA["feature"]
-            assert updated_data["strat_key"] == VALID_TEST_PLAN_DATA["strat_key"]
+            assert updated_data["source_key"] == VALID_TEST_PLAN_DATA["source_key"]
             assert updated_data["status"] == VALID_TEST_PLAN_DATA["status"]
             assert updated_data["author"] == VALID_TEST_PLAN_DATA["author"]

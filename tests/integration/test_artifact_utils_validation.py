@@ -6,7 +6,7 @@ from scripts.utils.schemas import validate
 def _valid_review_data():
     return {
         "feature": "kagenti_agent_templates",
-        "strat_key": "RHAISTRAT-1290",
+        "source_key": "RHAISTRAT-1290",
         "score": 10,
         "pass": True,
         "verdict": "Ready",

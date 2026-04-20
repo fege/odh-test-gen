@@ -36,15 +36,15 @@ If no arguments provided and `test-plan.create` just generated a test plan in th
 ### Step 1: Read Test Plan and Source Strategy
 
 1. Read `<feature_dir>/TestPlan.md`
-2. Read frontmatter to extract `strat_key`:
+2. Read frontmatter to extract `source_key`:
    ```bash
    uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md
    ```
-3. Fetch the source strategy from Jira using the `strat_key`:
+3. Fetch the source strategy from Jira using the `source_key`:
    ```
-   mcp__atlassian__getJiraIssue with issueIdOrKey=<strat_key>
+   mcp__atlassian__getJiraIssue with issueIdOrKey=<source_key>
    ```
-   If MCP is unavailable, check for a local strategy file in `artifacts/strat-tasks/<strat_key>.md` (rfe-creator convention). If neither is available, warn the user that grounding and scope fidelity scoring will be degraded, and proceed with the test plan content only.
+   If MCP is unavailable, check for a local strategy file in `artifacts/strat-tasks/<source_key>.md` (rfe-creator convention). If neither is available, warn the user that grounding and scope fidelity scoring will be degraded, and proceed with the test plan content only.
 
 4. Store the raw strategy text for passing to sub-agents.
 

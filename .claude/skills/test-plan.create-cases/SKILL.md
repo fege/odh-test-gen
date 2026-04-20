@@ -47,7 +47,7 @@ Do NOT proceed until this succeeds.
 ### Step 1: Read the Test Plan
 
 1. Read `<feature_dir>/TestPlan.md` using the Read tool
-2. Extract the `strat_key` from the YAML frontmatter — this will be used in Step 3.1 to set frontmatter on each test case file
+2. Extract the `source_key` from the YAML frontmatter — this will be used in Step 3.1 to set frontmatter on each test case file
 3. Extract:
    - Section 4 (Endpoints/Methods Under Test) — the full list of what needs test coverage
    - Section 2 (Test Strategy) — test levels, types, priorities to guide test case depth
@@ -86,7 +86,7 @@ Process **one category at a time** from Section 5.2. For each category:
    ```yaml
    ---
    test_case_id: TC-<CATEGORY>-<NUMBER>
-   strat_key: <STRAT_KEY_FROM_TEST_PLAN>
+   source_key: <STRAT_KEY_FROM_TEST_PLAN>
    priority: <P0|P1|P2>
    status: Draft
    automation_status: Not Started
@@ -94,7 +94,7 @@ Process **one category at a time** from Section 5.2. For each category:
    ---
    ```
 
-   - `strat_key`: use the value extracted from the test plan's frontmatter in Step 1
+   - `source_key`: use the value extracted from the test plan's frontmatter in Step 1
    - Write the frontmatter directly — validation happens in Step 5.7
 
 3. **E2E test cases (mandatory)**: After processing all categories, generate TC-E2E-*.md test cases that validate the user journeys defined in the strategy:

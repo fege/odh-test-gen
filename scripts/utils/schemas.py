@@ -42,10 +42,16 @@ SCHEMAS = {
             "type": "string",
             "required": True,
         },
-        "strat_key": {
+        "source_key": {
             "type": "string",
             "required": True,
-            "pattern": r"^RHAISTRAT-\d+$",
+            "pattern": r"^(RHAISTRAT|RHOAIENG)-\d+$",
+        },
+        "source_type": {
+            "type": "string",
+            "required": False,
+            "enum": ["strat", "issue"],
+            "default": None,
         },
         "version": {
             "type": "string",
@@ -82,10 +88,10 @@ SCHEMAS = {
             "required": True,
             "pattern": r"^TC-[A-Z0-9]+-\d+$",
         },
-        "strat_key": {
+        "source_key": {
             "type": "string",
             "required": True,
-            "pattern": r"^RHAISTRAT-\d+$",
+            "pattern": r"^(RHAISTRAT|RHOAIENG)-\d+$",
         },
         "priority": {
             "type": "string",
@@ -113,10 +119,10 @@ SCHEMAS = {
             "type": "string",
             "required": True,
         },
-        "strat_key": {
+        "source_key": {
             "type": "string",
             "required": True,
-            "pattern": r"^RHAISTRAT-\d+$",
+            "pattern": r"^(RHAISTRAT|RHOAIENG)-\d+$",
         },
         "status": {
             "type": "string",
@@ -137,10 +143,10 @@ SCHEMAS = {
             "type": "string",
             "required": True,
         },
-        "strat_key": {
+        "source_key": {
             "type": "string",
             "required": True,
-            "pattern": r"^RHAISTRAT-\d+$",
+            "pattern": r"^(RHAISTRAT|RHOAIENG)-\d+$",
         },
         "score": {
             "type": "int",

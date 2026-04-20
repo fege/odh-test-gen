@@ -18,15 +18,15 @@ Usage:
 
     # Set/update frontmatter on a file (validates before writing)
     python3 scripts/frontmatter.py set mcp_catalog/TestPlan.md \
-        feature="MCP Catalog" strat_key=RHAISTRAT-400 version=1 \
+        feature="MCP Catalog" source_key=RHAISTRAT-400 version=1 \
         status=Draft author="QA Team"
 
     python3 scripts/frontmatter.py set mcp_catalog/test_cases/TC-API-001.md \
-        test_case_id=TC-API-001 strat_key=RHAISTRAT-400 \
+        test_case_id=TC-API-001 source_key=RHAISTRAT-400 \
         priority=P0 status=Draft
 
     python3 scripts/frontmatter.py set mcp_catalog/TestPlanGaps.md \
-        feature="MCP Catalog" strat_key=RHAISTRAT-400 \
+        feature="MCP Catalog" source_key=RHAISTRAT-400 \
         status=Open gap_count=3
 
     # Read and validate frontmatter from a file

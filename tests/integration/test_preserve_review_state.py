@@ -11,7 +11,7 @@ from scripts import preserve_review_state
 def _base_review_payload():
     return {
         "feature": "kagenti_agent_templates",
-        "strat_key": "RHAISTRAT-1290",
+        "source_key": "RHAISTRAT-1290",
         "score": 8,
         "pass": True,
         "verdict": "Revise",

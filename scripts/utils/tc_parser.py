@@ -29,7 +29,7 @@ def parse_tc_file(tc_file_path: str, read_frontmatter_func) -> Dict:
 
     Returns:
         dict with:
-            - All frontmatter fields (test_case_id, priority, category, strat_key, etc.)
+            - All frontmatter fields (test_case_id, priority, category, source_key, etc.)
             - objective: str
             - preconditions: list[str]
             - test_steps: list[str]

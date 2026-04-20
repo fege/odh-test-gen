@@ -46,18 +46,21 @@ class TestSchemaDetection:
         assert "required:" in result
 
         # Should contain schema-specific fields
-        assert "strat_key:" in result  # All schemas have this
+        assert "source_key:" in result  # All schemas have this
 
 
 class TestPlanSchemaValidation:
     """Test the test-plan schema validation rules."""
 
     @pytest.mark.parametrize("field_name,field_value,should_pass", [
-        # strat_key validation (pattern: RHAISTRAT-\d+)
-        ("strat_key", "RHAISTRAT-400", True),
-        ("strat_key", "RHAISTRAT-1", True),
-        ("strat_key", "INVALID-400", False),
-        ("strat_key", "RHAISTRAT400", False),
+        # source_key validation (pattern: (RHAISTRAT|RHOAIENG)-\d+)
+        ("source_key", "RHAISTRAT-400", True),
+        ("source_key", "RHAISTRAT-1", True),
+        ("source_key", "RHOAIENG-48676", True),
+        ("source_key", "RHOAIENG-1", True),
+        ("source_key", "INVALID-400", False),
+        ("source_key", "RHAISTRAT400", False),
+        ("source_key", "RHOAIENG400", False),
         # version validation (pattern: X.Y.Z)
         ("version", "1.0.0", True),
         ("version", "10.20.30", True),
@@ -98,7 +101,7 @@ class TestPlanSchemaValidation:
 
         # Should preserve existing values
         assert result["feature"] == "Test Feature"
-        assert result["strat_key"] == "RHAISTRAT-400"
+        assert result["source_key"] == "RHAISTRAT-400"
 
     def test_defaults_do_not_overwrite_existing_values(self):
         """Test that apply_defaults preserves user-provided values."""

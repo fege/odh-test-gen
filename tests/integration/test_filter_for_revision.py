@@ -40,7 +40,7 @@ class TestFilterForRevision(unittest.TestCase):
             self.tempdir,
             {
                 "feature": "feature_a",
-                "strat_key": "RHAISTRAT-1000",
+                "source_key": "RHAISTRAT-1000",
                 "score": 5,
                 "pass": False,
                 "verdict": "Rework",
@@ -67,7 +67,7 @@ class TestFilterForRevision(unittest.TestCase):
             self.tempdir,
             {
                 "feature": "feature_b",
-                "strat_key": "RHAISTRAT-1001",
+                "source_key": "RHAISTRAT-1001",
                 "score": 10,
                 "pass": True,
                 "verdict": "Ready",
@@ -94,7 +94,7 @@ class TestFilterForRevision(unittest.TestCase):
             self.tempdir,
             {
                 "feature": "feature_c",
-                "strat_key": "RHAISTRAT-1002",
+                "source_key": "RHAISTRAT-1002",
                 "score": 7,
                 "pass": True,
                 "verdict": "Revise",

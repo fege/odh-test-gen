@@ -76,7 +76,7 @@ If feature source is a local path:
 2. Check `<feature_dir>/test_cases/` directory exists
 3. Check `<feature_dir>/test_cases/INDEX.md` exists
 4. Check at least one `TC-*.md` file exists in `test_cases/`
-5. Read `TestPlan.md` frontmatter using `scripts/utils/frontmatter_utils.py::read_frontmatter()` to extract: `strat_key`, `feature`, `version`
+5. Read `TestPlan.md` frontmatter using `scripts/utils/frontmatter_utils.py::read_frontmatter()` to extract: `source_key`, `feature`, `version`
 
 If any check fails, inform the user and stop.
 
@@ -746,7 +746,7 @@ For pytest:
 """
 Test cases for <feature_name>
 
-Strategy: <strat_key>
+Strategy: <source_key>
 Test Plan: <link to TestPlan.md or PR>
 """
 
@@ -966,7 +966,7 @@ If feature source is a GitHub branch:
 1. Commit updated TC files back to the branch:
    ```bash
    git add <feature_dir>/test_cases/
-   git commit -m "test-plan(<strat_key>): mark TCs as implemented"
+   git commit -m "test-plan(<source_key>): mark TCs as implemented"
    git push origin <branch_name>
    ```
 
@@ -980,7 +980,7 @@ Test Implementation Summary
 ==========================================
 
 Feature: <feature_name>
-Strategy: <strat_key>
+Strategy: <source_key>
 Test Cases Implemented: <count>
 Target Repository: <code_repo_path>
 Downstream Repository: <downstream_repo_path> (if applicable)
@@ -1023,7 +1023,7 @@ Next Steps
    cd <target_repo_path>
    git checkout -b test/<feature_name>
    git add <test_files>
-   git commit -m "Add automated tests for <feature_name> (<strat_key>)"
+   git commit -m "Add automated tests for <feature_name> (<source_key>)"
    git push origin test/<feature_name>
    gh pr create --title "Automated tests for <feature_name>" --body "Implements test cases from <test_plan_pr_url>"
 

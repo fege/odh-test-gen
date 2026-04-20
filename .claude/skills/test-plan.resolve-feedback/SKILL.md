@@ -202,7 +202,7 @@ If any validation fails, fix the issue before proceeding.
 3. Commit with a descriptive message that summarizes the actual changes applied, not just "resolve feedback". Use a heredoc to avoid shell injection from frontmatter values:
    ```bash
    git commit -m "$(cat <<'EOF'
-   test-plan(<strat_key>): <short summary of changes> (PR #<PR_NUMBER>)
+   test-plan(<source_key>): <short summary of changes> (PR #<PR_NUMBER>)
    EOF
    )"
    ```

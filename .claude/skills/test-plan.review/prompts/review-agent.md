@@ -63,7 +63,7 @@ Parse the total score and per-criterion scores from the assessment:
 
 ## Step 5: Set Frontmatter
 
-Read the test plan frontmatter to get the `feature` and `strat_key` values:
+Read the test plan frontmatter to get the `feature` and `source_key` values:
 
 ```bash
 uv run python scripts/frontmatter.py read {FEATURE_DIR}/TestPlan.md
@@ -75,7 +75,7 @@ Then set review frontmatter. Determine `pass` as rubric pass:
 
 ```bash
 uv run python scripts/frontmatter.py set {FEATURE_DIR}/TestPlanReview.md \
-    feature=<feature> strat_key=<strat_key> \
+    feature=<feature> source_key=<source_key> \
     score=<total> pass=<true/false> verdict=<Ready/Revise/Rework> \
     scores.specificity=<n> scores.grounding=<n> scores.scope_fidelity=<n> \
     scores.actionability=<n> scores.consistency=<n>

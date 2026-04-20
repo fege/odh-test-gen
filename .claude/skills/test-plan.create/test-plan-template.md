@@ -1,7 +1,7 @@
 # {feature_name} Test Plan
 **{team_name} – {testing_focus}**
 
-**Strategy**: [{strat_key}]({strat_url})
+**Strategy**: [{source_key}]({strat_url})
 
 ---
 

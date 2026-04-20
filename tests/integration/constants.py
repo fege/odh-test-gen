@@ -6,7 +6,7 @@ TC file content strings for testing tc_parser.py
 
 VALID_COMPLETE_TC = """---
 test_case_id: TC-API-001
-strat_key: RHAISTRAT-1262
+source_key: RHAISTRAT-1262
 priority: P0
 status: Draft
 ---
@@ -177,7 +177,7 @@ test_case_id: TC-API-001
 
 TESTPLAN_WITH_ENDPOINTS = """---
 feature: Test Feature
-strat_key: RHAISTRAT-1262
+source_key: RHAISTRAT-1262
 ---
 ### 4: Endpoints/Methods Under Test
 
