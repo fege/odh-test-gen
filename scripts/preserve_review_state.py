@@ -14,7 +14,6 @@ import os
 import re
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from scripts.utils.frontmatter_utils import read_frontmatter, update_frontmatter
 
 

@@ -109,6 +109,16 @@ SCHEMAS = {
             "enum": ["Not Started", "In Progress", "Complete", "N/A"],
             "default": "Not Started",
         },
+        "automation_file": {
+            "type": "string",
+            "required": False,
+            "default": None,
+        },
+        "automation_function": {
+            "type": "string",
+            "required": False,
+            "default": None,
+        },
         "last_updated": {
             "type": "string",
             "required": True,

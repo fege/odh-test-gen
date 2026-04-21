@@ -10,8 +10,10 @@ Claude Code skills for generating test plans and test cases from RHOAI strategie
 |-------|-------------|
 | `/test-plan.create` | Generate a test plan from a strategy (RHAISTRAT), with optional ADR |
 | `/test-plan.create-cases` | Generate individual test case files from an existing test plan |
+| `/test-plan.case-implement` | Generate executable test automation code from TC specifications with intelligent placement |
 | `/test-plan.publish` | Publish test plan artifacts to GitHub — branch, commit, and open a PR |
 | `/test-plan.resolve-feedback` | Assess PR review comments, let the user decide what to apply, and push updates |
+| `/test-plan.score` | Score an existing test plan using quality rubric (without auto-revision) |
 
 ### Sub-agents (forked, non-user-invocable)
 
@@ -20,7 +22,10 @@ Claude Code skills for generating test plans and test cases from RHOAI strategie
 | `test-plan.analyze.endpoints` | Extract feature scope, test objectives, and API endpoints/methods |
 | `test-plan.analyze.risks` | Determine test levels, types, priorities, and risks |
 | `test-plan.analyze.infra` | Identify environment config, test data, infrastructure requirements |
+| `test-plan.analyze.placement` | Analyze test cases and recommend placement (component repo vs downstream) |
 | `test-plan.review` | Review test plan for completeness, consistency, and quality |
+| `test-plan.create.test-function` | Generate test function code from TC specification matching repo conventions |
+| `test-plan.score.test-function` | Score generated test function code using 5-criteria quality rubric |
 
 ## Usage
 
@@ -48,6 +53,15 @@ Claude Code skills for generating test plans and test cases from RHOAI strategie
 
 # Resolve PR review feedback
 /test-plan.resolve-feedback https://github.com/org/test-plans-repo/pull/42
+
+# Generate executable test code from test cases
+/test-plan.case-implement mcp_catalog
+
+# Generate code for specific test cases only
+/test-plan.case-implement mcp_catalog --test-cases TC-API-001,TC-API-002
+
+# Score a test plan without triggering auto-revision
+/test-plan.score mcp_catalog
 ```
 
 ## Pipeline
@@ -66,7 +80,7 @@ Claude Code skills for generating test plans and test cases from RHOAI strategie
             Gap resolution (HITL)
                     │
                     ▼
-            test-plan.review
+            test-plan.review (auto-revision, scoring)
                     │
                     ▼
         /test-plan.create-cases (optional auto-run)
@@ -74,8 +88,17 @@ Claude Code skills for generating test plans and test cases from RHOAI strategie
                     ▼
             TC-*.md + INDEX.md
                     │
-                    ▼
-        /test-plan.publish
+                    ├─────────────────────┐
+                    │                     │
+                    ▼                     ▼
+        /test-plan.publish    /test-plan.case-implement
+                    │                     │
+                    │                     ├── test-plan.analyze.placement
+                    │                     ├── test-plan.create.test-function (per TC)
+                    │                     └── test-plan.score.test-function (per TC)
+                    │                     │
+                    ▼                     ▼
+            GitHub PR          Generated test code in target repos
                     │
                     ▼
             GitHub PR (with optional reviewers)

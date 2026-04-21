@@ -48,22 +48,39 @@ gh pr view <PR_NUMBER> --repo <owner>/<repo> --json number,title,state,headRefNa
 ```
 If the PR does not exist or is closed/merged, inform the user and stop.
 
-#### 0.3 Clone or fetch the repo
-If the current working directory is not the target repo, clone it:
-```bash
-gh repo clone <owner>/<repo> /tmp/<repo>
-cd /tmp/<repo>
-```
-If it is the target repo, just fetch:
-```bash
-git fetch origin
-```
+#### 0.3 Locate or clone the repo
 
-#### 0.4 Switch to PR branch
-Check out the PR branch locally:
+Parse repo name from `<owner>/<repo>`.
+
+**Check if repo exists locally** using `scripts/utils/repo_utils.py::find_repo_in_common_locations(repo_name)`:
+
+If found (returns path):
 ```bash
-git checkout <head_branch>
+cd <local_repo_path>
+current_branch=$(git branch --show-current)
+
+if [ "$current_branch" = "<head_branch>" ]; then
+    # Already on the PR branch, just pull latest
+    git pull origin <head_branch>
+else
+    # Need to switch to PR branch
+    git fetch origin
+    git checkout <head_branch> 2>/dev/null || git checkout -b <head_branch> origin/<head_branch>
+    git pull origin <head_branch>
+fi
 ```
+- Set `repo_path` to `<local_repo_path>`
+- Log: "✓ Using local clone: <local_repo_path> (updated)"
+
+If NOT found (returns None):
+- Clone using `scripts/utils/repo_utils.py::clone_repo(repo_url, "~/Code/<repo_name>")`
+- Checkout PR branch:
+  ```bash
+  cd ~/Code/<repo_name>
+  git checkout <head_branch>
+  ```
+- Set `repo_path` to `~/Code/<repo_name>`
+- Log: "✓ Cloned to ~/Code/<repo_name>"
 
 #### 0.5 Locate feature directory
 Find the feature directory by looking for `TestPlan.md` on the branch:
