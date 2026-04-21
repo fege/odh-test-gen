@@ -44,6 +44,52 @@ If no feature directory can be determined, ask the user for:
 
 ### Step 0: Pre-flight Checks
 
+#### 0.0 Verify test-plan scripts are available
+
+Check for required scripts directory:
+
+```bash
+# Try to locate test-plan scripts in order of preference
+TESTPLAN_SCRIPTS=""
+
+# 1. Current directory (if user is in test-plan repo)
+if [ -f "./scripts/frontmatter.py" ]; then
+    TESTPLAN_SCRIPTS="$(pwd)/scripts"
+# 2. Dedicated install location (for registry users)
+elif [ -d "$HOME/.claude/test-plan-scripts/scripts" ]; then
+    TESTPLAN_SCRIPTS="$HOME/.claude/test-plan-scripts/scripts"
+# 3. Common dev location
+elif [ -d "$HOME/Code/test-plan/scripts" ]; then
+    TESTPLAN_SCRIPTS="$HOME/Code/test-plan/scripts"
+fi
+
+# Verify scripts exist
+if [ -z "$TESTPLAN_SCRIPTS" ] || [ ! -f "$TESTPLAN_SCRIPTS/frontmatter.py" ]; then
+    cat <<'SETUP_MSG'
+❌ Test-plan scripts not found
+
+This skill requires Python utility scripts. Please set up:
+
+Option 1 (Recommended - for registry users):
+  git clone https://github.com/fege/test-plan ~/.claude/test-plan-scripts
+  cd ~/.claude/test-plan-scripts
+  uv pip install -e ".[dev]"
+
+Option 2 (For contributors):
+  git clone https://github.com/fege/test-plan ~/Code/test-plan
+  cd ~/Code/test-plan
+  uv pip install -e ".[dev]"
+
+Then re-run this skill.
+SETUP_MSG
+    exit 1
+fi
+
+echo "✓ Using scripts from: $(dirname $TESTPLAN_SCRIPTS)"
+```
+
+Store: `TESTPLAN_SCRIPTS` (absolute path to scripts directory)
+
 #### 0.1 GitHub CLI
 Run `gh auth status` via Bash. If it fails, inform the user that `gh` CLI must be installed and authenticated. Do NOT proceed until this succeeds.
 
@@ -55,17 +101,17 @@ Check that the feature directory contains at least:
 If `TestPlanGaps.md` or `test_cases/` exist, they will be included. Do NOT fail if they are absent — the user may publish before generating test cases.
 
 #### 0.3 Validate frontmatter
-Run `uv run python scripts/frontmatter.py validate <feature_dir>/TestPlan.md` via Bash. If validation fails, show the errors and do NOT proceed. The user must fix frontmatter issues before publishing.
+Run `uv run python $TESTPLAN_SCRIPTS/frontmatter.py validate <feature_dir>/TestPlan.md` via Bash. If validation fails, show the errors and do NOT proceed. The user must fix frontmatter issues before publishing.
 
 If `TestPlanGaps.md` exists, validate it too:
 ```bash
-uv run python scripts/frontmatter.py validate <feature_dir>/TestPlanGaps.md
+uv run python $TESTPLAN_SCRIPTS/frontmatter.py validate <feature_dir>/TestPlanGaps.md
 ```
 
 If `test_cases/TC-*.md` files exist, validate them:
 ```bash
 for f in <feature_dir>/test_cases/TC-*.md; do
-    uv run python scripts/frontmatter.py validate "$f"
+    uv run python $TESTPLAN_SCRIPTS/frontmatter.py validate "$f"
 done
 ```
 
@@ -76,7 +122,7 @@ Run `git status --porcelain <feature_dir>` to check if there are uncommitted cha
 
 1. Read frontmatter from `<feature_dir>/TestPlan.md` using Bash:
    ```bash
-   uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md
+   uv run python $TESTPLAN_SCRIPTS/frontmatter.py read <feature_dir>/TestPlan.md
    ```
 2. Extract: `source_key`, `version`, `feature`, `reviewers`
 3. Determine the branch name: `test-plan/<source_key>-v<version>`
@@ -109,7 +155,7 @@ If the user declines, stop.
 
 1. Bump the `status` to `In Review`:
    ```bash
-   uv run python scripts/frontmatter.py set <feature_dir>/TestPlan.md status="In Review"
+   uv run python $TESTPLAN_SCRIPTS/frontmatter.py set <feature_dir>/TestPlan.md status="In Review"
    ```
 
 ### Step 4: Create Branch and Commit

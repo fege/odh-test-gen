@@ -38,7 +38,55 @@ If no arguments are provided and no TestPlan.md is available from the current se
 
 ### Step 0: Pre-flight Check
 
-Run `uv run python scripts/frontmatter.py schema test-case` via Bash. If it fails with a PyYAML import error, ask the user to install dependencies:
+#### 0.0 Verify test-plan scripts are available
+
+Check for required scripts directory:
+
+```bash
+# Try to locate test-plan scripts in order of preference
+TESTPLAN_SCRIPTS=""
+
+# 1. Current directory (if user is in test-plan repo)
+if [ -f "./scripts/frontmatter.py" ]; then
+    TESTPLAN_SCRIPTS="$(pwd)/scripts"
+# 2. Dedicated install location (for registry users)
+elif [ -d "$HOME/.claude/test-plan-scripts/scripts" ]; then
+    TESTPLAN_SCRIPTS="$HOME/.claude/test-plan-scripts/scripts"
+# 3. Common dev location
+elif [ -d "$HOME/Code/test-plan/scripts" ]; then
+    TESTPLAN_SCRIPTS="$HOME/Code/test-plan/scripts"
+fi
+
+# Verify scripts exist
+if [ -z "$TESTPLAN_SCRIPTS" ] || [ ! -f "$TESTPLAN_SCRIPTS/frontmatter.py" ]; then
+    cat <<'SETUP_MSG'
+❌ Test-plan scripts not found
+
+This skill requires Python utility scripts. Please set up:
+
+Option 1 (Recommended - for registry users):
+  git clone https://github.com/fege/test-plan ~/.claude/test-plan-scripts
+  cd ~/.claude/test-plan-scripts
+  uv pip install -e ".[dev]"
+
+Option 2 (For contributors):
+  git clone https://github.com/fege/test-plan ~/Code/test-plan
+  cd ~/Code/test-plan
+  uv pip install -e ".[dev]"
+
+Then re-run this skill.
+SETUP_MSG
+    exit 1
+fi
+
+echo "✓ Using scripts from: $(dirname $TESTPLAN_SCRIPTS)"
+```
+
+Store: `TESTPLAN_SCRIPTS` (absolute path to scripts directory)
+
+#### 0.1 Python dependencies
+
+Run `uv run python $TESTPLAN_SCRIPTS/frontmatter.py schema test-case` via Bash. If it fails with a PyYAML import error, ask the user to install dependencies:
 ```
 uv pip install -r requirements.txt
 ```
@@ -154,7 +202,7 @@ After all test case files are written, validate their frontmatter in one pass:
 
 ```bash
 for f in <feature_dir>/test_cases/TC-*.md; do
-    uv run python scripts/frontmatter.py validate "$f"
+    uv run python $TESTPLAN_SCRIPTS/frontmatter.py validate "$f"
 done
 ```
 
