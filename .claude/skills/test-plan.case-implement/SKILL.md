@@ -103,10 +103,13 @@ If feature source is a local path:
 2. Check `<feature_dir>/test_cases/` directory exists
 3. Check `<feature_dir>/test_cases/INDEX.md` exists
 4. Check at least one `TC-*.md` file exists in `test_cases/`
-5. Read `TestPlan.md` frontmatter to extract: `source_key`, `feature`, `version`:
+5. Read `TestPlan.md` frontmatter to extract: `source_key`, `feature`, `version`, `components`:
    ```bash
-   uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py read <feature_dir>/TestPlan.md
+   frontmatter_json=$(uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py read <feature_dir>/TestPlan.md)
+   components_from_fm=$(echo "$frontmatter_json" | jq -r '.components // [] | join(",")')
    ```
+   - Store `components_from_fm` (comma-separated list, e.g., `"AI Hub,Model Serving"`)
+   - If empty or `[]`, set to empty string
 
 If any check fails, inform the user and stop.
 
@@ -140,22 +143,34 @@ Returns:
 
 #### 0.4 Identify code repository
 
-Use `scripts/utils/repo_discovery.py::extract_repo_indicators(testplan_path, tc_files)` to extract indicators:
-1. Read endpoints from `TestPlan.md` Section 4
-2. Extract components from `TestPlan.md` Section 1.2 (Scope)  
-3. Sample 3 TC-*.md files and extract component mentions from preconditions
+Gather component indicators from multiple sources (merge all):
 
-Uses hardcoded component keywords for common opendatahub-io repos (dashboard, notebooks, model-registry, pipelines, kserve, modelmesh, distributed-workloads, trustyai, etc.)
+**Source 1: Frontmatter components** (from Jira ticket, highest authority):
+- Use `components_from_fm` extracted in Step 0.2
+- Split comma-separated list into array: `["AI Hub", "Model Serving"]`
 
-Returns: `{'components': [...], 'endpoints': [...]}`
+**Source 2: Content extraction**:
+- Use `scripts/utils/repo_discovery.py::extract_repo_indicators(testplan_path, tc_files)` to extract:
+  1. Read endpoints from `TestPlan.md` Section 4
+  2. Extract components from `TestPlan.md` Section 1.2 (Scope) 
+  3. Sample 3 TC-*.md files and extract component mentions from preconditions
+- Uses hardcoded component keywords for common opendatahub-io repos (dashboard, notebooks, model-registry, pipelines, kserve, modelmesh, distributed-workloads, trustyai, etc.)
+
+**Merge**:
+- Combine frontmatter components + content-discovered components
+- Remove duplicates
+- Frontmatter components have **higher weight** in repo mapping (Step 0.5)
+
+Returns: `{'components': [...], 'endpoints': [...], 'frontmatter_components': [...]}`
 
 #### 0.5 Map components to repositories and confirm with user
 
-Use `scripts/utils/component_map.py::COMPONENT_REPO_MAP` to map detected components to repos:
+Use `scripts/utils/component_map.py::get_repo_for_component(component)` to map detected components to repos:
 
-1. For each component from Step 0.4, look it up in `COMPONENT_REPO_MAP`
-2. Collect matched repos: `{component: repo}`
+1. For each component from Step 0.4, look it up using `get_repo_for_component(component)` (handles case-insensitive matching)
+2. Collect matched repos: `{component: repo, source: 'frontmatter'|'content'}`
 3. Get unique repos from matched values
+4. **Prioritize repos matched by frontmatter components** when presenting options
 
 **Always ask user for confirmation:**
 
@@ -163,7 +178,7 @@ If **exactly 1 unique repo** matched:
 1. Present via AskUserQuestion:
    > ✓ Auto-detected code repository: **{repo}**
    > 
-   > Based on components: {component_list}
+   > Based on components: {component_list} {show (from Jira) for frontmatter components}
    > 
    > Proceed with this repository? [yes/specify-different]
 
@@ -171,10 +186,11 @@ If **exactly 1 unique repo** matched:
 3. If **specify-different**: Ask for repo name (e.g., `opendatahub-io/notebooks`)
 
 If **multiple unique repos** matched:
-1. Present via AskUserQuestion:
+1. **Sort by priority**: repos matched by frontmatter components first
+2. Present via AskUserQuestion:
    > Multiple repositories detected from components:
-   > 1. **{repo1}** (from: {components})
-   > 2. **{repo2}** (from: {components})
+   > 1. **{repo1}** (from Jira: {fm_components}, from content: {content_components})
+   > 2. **{repo2}** (from content: {components})
    > 
    > Which is the primary target? [1/2/specify-different]
 

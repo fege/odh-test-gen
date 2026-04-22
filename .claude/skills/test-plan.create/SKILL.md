@@ -76,6 +76,9 @@ If the MCP tool **is available**, proceed to Step 1.
 ### Step 1: Gather Information
 
 1. **Strategy**: If a Jira key was provided, fetch it using `mcp__atlassian__getJiraIssue`. The strategy contains both the technical approach (HOW) and the business need (WHAT/WHY). If auto-detected, read the local file from `artifacts/strat-tasks/`.
+   - Extract `components` from the Jira response (list of RHOAI product component names, e.g., `["AI Hub", "Model Serving"]`)
+   - If Components field is empty or missing, set `components = []`
+   - Store for use in frontmatter (Step 3.1)
 2. **ADR** (if provided): Read the ADR file for additional technical detail (API endpoints, data models, implementation specifics).
 
 ### Step 2: Analyze (Parallel Sub-Agents)
@@ -128,9 +131,11 @@ uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py set <feature_name>/Test
     version=1.0.0 \
     status=Draft \
     author="<team_name>" \
+    components="<comma-separated component names from Jira, or []>" \
     additional_docs="<comma-separated list of doc links, or []>"
 ```
 
+- `components`: comma-separated list of component names from Jira Components field (e.g., `"AI Hub,Model Serving"`). Use `[]` if none.
 - `additional_docs`: include ADR link and any other document links provided by the user. Use `[]` if none.
 - `last_updated` is auto-set to today's date by the script.
 - `reviewers` defaults to `[]`.

@@ -5,10 +5,13 @@ Based on opendatahub-io/odh-build-metadata manifests-config.yaml
 Source: https://github.com/opendatahub-io/odh-build-metadata/blob/main/components/odh-operator/.../manifests-config.yaml
 Updated: 2026-04-17
 
-Maps component keywords (from TestPlan.md, TC files) to GitHub repositories.
+Maps component keywords (from TestPlan.md, TC files, Jira components) to GitHub repositories.
+
+Note: All keys are lowercase. Use get_repo_for_component() for case-insensitive lookup.
 """
 
 # Component name → GitHub repository (org/repo)
+# NOTE: All keys must be lowercase for case-insensitive matching
 COMPONENT_REPO_MAP = {
     # Notebooks / Workbenches
     'notebook': 'opendatahub-io/notebooks',
@@ -122,4 +125,32 @@ COMPONENT_REPO_MAP = {
 
     # Downstream E2E tests
     'opendatahub-tests': 'opendatahub-io/opendatahub-tests',
+
+    # UXD (product component, maps to dashboard)
+    'uxd': 'opendatahub-io/odh-dashboard',
 }
+
+
+def get_repo_for_component(component: str) -> str | None:
+    """
+    Get GitHub repository for a component name (case-insensitive).
+
+    Handles both lowercase content-discovered components and capitalized
+    Jira product component names (e.g., "AI Hub", "Model Serving").
+
+    Args:
+        component: Component name (any case)
+
+    Returns:
+        GitHub repository (org/repo) or None if not found
+
+    Examples:
+        >>> get_repo_for_component("AI Hub")
+        'opendatahub-io/model-registry'
+        >>> get_repo_for_component("notebooks")
+        'opendatahub-io/notebooks'
+        >>> get_repo_for_component("Model Serving")
+        'opendatahub-io/kserve'
+    """
+    normalized = component.strip().lower()
+    return COMPONENT_REPO_MAP.get(normalized)

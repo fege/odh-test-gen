@@ -71,6 +71,11 @@ SCHEMAS = {
             "type": "string",
             "required": True,
         },
+        "components": {
+            "type": "list",
+            "required": False,
+            "default": [],
+        },
         "additional_docs": {
             "type": "list",
             "required": False,
