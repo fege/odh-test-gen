@@ -205,6 +205,14 @@ This installs:
 - `pytest` - Test framework
 - `pytest-cov` - Coverage reporting
 
+### Known Issues for Contributors
+
+**Branch-switching in same repository**: When testing skills like `/test-plan.case-implement` or `/test-plan.resolve-feedback` with test cases from a PR in the same repository (e.g., `test-plan/RHAISTRAT-123`), the skill will `git checkout` to the PR branch, which loses the skill scripts on your current development branch.
+
+**Workaround**: Test with PRs from a different repository, or manually copy test case artifacts to a local directory and pass the local path instead of the PR URL.
+
+**Tracking**: See issue [#17](https://github.com/fege/test-plan/issues/17) for the proposed git worktree fix.
+
 ### Running Tests
 
 Run all tests:
