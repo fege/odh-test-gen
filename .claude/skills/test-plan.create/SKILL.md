@@ -106,6 +106,9 @@ If the MCP tool **is available**, proceed to Step 0.3.
 
 5. **Validate against skill repository** (unless `FORCE_OUTPUT_DIR=true`):
    ```bash
+   # Export CLAUDE_SKILL_DIR so functions in the script can use it
+   export CLAUDE_SKILL_DIR
+
    # Load validation utilities (via symlink)
    source ${CLAUDE_SKILL_DIR}/scripts/skill_repo_guard.sh
 

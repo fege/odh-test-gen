@@ -71,7 +71,16 @@ done
 ```
 
 #### 0.4 Check for clean working state
-Run `git status --porcelain <feature_dir>` to check if there are uncommitted changes in the feature directory. This is informational only — warn the user if there are unstaged changes, but do not block.
+Check if there are uncommitted changes in the feature directory. This is informational only — warn the user if there are unstaged changes, but do not block.
+
+```bash
+# Check if feature_dir is in a git repo
+if git -C <feature_dir> rev-parse --git-dir > /dev/null 2>&1; then
+    git -C <feature_dir> status --porcelain .
+fi
+```
+
+If not in a git repo, skip this check (common for test artifacts created with `--output-dir`).
 
 ### Step 1: Read Metadata
 
@@ -90,6 +99,9 @@ Run `git status --porcelain <feature_dir>` to check if there are uncommitted cha
 
 1. **Load validation utilities**:
    ```bash
+   # Export CLAUDE_SKILL_DIR so functions in the script can use it
+   export CLAUDE_SKILL_DIR
+
    # Load via symlink
    source ${CLAUDE_SKILL_DIR}/scripts/skill_repo_guard.sh
    ```
@@ -104,12 +116,10 @@ Run `git status --porcelain <feature_dir>` to check if there are uncommitted cha
      ```
    - Use it as `target_repo`
 
-3. **If `--repo` was NOT provided**: Ask user via AskUserQuestion:
+3. **If `--repo` was NOT provided**: Ask user via AskUserQuestion for a text input (NOT a menu):
    > **Where should this test plan be published?**
    >
-   > Please specify the target GitHub repository in `owner/repo` format.
-   >
-   > Press Enter to use default: `fege/collection-tests`
+   > Specify the target GitHub repository in `owner/repo` format, or press Enter for default: `fege/collection-tests`
 
 4. Validate the user-provided or default repository:
    - Check format (must be `owner/repo`)
@@ -162,6 +172,9 @@ If the user declines, stop.
    # Get absolute path of feature directory's parent (the repo root)
    feature_dir_abs=$(cd "$(dirname "$feature_dir")" && pwd)/$(basename "$feature_dir")
    publish_repo_root=$(dirname "$feature_dir_abs")
+
+   # Export CLAUDE_SKILL_DIR so functions in the script can use it
+   export CLAUDE_SKILL_DIR
 
    # Load validation utilities (already sourced in Step 1.5, but safe to source again)
    source ${CLAUDE_SKILL_DIR}/scripts/skill_repo_guard.sh
