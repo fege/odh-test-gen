@@ -71,7 +71,16 @@ done
 ```
 
 #### 0.4 Check for clean working state
-Run `git status --porcelain <feature_dir>` to check if there are uncommitted changes in the feature directory. This is informational only — warn the user if there are unstaged changes, but do not block.
+Check if there are uncommitted changes in the feature directory. This is informational only — warn the user if there are unstaged changes, but do not block.
+
+```bash
+# Check if feature_dir is in a git repo
+if git -C <feature_dir> rev-parse --git-dir > /dev/null 2>&1; then
+    git -C <feature_dir> status --porcelain .
+fi
+```
+
+If not in a git repo, skip this check (common for test artifacts created with `--output-dir`).
 
 ### Step 1: Read Metadata
 
@@ -84,6 +93,49 @@ Run `git status --porcelain <feature_dir>` to check if there are uncommitted cha
    - Example: `test-plan/RHAISTRAT-400-v1.0.0`
 4. Determine reviewers: use `--reviewers` argument if provided, otherwise use frontmatter `reviewers` field
 
+### Step 1.5: Determine Target Repository
+
+**IMPORTANT**: Test plans must NOT be published to the skill repository.
+
+1. **Load validation utilities**:
+   ```bash
+   # Export CLAUDE_SKILL_DIR so functions in the script can use it
+   export CLAUDE_SKILL_DIR
+
+   # Load via symlink
+   source ${CLAUDE_SKILL_DIR}/scripts/skill_repo_guard.sh
+   ```
+
+2. **If `--repo` was provided in arguments**:
+   - Validate it's not the skill repo:
+     ```bash
+     if ! validate_remote_repo "$provided_repo"; then
+         echo "Suggested: fege/collection-tests"
+         exit 1
+     fi
+     ```
+   - Use it as `target_repo`
+
+3. **If `--repo` was NOT provided**: Ask user via AskUserQuestion for a text input (NOT a menu):
+   > **Where should this test plan be published?**
+   >
+   > Specify the target GitHub repository in `owner/repo` format, or press Enter for default: `fege/collection-tests`
+
+4. Validate the user-provided or default repository:
+   - Check format (must be `owner/repo`)
+   - **Validate not skill repo**:
+     ```bash
+     if ! validate_remote_repo "$target_repo"; then
+         echo "Please specify a different repository."
+         # Ask again via AskUserQuestion
+     fi
+     ```
+   - Retry until user provides a valid non-skill repo
+
+5. Store the final validated value in `target_repo`
+
+**Rationale**: Prevents accidental (or intentional) publishing of test plans to the skill repository, which would pollute the skill codebase with test plan artifacts and cause branch-switching issues for contributors.
+
 ### Step 2: Confirm with User
 
 Before creating the branch and PR, present a summary to the user via AskUserQuestion:
@@ -94,7 +146,7 @@ Before creating the branch and PR, present a summary to the user via AskUserQues
 > - **Strategy**: `<source_key>`
 > - **Version**: `<version>`
 > - **Branch**: `test-plan/<source_key>-v<version>`
-> - **Target repo**: `<owner/repo>` (or "current repository")
+> - **Target repo**: `<target_repo>`
 > - **Reviewers**: `<reviewer list>` (or "none")
 > - **Files to publish**:
 >   - `<feature_dir>/TestPlan.md`
@@ -115,10 +167,50 @@ If the user declines, stop.
 
 ### Step 4: Create Branch and Commit
 
-1. Fetch latest changes and create branch from `main`:
+1. **Ensure we're in the correct working directory**:
    ```bash
-   git fetch origin main
-   git checkout -b test-plan/<source_key>-v<version> main
+   # Get absolute path of feature directory's parent (the repo root)
+   feature_dir_abs=$(cd "$(dirname "$feature_dir")" && pwd)/$(basename "$feature_dir")
+   publish_repo_root=$(dirname "$feature_dir_abs")
+
+   # Export CLAUDE_SKILL_DIR so functions in the script can use it
+   export CLAUDE_SKILL_DIR
+
+   # Load validation utilities (already sourced in Step 1.5, but safe to source again)
+   source ${CLAUDE_SKILL_DIR}/scripts/skill_repo_guard.sh
+
+   # Check if we're in the skill repo
+   current_repo=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
+   skill_repo_root=$(get_skill_repo_root)
+
+   if [ -n "$current_repo" ] && [ -n "$skill_repo_root" ] && [ "$current_repo" = "$skill_repo_root" ]; then
+       echo "⚠ Currently in skill repository, switching to publish directory"
+       cd "$publish_repo_root" || { echo "❌ Failed to cd to $publish_repo_root"; exit 1; }
+   fi
+
+   # Verify we're in a git repo (or initialize one if needed)
+   if ! git rev-parse --git-dir > /dev/null 2>&1; then
+       echo "Initializing git repository in $publish_repo_root"
+       git init
+       git config user.name "$(git config --global user.name)"
+       git config user.email "$(git config --global user.email)"
+   fi
+   ```
+
+2. **Set up remote for target repository**:
+   ```bash
+   # Set up temporary remote for target repo
+   git remote add publish-target https://github.com/$target_repo.git 2>/dev/null || {
+       # Remote might already exist, update it
+       git remote set-url publish-target https://github.com/$target_repo.git
+   }
+   echo "✓ Publishing to: $target_repo"
+   ```
+
+3. Fetch latest changes and create branch from `main`:
+   ```bash
+   git fetch publish-target main
+   git checkout -b test-plan/<source_key>-v<version> publish-target/main
    ```
    If the branch already exists, inform the user and ask whether to:
    - **Overwrite**: Delete and recreate the branch from `main` (loses existing commits)
@@ -127,36 +219,39 @@ If the user declines, stop.
 
    If the user chooses **overwrite**, delete and recreate the branch from `main`:
    ```bash
-   git fetch origin main
+   git fetch publish-target main
    git branch -D test-plan/<source_key>-v<version>
-   git checkout -b test-plan/<source_key>-v<version> main
+   git checkout -b test-plan/<source_key>-v<version> publish-target/main
    ```
 
    If the user chooses **add commit on top**, check out the existing branch and ensure it's up to date:
    ```bash
    git checkout test-plan/<source_key>-v<version>
-   git pull origin test-plan/<source_key>-v<version>
+   git pull publish-target test-plan/<source_key>-v<version>
    ```
-   Then proceed to step 2 (staging) and step 3 (commit) as normal. In step 4, use `git push` (not `--force`).
+   Then proceed to step 3 (staging) and step 4 (commit) as normal. In step 5, use `git push` (not `--force`).
 
    **Rationale**: Creating the branch from `main` (rather than from the current HEAD) ensures that only the test plan artifacts are included in the PR, not any unrelated changes that may exist in the user's current working branch. The "add commit on top" option is useful for iterative updates without losing PR review history.
 
-2. Stage only public artifacts in the feature directory:
+4. Stage only public artifacts in the feature directory:
    ```bash
+   # Get feature directory name (relative path from repo root)
+   feature_name=$(basename "$feature_dir")
+
    # Always stage these required files
-   git add <feature_dir>/TestPlan.md <feature_dir>/README.md
+   git add $feature_name/TestPlan.md $feature_name/README.md
 
    # Stage optional files if they exist
-   [ -f <feature_dir>/TestPlanGaps.md ] && git add <feature_dir>/TestPlanGaps.md
-   [ -f <feature_dir>/TestPlanReview.md ] && git add <feature_dir>/TestPlanReview.md
+   [ -f $feature_name/TestPlanGaps.md ] && git add $feature_name/TestPlanGaps.md
+   [ -f $feature_name/TestPlanReview.md ] && git add $feature_name/TestPlanReview.md
 
    # Stage test_cases directory if it exists
-   [ -d <feature_dir>/test_cases ] && git add <feature_dir>/test_cases/
+   [ -d $feature_name/test_cases ] && git add $feature_name/test_cases/
    ```
 
    **Important**: This selectively stages only the public artifacts, excluding internal working files like `.review-state.json`, `repo_instructions.md`, `test_implementation_conventions.md`, and `test_scores/` which are meant for internal orchestration only.
 
-3. Commit with a descriptive message. Use a heredoc to avoid shell injection from frontmatter values:
+5. Commit with a descriptive message. Use a heredoc to avoid shell injection from frontmatter values:
    ```bash
    git commit -m "$(cat <<'EOF'
    test-plan(<source_key>): publish <feature> v<version>
@@ -164,20 +259,18 @@ If the user declines, stop.
    )"
    ```
 
-4. Push the branch:
-   - If the user chose **overwrite** in step 1, use `--force`:
+6. Push the branch:
+   - If the user chose **overwrite** in step 3, use `--force`:
      ```bash
-     git push --force origin test-plan/<source_key>-v<version>
+     git push --force publish-target test-plan/<source_key>-v<version>
      ```
    - If the user chose **add commit on top** or this is a new branch, use regular push:
      ```bash
-     git push origin test-plan/<source_key>-v<version>
+     git push publish-target test-plan/<source_key>-v<version>
      ```
 
-   If publishing to a different repo (`--repo`), push to that remote instead. Set up the remote if needed:
+7. Clean up the temporary remote:
    ```bash
-   git remote add publish-target https://github.com/<owner>/<repo>.git
-   git push [--force if overwrite] publish-target test-plan/<source_key>-v<version>
    git remote remove publish-target
    ```
 
@@ -210,6 +303,7 @@ If the user declines, stop.
 3. Create the PR. Use a heredoc for the body to avoid shell injection from frontmatter or plan content:
    ```bash
    gh pr create \
+       --repo $target_repo \
        --title "Test Plan: <feature> (v<version>)" \
        --body "$(cat <<'EOF'
    <pr_body>
@@ -218,7 +312,6 @@ If the user declines, stop.
        --base main \
        --head test-plan/<source_key>-v<version>
    ```
-   If publishing to a different repo, add `--repo <owner/repo>`.
    If reviewers were determined in Step 1, add `--reviewer <user1>,<user2>`.
 
 ### Step 6: Confirm

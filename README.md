@@ -8,7 +8,7 @@ Claude Code skills for generating test plans and test cases from RHOAI strategie
 
 | Skill | Description |
 |-------|-------------|
-| `/test-plan.create` | Generate a test plan from a strategy (RHAISTRAT), with optional ADR |
+| `/test-plan.create` | Generate a test plan from a strategy (RHAISTRAT or RHOAIENG), with optional ADR |
 | `/test-plan.create-cases` | Generate individual test case files from an existing test plan |
 | `/test-plan.case-implement` | Generate executable test automation code from TC specifications with intelligent placement |
 | `/test-plan.publish` | Publish test plan artifacts to GitHub — branch, commit, and open a PR |
@@ -50,8 +50,13 @@ uv pip install -e ".[dev]"
 
 Use skills:
 ```bash
+# Will prompt for artifact location (default: ~/Code/collection-tests)
 /test-plan.create RHAISTRAT-400
+
+# Auto-uses location from /test-plan.create
 /test-plan.create-cases
+
+# Will prompt for publish target (default: fege/collection-tests)
 /test-plan.publish
 ```
 
@@ -69,32 +74,80 @@ Skills are available from `.claude/skills/` directory.
 
 **Note**: Skills use symlinks for shared utilities (`test-plan-common/scripts → ../../../scripts`). Both installation methods clone the full repository, so symlinks resolve correctly.
 
+## Artifact Location
+
+**Important**: Test plan artifacts are kept separate from the skill repository to maintain clean boundaries between code and data.
+
+### Default Behavior
+
+When you run `/test-plan.create`, it asks where to save artifacts:
+```
+Where should test plan artifacts be created?
+
+Provide a directory path, or press Enter for: ~/Code/collection-tests
+```
+
+- **QE Teams**: Typically work in their own test plans repository (e.g., `~/Code/opendatahub-test-plans/`)
+- **Contributors**: Use default `~/Code/collection-tests` to keep artifacts out of the skill repo
+- **Save Preference**: Optionally save your choice to `.claude/settings.json` for future runs
+
+### Session Context
+
+`/test-plan.create-cases` automatically uses the same location as `/test-plan.create` when run in the same session (no prompt needed).
+
+### Publishing
+
+`/test-plan.publish` always publishes to an external repository:
+- Default: `fege/collection-tests`
+- Prevents accidental publishing to the skill repository
+- Automatically detects and switches to the correct directory
+
+### Contributor Override
+
+Contributors testing skills can use `--output-dir` to force creation in the current directory:
+```bash
+/test-plan.create RHAISTRAT-400 --output-dir .
+```
+
+**Note**: The skill repository blocks artifact creation by default to prevent mixing code and test plan data.
+
 ## Usage
 
+### Basic Workflow
+
 ```bash
-# Generate a test plan from a Jira strategy
+# 1. Generate a test plan from a Jira strategy
+#    Will ask: Where to save artifacts? [~/Code/collection-tests]
 /test-plan.create RHAISTRAT-400
 
-# Generate a test plan with an ADR for extra technical depth
-/test-plan.create RHAISTRAT-400 /path/to/adr.pdf
-
-# Generate test cases from an existing test plan
+# 2. Generate test cases (auto-uses location from step 1)
 /test-plan.create-cases
 
-# Generate test cases for a specific feature directory
-/test-plan.create-cases mcp_catalog
+# 3. Publish to GitHub
+#    Will ask: Where to publish? [fege/collection-tests]
+/test-plan.publish mcp_catalog
+```
 
-# Publish a test plan to GitHub as a PR
-/test-plan.publish tool_calling_metadata
+### Advanced Options
 
-# Publish with reviewers
-/test-plan.publish tool_calling_metadata --reviewers alice,bob
+```bash
+# Generate test plan with ADR for extra technical depth
+/test-plan.create RHAISTRAT-400 /path/to/adr.pdf
 
-# Publish to a different repo
-/test-plan.publish tool_calling_metadata --repo org/test-plans-repo
+# Generate test cases from a GitHub PR (for /test-plan.resolve-feedback workflow)
+/test-plan.create-cases https://github.com/fege/collection-tests/pull/5
+
+# Generate test cases for a specific local directory
+/test-plan.create-cases ~/Code/collection-tests/mcp_catalog
+
+# Publish with specific reviewers
+/test-plan.publish mcp_catalog --reviewers alice,bob
+
+# Publish to a specific repository
+/test-plan.publish mcp_catalog --repo opendatahub-io/test-plans
 
 # Resolve PR review feedback
-/test-plan.resolve-feedback https://github.com/org/test-plans-repo/pull/42
+/test-plan.resolve-feedback https://github.com/fege/collection-tests/pull/42
 
 # Generate executable test code from test cases
 /test-plan.case-implement mcp_catalog
@@ -104,6 +157,16 @@ Skills are available from `.claude/skills/` directory.
 
 # Score a test plan without triggering auto-revision
 /test-plan.score mcp_catalog
+```
+
+### Contributor Workflow
+
+```bash
+# Force creation in current directory (bypasses skill repo validation)
+/test-plan.create RHAISTRAT-400 --output-dir .
+
+# Force test case creation in current directory
+/test-plan.create-cases mcp_catalog --output-dir .
 ```
 
 ## Pipeline
@@ -187,6 +250,12 @@ Skills are available from `.claude/skills/` directory.
 │   └── SKILL.md
 └── test-plan.resolve-feedback/
     └── SKILL.md
+
+scripts/
+├── frontmatter.py          # YAML frontmatter validation and manipulation
+├── skill_repo_guard.sh     # Validates paths/repos to prevent skill repo pollution
+├── repo.py                 # Repository discovery and cloning utilities
+└── utils/                  # Shared utilities for skills
 ```
 
 ## Development
@@ -204,14 +273,6 @@ This installs:
 - `pyyaml` - YAML frontmatter parsing
 - `pytest` - Test framework
 - `pytest-cov` - Coverage reporting
-
-### Known Issues for Contributors
-
-**Branch-switching in same repository**: When testing skills like `/test-plan.case-implement` or `/test-plan.resolve-feedback` with test cases from a PR in the same repository (e.g., `test-plan/RHAISTRAT-123`), the skill will `git checkout` to the PR branch, which loses the skill scripts on your current development branch.
-
-**Workaround**: Test with PRs from a different repository, or manually copy test case artifacts to a local directory and pass the local path instead of the PR URL.
-
-**Tracking**: See issue [#17](https://github.com/fege/test-plan/issues/17) for the proposed git worktree fix.
 
 ### Running Tests
 

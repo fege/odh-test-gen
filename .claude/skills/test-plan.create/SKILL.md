@@ -71,7 +71,85 @@ If the MCP tool is **not available**:
 2. Ask the user to set up the official Atlassian MCP server (see https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/)
 3. Do NOT proceed until MCP is available or the user provides a local strategy file from `artifacts/strat-tasks/` as an alternative
 
-If the MCP tool **is available**, proceed to Step 1.
+If the MCP tool **is available**, proceed to Step 0.3.
+
+#### 0.3 Determine Output Directory
+
+**IMPORTANT**: Test plan artifacts should NOT be created in the skill repository to avoid polluting the skill codebase.
+
+1. **Check for `--output-dir` flag** in arguments:
+   - If present: use that directory and skip validation (contributor override)
+   - Set `FORCE_OUTPUT_DIR=true`
+
+2. **If no `--output-dir` flag**, check for saved preference:
+   ```bash
+   # Try to read saved preference from .claude/settings.json
+   saved_dir=$(jq -r '.["test-plan"]?.output_dir // empty' .claude/settings.json 2>/dev/null)
+   ```
+
+3. **Ask user where to create artifacts** via AskUserQuestion:
+   - If saved preference exists:
+     > **Where should test plan artifacts be created?**
+     >
+     > Press Enter to use saved location: `<saved_dir>`
+     > Or provide a different directory path:
+
+   - If no saved preference:
+     > **Where should test plan artifacts be created?**
+     >
+     > Provide a directory path, or press Enter for: `~/Code/collection-tests`
+
+4. **Parse user input**:
+   - Empty/Enter → use default (`~/Code/collection-tests`) or saved preference
+   - Path provided → use that path
+   - Expand `~` to home directory
+
+5. **Validate against skill repository** (unless `FORCE_OUTPUT_DIR=true`):
+   ```bash
+   # Export CLAUDE_SKILL_DIR so functions in the script can use it
+   export CLAUDE_SKILL_DIR
+
+   # Load validation utilities (via symlink)
+   source ${CLAUDE_SKILL_DIR}/scripts/skill_repo_guard.sh
+
+   # Validate path is not in skill repo
+   validate_local_path "$target_dir" "$FORCE_OUTPUT_DIR" || exit 1
+   ```
+
+6. **Ask to save preference** via AskUserQuestion (unless using `--output-dir`):
+   > Save this location for future /test-plan.create runs? [yes/no]
+
+   - If **yes**: Save to `.claude/settings.json`:
+     ```bash
+     # Create .claude directory if it doesn't exist
+     mkdir -p .claude
+
+     # Update or create settings.json with output_dir preference
+     if [ -f .claude/settings.json ]; then
+         jq '.["test-plan"].output_dir = "'"$target_dir"'"' .claude/settings.json > .claude/settings.json.tmp
+         mv .claude/settings.json.tmp .claude/settings.json
+     else
+         echo '{"test-plan": {"output_dir": "'"$target_dir"'"}}' > .claude/settings.json
+     fi
+
+     echo "✓ Saved preference to .claude/settings.json"
+     ```
+
+   - If **no**: Continue without saving (will ask again next time)
+
+7. **Create output directory** if it doesn't exist:
+   ```bash
+   mkdir -p "$target_dir"
+   cd "$target_dir"
+   echo "✓ Creating test plan artifacts in: $target_dir"
+   ```
+
+8. **Store for session context**:
+   - Export environment variable for `/test-plan.create-cases` auto-detection:
+     ```bash
+     export TEST_PLAN_OUTPUT_DIR="$target_dir"
+     ```
+   - This allows `/test-plan.create-cases` to auto-use the same location if called in same session
 
 ### Step 1: Gather Information
 
@@ -98,7 +176,9 @@ Once all three sub-agents return:
 
 ### Step 3: Generate Files
 
-1. Create the feature directory using Bash: `mkdir -p <feature_name>/test_cases`
+1. Create the feature directory using Bash: `mkdir -p <target_dir>/<feature_name>/test_cases`
+   - `target_dir` was determined in Step 0.3
+   - We're already in `target_dir` from Step 0.3, so: `mkdir -p <feature_name>/test_cases`
 2. Read the template from `${CLAUDE_SKILL_DIR}/test-plan-template.md` using the Read tool
 3. Generate `<feature_name>/TestPlan.md` by filling in the template with the gathered information. Follow the template structure exactly — do not add, remove, or reorder sections. Do NOT write frontmatter manually — Step 3.1 handles it.
 4. For Section 10.2 ({Endpoint/Method} Coverage): fill in the Endpoint column using the endpoints identified in Section 4. Leave the Test Cases and Coverage columns empty — they will be filled later in the process.
