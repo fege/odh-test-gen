@@ -8,8 +8,8 @@ on:
 
 jobs:
   test:
+    name: Run pytests
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
