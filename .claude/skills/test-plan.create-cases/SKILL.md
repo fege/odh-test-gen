@@ -69,63 +69,31 @@ Do NOT proceed until this succeeds.
 
 **Skip this step if session context was found** (see "Auto-detection from session" above).
 
-**If feature source is a local directory path:**
-
-1. **Check for `--output-dir` flag**:
-   - If present: use that directory and skip validation (contributor override)
-   - Set `FORCE_OUTPUT_DIR=true`
-
-2. **Validate against skill repository** (unless `FORCE_OUTPUT_DIR=true`):
+1. **Use the shared locate-feature-dir utility**:
    ```bash
-   # Export CLAUDE_SKILL_DIR so functions in the script can use it
-   export CLAUDE_SKILL_DIR
+   result=$(uv run python ${CLAUDE_SKILL_DIR}/scripts/repo.py locate-feature-dir "<source>")
+   if [ $? -ne 0 ]; then
+       echo "$result"
+       exit 1
+   fi
 
-   # Load validation utilities (via symlink)
-   source ${CLAUDE_SKILL_DIR}/scripts/skill_repo_guard.sh
-
-   # Validate path is not in skill repo
-   validate_local_path "$feature_dir" "$FORCE_OUTPUT_DIR" || exit 1
+   # Parse JSON output
+   feature_dir=$(echo "$result" | jq -r '.feature_dir')
+   source_type=$(echo "$result" | jq -r '.source_type')
    ```
 
-3. Verify `TestPlan.md` exists at `<feature_dir>/TestPlan.md`
-
-4. Set `feature_dir` to the validated path
-
-**If feature source is a GitHub URL (branch or PR):**
-
-1. Parse the URL to extract:
-   - Repository (`owner/repo`)
-   - Branch name or PR number
-
-2. If PR URL, fetch the branch name:
+2. **Validate local paths against skill repository** (unless `--output-dir` flag was used):
    ```bash
-   pr_data=$(gh pr view <PR_NUMBER> --repo <owner/repo> --json headRefName)
-   branch_name=$(echo "$pr_data" | jq -r '.headRefName')
+   if [ "$source_type" = "local" ]; then
+       # Check for --output-dir flag (contributor override)
+       FORCE_OUTPUT_DIR="${FORCE_OUTPUT_DIR:-false}"
+       
+       # Validate against skill repository
+       export CLAUDE_SKILL_DIR
+       source ${CLAUDE_SKILL_DIR}/scripts/skill_repo_guard.sh
+       validate_local_path "$feature_dir" "$FORCE_OUTPUT_DIR" || exit 1
+   fi
    ```
-
-3. Check if repo exists locally:
-   ```bash
-   repo_path=$(uv run python ${CLAUDE_SKILL_DIR}/scripts/repo.py find "<repo_name>")
-   ```
-
-4. If found locally:
-   ```bash
-   cd "$repo_path"
-   git fetch origin
-   git checkout <branch_name> 2>/dev/null || git checkout -b <branch_name> origin/<branch_name>
-   git pull origin <branch_name>
-   ```
-   - Set `feature_dir` to `$repo_path/<feature_name>` (extract feature name from branch or find TestPlan.md)
-
-5. If NOT found locally:
-   ```bash
-   clone_path=$(uv run python ${CLAUDE_SKILL_DIR}/scripts/repo.py clone "<repo_url>" "~/Code/<repo_name>")
-   cd "$clone_path"
-   git checkout <branch_name>
-   ```
-   - Set `feature_dir` to `$clone_path/<feature_name>`
-
-6. Locate TestPlan.md within the repository (may be in a subdirectory)
 
 **Note**: GitHub sources are always external repos, so no skill repo validation needed.
 
@@ -154,6 +122,41 @@ Do NOT proceed until this succeeds.
 3. Omit optional sections (Preconditions, Test Data, Expected Response, Validation) when they are empty or not applicable — do not include empty sections
 4. Always leave **Automation Status** and **Notes** as placeholders — they are filled later in the process
 
+### Step 2.5: Detect Regeneration Mode
+
+1. **Check for existing test cases**:
+   ```bash
+   regen_check=$(uv run python ${CLAUDE_SKILL_DIR}/scripts/tc_regeneration.py check <feature_dir>)
+   mode=$(echo "$regen_check" | jq -r '.mode')
+   existing_count=$(echo "$regen_check" | jq -r '.existing_count')
+   ```
+
+2. **If `mode = "regenerate"`** (existing test cases found):
+   
+   a. **Read all existing TC files** using Read tool (satisfies Write tool requirement):
+      ```bash
+      echo "$regen_check" | jq -r '.files[]' | while read file; do
+          # Read each existing TC file
+      done
+      ```
+   
+   b. **Ask for confirmation** via AskUserQuestion:
+      > **Regeneration Mode**
+      >
+      > Found <existing_count> existing test cases in `test_cases/`.
+      >
+      > **Regenerating will overwrite all existing test cases.**
+      > You can review changes via `git diff` before publishing.
+      >
+      > Proceed with regeneration? [yes/no]
+   
+   c. If **no**: Exit gracefully
+   
+   d. If **yes**: Continue to Step 3 with `REGENERATION_MODE=true`
+
+3. **If `mode = "create"`** (no existing test cases):
+   - Continue to Step 3 with `REGENERATION_MODE=false`
+
 ### Step 3: Design and Generate Test Cases
 
 Process **one category at a time** from Section 5.2. For each category:
@@ -166,7 +169,12 @@ Process **one category at a time** from Section 5.2. For each category:
    - Map back to test objectives from Section 1.3
    - Check against previously generated categories to avoid duplicating coverage
 
-2. **Write** the `TC-<CATEGORY>-<NUMBER>.md` files for that category immediately before moving to the next. Include YAML frontmatter at the top of each file:
+2. **Write or Edit** the `TC-<CATEGORY>-<NUMBER>.md` files for that category immediately before moving to the next:
+   
+   - **If `REGENERATION_MODE=true`**: Use Edit tool for files that already exist (preserves git history), Write tool for new files
+   - **If `REGENERATION_MODE=false`**: Use Write tool for all files
+   
+   Include YAML frontmatter at the top of each file:
 
    ```yaml
    ---
@@ -181,6 +189,7 @@ Process **one category at a time** from Section 5.2. For each category:
 
    - `source_key`: use the value extracted from the test plan's frontmatter in Step 1
    - Write the frontmatter directly — validation happens in Step 5.7
+   - **Important**: In regeneration mode, files were already read in Step 2.5, so Edit/Write will work correctly
 
 3. **E2E test cases (mandatory)**: After processing all categories, generate TC-E2E-*.md test cases that validate the user journeys defined in the strategy:
    - Every P0 endpoint from Section 4 MUST be covered by at least one E2E scenario
