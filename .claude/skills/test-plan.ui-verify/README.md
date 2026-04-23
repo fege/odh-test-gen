@@ -101,28 +101,55 @@ Results land in `.claude/skills/test-plan.ui-verify/results/<session>/`:
 
 | File | Description |
 |------|-------------|
-| `report.md` | Full assertion table — PASS/FAIL/BLOCKED per TC with root cause analysis |
+| `report.html` | Visual report — filter by verdict/priority, click overview rows to jump to TCs, inline screenshot thumbnails with lightbox; open in browser |
+| `report.md` | Plain-text Markdown summary with embedded screenshot links; for GitHub comments or terminal review |
 | `tc_log.json` | Raw assertion data (what, expected, result, detail per check) |
 | `TC-*-verify-*.png` | Highlighted screenshot for each logged assertion |
 
 ### Sample report
 
 ```markdown
-## test-plan.ui-verify Report: tool_calling_model_catalog
+# test-plan.ui-verify — tool_calling_model_catalog
 
-Overall: FAIL
-Strategy: RHAISTRAT-1262  |  Source: PR #5
+**Overall: ❌ FAIL**
+
+| | |
+|---|---|
+| **Date** | 2026-04-22 15:04 |
+| **Source** | PR #5 |
+| **Strategy** | RHAISTRAT-1262 |
+| **Target** | https://rh-ai.apps.my-cluster.example.com |
+
+## Summary
+
+| Verdict | Count |
+|---------|------:|
+| ✅ PASS | 2 |
+| ❌ FAIL | 1 |
+| ⚠️ BLOCKED | 0 |
+| 🔴 INCOMPLETE | 0 |
+
+## Results
+
+### ❌ FAIL  `TC-FILTER-001` `P0` — 'Tool Calling' task filter visible in left navigation
+
+> Verify that the 'Tool Calling' task filter appears in the left navigation sidebar.
+
+| Checked | Expected | Result | Detail |
+|---------|----------|--------|--------|
+| Filter visible and selectable | Filter link present | ✅ PASS | Found under "Show more" expansion |
+| Label clearly readable | Distinct label | ✅ PASS | Distinct from neighboring filters |
+| Filter shows model count badge | Badge visible | ❌ FAIL | No count badge exists on any task filter |
+
+![TC-FILTER-001-verify-badge.png](./TC-FILTER-001-verify-badge.png)
 
 ---
-### TC-FILTER-001 FAIL — 'Tool Calling' task filter visible in left navigation
 
-| Checked | Result | Detail |
-|---------|--------|--------|
-| Filter visible and selectable | PASS | Present under "Show more" expansion |
-| Label clearly readable | PASS | Distinct from neighboring filters |
-| Filter shows model count badge | FAIL | No count badge exists on any task filter |
+## Failure Analysis
 
-**Root cause (BUG):** Count badge not implemented in current UI.
+| TC | Verdict | Root Cause |
+|----|---------|------------|
+| `TC-FILTER-001` | ❌ FAIL | No count badge exists on any task filter |
 ```
 
 ## Supporting files
@@ -137,6 +164,7 @@ Strategy: RHAISTRAT-1262  |  Source: PR #5
 | `scripts/ui_interact.py` | Browser interaction: `click`, `fill`, `goto`, `scroll`, `expand`, `wait` (auto-relogins on session expiry) |
 | `scripts/ui_assert.py` | Assertion runner: banner overlay, screenshot, TC log update |
 | `scripts/ui_block.py` | Logs BLOCKED/INCOMPLETE entries to the TC log |
+| `scripts/ui_report.py` | Generates `report.html` (visual, with screenshots) and `report.md` |
 | `scripts/github_utils.py` | GitHub API helpers: fetch TC files and metadata via `gh` |
 | `scripts/build_element_map.py` | Regenerates `element-map.yaml` from an odh-dashboard source checkout |
 

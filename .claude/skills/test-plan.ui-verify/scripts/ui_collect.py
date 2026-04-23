@@ -27,10 +27,14 @@ if not session.exists():
 if tc_log.exists():
     shutil.copy(str(tc_log), str(session / "tc_log.json"))
 
+ctx_file = TMP_DIR / "ui_context.json"
+if ctx_file.exists():
+    shutil.copy(str(ctx_file), str(session / "ui_context.json"))
+
 for f in session.iterdir():
     if f.is_dir():
         shutil.rmtree(f)
-    elif (f.name not in {"tc_log.json", "report.md"}
+    elif (f.name not in {"tc_log.json", "report.md", "report.html", "ui_context.json"}
           and "verify" not in f.name):
         f.unlink(missing_ok=True)
 

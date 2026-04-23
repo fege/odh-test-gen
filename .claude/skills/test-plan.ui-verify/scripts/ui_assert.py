@@ -49,7 +49,7 @@ SESSION   = TMP_DIR / ".ui-session"
 
 
 def update_log(tc_id: str, what: str, expected: str, result: str, detail: str,
-               replace: bool = False) -> None:
+               replace: bool = False, title: str = "", screenshot: str = "") -> None:
     log = {}
     if TC_LOG.exists():
         try:
@@ -59,6 +59,10 @@ def update_log(tc_id: str, what: str, expected: str, result: str, detail: str,
     if tc_id not in log:
         log[tc_id] = {"title": tc_id, "verdict": "PASS", "assertions": [], "blocked_reason": ""}
 
+    # Update title if a real one is provided (not just the ID placeholder)
+    if title and log[tc_id].get("title") == tc_id:
+        log[tc_id]["title"] = title
+
     if replace:
         # Remove any previous assertion with the same 'checked' text so a re-assertion
         # after fixing page state doesn't leave ghost FAIL entries in the log.
@@ -66,7 +70,10 @@ def update_log(tc_id: str, what: str, expected: str, result: str, detail: str,
             a for a in log[tc_id]["assertions"] if a["checked"] != what
         ]
 
-    log[tc_id]["assertions"].append({"checked": what, "expected": expected, "result": result, "detail": detail})
+    entry = {"checked": what, "expected": expected, "result": result, "detail": detail}
+    if screenshot:
+        entry["screenshot"] = screenshot
+    log[tc_id]["assertions"].append(entry)
 
     # Recalculate verdict from all remaining assertions (needed after --replace removes stale entries).
     # Priority: FAIL > INCOMPLETE > BLOCKED > PASS.
@@ -91,6 +98,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--tc",         required=True)
+    parser.add_argument("--title",      default="",    help="Human-readable TC title (stored in log for report)")
     parser.add_argument("--what",       required=True)
     parser.add_argument("--expected",   default="")
     parser.add_argument("--js",         required=True)
@@ -231,7 +239,9 @@ def main() -> int:
             return 0  # inspect never fails — it's diagnostic
         else:
             update_log(args.tc, args.what, args.expected, result, detail,
-                       replace=args.replace)
+                       replace=args.replace,
+                       title=args.title,
+                       screenshot=fname.name if fname.exists() else "")
             status = "✅" if passed else "❌"
             print(f"{status} {args.what}: {detail}")
             return 0 if passed else 1

@@ -21,6 +21,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--tc",         required=True, help="TC ID e.g. TC-E2E-003")
+    parser.add_argument("--title",      default="",   help="Human-readable TC title (stored in log for report)")
     parser.add_argument("--reason",     required=True, help="Specific reason this step is blocked")
     parser.add_argument("--what",       default="",   help="Optional: what was being attempted")
     parser.add_argument("--incomplete", action="store_true",
@@ -36,6 +37,9 @@ def main() -> int:
 
     if args.tc not in log:
         log[args.tc] = {"title": args.tc, "verdict": "BLOCKED", "assertions": [], "blocked_reason": ""}
+
+    if args.title and log[args.tc].get("title") == args.tc:
+        log[args.tc]["title"] = args.title
 
     # Verdict priority: FAIL > INCOMPLETE > BLOCKED > PASS
     current = log[args.tc]["verdict"]

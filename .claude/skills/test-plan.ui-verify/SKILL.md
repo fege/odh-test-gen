@@ -14,6 +14,7 @@ allowedTools:
   - Bash(python3 *scripts/ui_stop_browser.py*)
   - Bash(python3 *scripts/ui_cleanup.py*)
   - Bash(python3 *scripts/ui_collect.py*)
+  - Bash(python3 *scripts/ui_report.py*)
   - Read
   - Write
   - Glob
@@ -58,14 +59,16 @@ python3 .claude/skills/test-plan.ui-verify/scripts/ui_prepare.py \
 | `scripts/ui_interact.py` | Element interaction: click, fill, goto, scroll, expand (auto-relogins on session expiry) |
 | `scripts/ui_assert.py` | Assertion runner: banner, screenshot, log, exit code; `--inspect` for diagnostic-only calls |
 | `scripts/ui_block.py` | Logs BLOCKED/INCOMPLETE verdict entries to the TC log |
+| `scripts/ui_report.py` | Generates `report.html` (visual, with screenshots) and `report.md` |
 | `scripts/github_utils.py` | GitHub API helpers: fetch TC files and metadata via `gh` |
 | `scripts/build_element_map.py` | Regenerates element-map.yaml from odh-dashboard source |
 
 ## Output
 
 All results land in `.claude/skills/test-plan.ui-verify/results/<session>/`:
+- `report.html` — visual report: color-coded verdicts, per-TC assertion tables with screenshot thumbnails; open in browser
+- `report.md` — plain-text Markdown summary (same content, for GitHub / terminal)
 - `TC-*-verify-*.png` — highlighted verification screenshots (one per assertion)
-- `report.md` — full assertion table with PASS/FAIL/BLOCKED/INCOMPLETE per TC
 - `tc_log.json` — raw assertion data (verdict priority: FAIL > INCOMPLETE > BLOCKED > PASS)
 
 ---

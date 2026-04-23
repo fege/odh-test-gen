@@ -23,7 +23,7 @@ For each TC in `ctx["test_cases"]`:
 If a precondition in `tc["preconditions"]` is verifiably not met, block and skip:
 
 ```bash
-python3 <SKILL_DIR>/scripts/ui_block.py --tc <TC_ID> \
+python3 <SKILL_DIR>/scripts/ui_block.py --tc <TC_ID> --title "<TC title from ctx>" \
   --reason "Precondition not met: <text>" --what "Precondition check"
 ```
 
@@ -81,11 +81,14 @@ One `ui_assert.py` call per Expected Result. No more, no fewer.
 ```bash
 python3 <SKILL_DIR>/scripts/ui_assert.py \
   --tc <TC_ID> \
+  --title "<TC title from ctx>" \
   --what "<Expected Result text>" \
   --expected "<expected outcome>" \
   --js "<JS returning PASS:detail or FAIL:reason>" \
   --screenshot verify-<short-description>
 ```
+
+Always pass `--title` using `tc["title"]` from the context — it is stored in the report log so that `report.html` shows real TC names instead of just IDs.
 
 **If the assertion FAILs because page state was not ready** (e.g. a section needed expanding first), fix the state via `ui_interact.py`, then re-assert with `--replace` to remove the ghost FAIL:
 
@@ -105,7 +108,8 @@ python3 <SKILL_DIR>/scripts/ui_assert.py --tc <TC_ID> --inspect \
 **If a step cannot be executed at all** (requires backend access, cluster admin, missing data that cannot be created from browser):
 
 ```bash
-python3 <SKILL_DIR>/scripts/ui_block.py --tc <TC_ID> --reason "<reason>" --what "<what>"
+python3 <SKILL_DIR>/scripts/ui_block.py --tc <TC_ID> --title "<TC title from ctx>" \
+  --reason "<reason>" --what "<what>"
 ```
 
 If the Expected Result *can* be tested from the browser — even partially — assert it and let it PASS or FAIL. BLOCK only when there is no browser action that could produce the needed data.
@@ -142,37 +146,25 @@ Record the printed `SESSION_DIR=<path>` — use it in Phase 6.
 
 ## Phase 6: Report
 
-```python
-from pathlib import Path
-report_path = Path("<SESSION_DIR>") / "report.md"
-report_path.write_text(report_content)
-print(report_content)
+```bash
+python3 <SKILL_DIR>/scripts/ui_report.py <SESSION_DIR>
 ```
 
-```markdown
-## test-plan.ui-verify Report: [feature]
+This generates two files inside `<SESSION_DIR>`:
+- `report.html` — visual report with color-coded verdicts, TC details, and screenshot thumbnails
+- `report.md` — plain-text summary (same content, Markdown format)
 
-Overall: PASS | FAIL | BLOCKED | INCOMPLETE
-Verdict rules: FAIL > INCOMPLETE > BLOCKED > PASS.
+After generation, print the Markdown report for the user:
 
-Strategy: [strat_key]  |  Source: [ctx["source"]]
-Component: [component]  |  Target: [target_url]
-Cluster: [cluster_api]  |  User: [username]
-Results: [session resolved path]
+```python
+from pathlib import Path
+print(Path("<SESSION_DIR>/report.md").read_text())
+```
 
----
-### [TC_ID] [VERDICT] — [TC title]
+Then tell the user they can open `report.html` in a browser for the full visual report with screenshots:
 
-| Checked | Expected | Result | Detail |
-|---------|----------|--------|--------|
-| [what] | [expected] | PASS/FAIL/BLOCKED | [detail] |
-
-**Root cause:** [if FAIL or BLOCKED]
-
-### Failure Analysis
-| TC | Classification | Root Cause |
-|----|----------------|------------|
-| [id] | BUG / CLUSTER ISSUE / AMBIGUOUS | [diagnosis] |
+```
+Open the visual report: open <SESSION_DIR>/report.html
 ```
 
 ---
