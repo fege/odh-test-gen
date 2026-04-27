@@ -128,6 +128,19 @@ COMPONENT_REPO_MAP = {
 
     # UXD (product component, maps to dashboard)
     'uxd': 'opendatahub-io/odh-dashboard',
+
+    # EvalHub (Model Evaluation)
+    'model eval': 'eval-hub/eval-hub',
+    'model-eval': 'eval-hub/eval-hub',
+    'evalhub': 'eval-hub/eval-hub',
+    'eval-hub': 'eval-hub/eval-hub',
+    'eval hub': 'eval-hub/eval-hub',
+    'evaluation hub': 'eval-hub/eval-hub',
+
+    # EvalHub SDK
+    'eval-hub-sdk': 'eval-hub/eval-hub-sdk',
+    'evalhub-sdk': 'eval-hub/eval-hub-sdk',
+    'eval hub sdk': 'eval-hub/eval-hub-sdk',
 }
 
 
