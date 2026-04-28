@@ -85,32 +85,79 @@ def do_oauth_login(page, username: str, password: str, idp: str,
     Returns True if login succeeded, False otherwise.
     Each caller handles its own error-recovery on False.
     """
-    # Click IDP selector — some clusters skip straight to the login form
-    for loc in [
-        page.locator(f'a:text-is("{idp}")'),
-        page.locator(f'a:has-text("{idp}")'),
-        page.locator(f'button:has-text("{idp}")'),
+    # Wait for the auth page to finish loading before inspecting the DOM.
+    # Without this, count() / wait_for() can run before IDP buttons render.
+    page.wait_for_load_state("networkidle")
+
+    # RHODS 2.x uses oauth-proxy in front of the dashboard, which shows an
+    # intermediate "Log in with OpenShift" page before the IDP selector.
+    # 3.x goes directly to the IDP page — this step is silently skipped there.
+    for selector in [
+        'button:has-text("Log in with OpenShift")',
+        'a:has-text("Log in with OpenShift")',
     ]:
         try:
-            if loc.count() > 0:
-                loc.first.click(timeout=4000)
-                page.wait_for_load_state("domcontentloaded", timeout=8000)
-                break
+            loc = page.locator(selector)
+            loc.first.wait_for(state="visible", timeout=3000)
+            loc.first.click()
+            page.wait_for_load_state("networkidle")
+            break
         except Exception:
             continue
 
-    # Fill credentials
+    # Click IDP selector.  Use wait_for(visible) so we don't race against
+    # rendering.  Short per-attempt timeout because we're trying alternatives —
+    # a wrong selector should fail fast so the next one can be tried.
+    idp_clicked = False
+    for selector in [
+        f'button:text-is("{idp}")',
+        f'button:has-text("{idp}")',
+        f'a:text-is("{idp}")',
+        f'a:has-text("{idp}")',
+    ]:
+        try:
+            loc = page.locator(selector)
+            loc.first.wait_for(state="visible", timeout=3000)
+            loc.first.click()
+            page.wait_for_load_state("networkidle")
+            idp_clicked = True
+            break
+        except Exception:
+            continue
+
+    if not idp_clicked:
+        print(f"  IDP '{idp}' not found at {page.url} — assuming cluster skips IDP selection",
+              flush=True)
+
+    # Fill username — wait_for with no timeout uses Playwright's page default (30 s)
     try:
-        page.locator(
-            '[name="username"], #username, input[type="text"]'
-        ).first.fill(username, timeout=5000)
-        page.locator(
-            '[name="password"], #password, input[type="password"]'
-        ).first.fill(password, timeout=5000)
-        page.locator(
-            '[type="submit"], button:text-is("Log in"), button:text-is("Login")'
-        ).first.click(timeout=5000)
-    except Exception:
+        user_loc = page.locator('[name="username"], #username, input[type="text"]')
+        user_loc.first.wait_for(state="visible")
+        user_loc.first.fill(username)
+    except Exception as e:
+        print(f"  ❌ Login: username field not found at {page.url} — {e}", flush=True)
+        return False
+
+    # Fill password
+    try:
+        pwd_loc = page.locator('[name="password"], #password, input[type="password"]')
+        pwd_loc.first.wait_for(state="visible")
+        pwd_loc.first.fill(password)
+    except Exception as e:
+        print(f"  ❌ Login: password field not found — {e}", flush=True)
+        return False
+
+    # Submit — cover button label variants used across OpenShift versions
+    try:
+        submit_loc = page.locator(
+            '[type="submit"], '
+            'button:text-is("Log in"), button:text-is("Login"), '
+            'button:text-is("Sign in"), button:text-is("Sign In")'
+        )
+        submit_loc.first.wait_for(state="visible")
+        submit_loc.first.click()
+    except Exception as e:
+        print(f"  ❌ Login: submit button not found — {e}", flush=True)
         return False
 
     # Wait for redirect away from all auth pages
@@ -125,5 +172,13 @@ def do_oauth_login(page, username: str, password: str, idp: str,
         pass
 
     final = page.url
-    return not any(p in final.lower() for p in
-                   ("login", "oauth/authorize", "access_denied"))
+    failed = any(p in final.lower() for p in
+                 ("login", "oauth/authorize", "access_denied"))
+    if failed:
+        print(f"  ❌ Login: ended at {final}", flush=True)
+        try:
+            snippet = page.inner_text("body")[:200].replace("\n", " ").strip()
+            print(f"     Page: {snippet}", flush=True)
+        except Exception:
+            pass
+    return not failed

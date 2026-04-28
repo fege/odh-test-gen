@@ -64,15 +64,27 @@ def find_selector(description: str, section: str | None = None) -> str | None:
 
 # ── Auth recovery ─────────────────────────────────────────────────────────────
 
-def _is_auth_url(url: str) -> bool:
-    """Return True if the URL is an OpenShift OAuth / login page."""
-    return any(p in url for p in [
-        "/oauth/authorize",
-        "/login?",
-        "/login/",
-        "openshift-authentication",
-        "/oauth2/callback",
-    ]) or url.rstrip("/").endswith("/login")
+def _is_auth_page(page) -> bool:
+    """Return True if the browser is on any auth/login page.
+
+    Checks both URL patterns (standard OpenShift OAuth) and page content
+    (oauth-proxy gate used by RHODS 2.x, served at the dashboard URL itself
+    so the URL alone is not enough to detect it).
+    """
+    url = page.url
+    if any(p in url for p in [
+        "/oauth/authorize", "/login?", "/login/",
+        "openshift-authentication", "/oauth2/callback",
+    ]) or url.rstrip("/").endswith("/login"):
+        return True
+    # oauth-proxy (RHODS 2.x): shows "Log in with OpenShift" at the app URL
+    try:
+        return page.locator(
+            'button:has-text("Log in with OpenShift"), '
+            'a:has-text("Log in with OpenShift")'
+        ).count() > 0
+    except Exception:
+        return False
 
 
 def _relogin(page, ctx: dict) -> bool:
@@ -265,7 +277,7 @@ def do_goto(url: str) -> int:
         _wait_for_spa(page)
 
         # Auto-recover from OAuth session expiry — no manual intervention needed
-        if _is_auth_url(page.url):
+        if _is_auth_page(page):
             ok = _relogin(page, ctx)
             if not ok:
                 print(f"WRONG_PAGE: re-authentication failed at {page.url}", flush=True)
