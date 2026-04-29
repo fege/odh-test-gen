@@ -78,21 +78,7 @@ Skills are available from `.claude/skills/` directory.
 
 **Note**: Skills use symlinks for shared utilities (`test-plan-common/scripts → ../../../scripts`). Both installation methods clone the full repository, so symlinks resolve correctly.
 
-## Plugin Metadata
-
-The plugin is defined in [.claude-plugin/plugin.json](.claude-plugin/plugin.json):
-- **Name**: test-plan
-- **Version**: 0.2.0
-- **Category**: evaluation
-- **Dependencies**: Python ≥3.10, pyyaml
-
-Each skill includes an `argument-hint` field in its frontmatter for autocomplete guidance:
-```bash
-/test-plan.create <JIRA_KEY> [ADR_FILE_PATH]
-/test-plan.create-cases [FEATURE_SOURCE] [--output-dir PATH]
-/test-plan.publish [FEATURE_SOURCE] [--repo owner/repo] [--reviewers user1,user2]
-# ... and 5 more user-invocable skills
-```
+Each skill includes an `argument-hint` field in its frontmatter for autocomplete guidance when typing slash commands.
 
 ## Artifact Location
 
@@ -267,9 +253,6 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 ## Repository Structure
 
 ```
-.claude-plugin/
-└── plugin.json             # Plugin metadata (name, version, description, dependencies)
-
 .claude/skills/
 ├── test-plan.create/
 │   ├── SKILL.md
