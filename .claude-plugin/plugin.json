@@ -21,9 +21,5 @@
     "playwright",
     "ui-testing"
   ],
-  "category": "evaluation",
-  "dependencies": {
-    "python": ">=3.10",
-    "packages": ["pyyaml"]
-  }
+  "category": "evaluation"
 }
