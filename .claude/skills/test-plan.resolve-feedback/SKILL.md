@@ -1,6 +1,7 @@
 ---
 name: test-plan.resolve-feedback
 description: Assess PR review comments on a published test plan, let the user decide what to apply, make changes, and push updates to the same branch.
+argument-hint: <PR_URL>
 user-invocable: true
 model: sonnet
 allowedTools:

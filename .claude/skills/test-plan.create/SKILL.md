@@ -1,6 +1,7 @@
 ---
 name: test-plan.create
 description: Generate a test plan from a strategy (RHAISTRAT or RHOAIENG issue), with optional ADR for extra technical depth
+argument-hint: <JIRA_KEY> [ADR_FILE_PATH]
 user-invocable: true
 model: opus
 allowedTools:

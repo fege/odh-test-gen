@@ -1,6 +1,7 @@
 ---
 name: test-plan.create-cases
 description: Generate individual test case files from an existing test plan. Use after /test-plan.create to produce TC-*.md files, INDEX.md, and update the test plan.
+argument-hint: "[FEATURE_SOURCE] [--output-dir PATH]"
 user-invocable: true
 model: opus
 allowed-tools: Read, Write, Edit, Bash, AskUserQuestion

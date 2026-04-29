@@ -1,6 +1,7 @@
 ---
 name: test-plan.case-implement
 description: Generate executable test automation code from test case specifications
+argument-hint: "[FEATURE_SOURCE] [--test-cases TC-ID,TC-ID] [--target-repo PATH]"
 user-invocable: true
 model: opus
 allowedTools:

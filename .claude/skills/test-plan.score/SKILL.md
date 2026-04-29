@@ -1,6 +1,7 @@
 ---
 name: test-plan.score
 description: Score an existing test plan using the quality rubric without triggering auto-revision. Useful for evaluating test plans outside the generation pipeline.
+argument-hint: <feature_dir>
 user-invocable: true
 model: sonnet
 allowedTools:

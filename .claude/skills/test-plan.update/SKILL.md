@@ -1,6 +1,7 @@
 ---
 name: test-plan.update
 description: Update an existing test plan with new documentation (ADR, API specs, design docs). Re-analyzes, updates artifacts, bumps version, and optionally regenerates test cases.
+argument-hint: <SOURCE> <NEW_DOC_PATH> [<NEW_DOC_PATH>...]
 user-invocable: true
 model: opus
 allowedTools:

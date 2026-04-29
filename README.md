@@ -1,6 +1,6 @@
 # Test Plan
 
-Claude Code skills for generating test plans and test cases from RHOAI strategies.
+End-to-end test planning workflow for RHOAI: generate test plans from strategies, create test cases, implement executable automation code, verify UI tests against live clusters via Playwright, publish to GitHub with PR creation, resolve review feedback, and score quality with automated rubrics using parallel sub-agent analysis.
 
 ## Skills
 
@@ -12,7 +12,7 @@ Claude Code skills for generating test plans and test cases from RHOAI strategie
 | `/test-plan.create-cases` | Generate individual test case files from an existing test plan |
 | `/test-plan.update` | Update test plan with new docs (ADR, API specs), re-analyze, bump version |
 | `/test-plan.case-implement` | Generate executable test automation code from TC specifications with intelligent placement |
-| `/test-plan.ui-verify` | Verify UI test cases from a PR against a live ODH/RHOAI cluster via Playwright — see [README](.claude/skills/test-plan.ui-verify/README.md) |
+| `/test-plan.ui-verify` | Verify UI test cases from a PR against a live ODH/RHOAI cluster via Playwright; supports upgrade testing workflow — see [README](.claude/skills/test-plan.ui-verify/README.md) |
 | `/test-plan.publish` | Publish test plan artifacts to GitHub — branch, commit, and open a PR |
 | `/test-plan.resolve-feedback` | Assess PR review comments, let the user decide what to apply, and push updates |
 | `/test-plan.score` | Score an existing test plan using quality rubric (without auto-revision) |
@@ -77,6 +77,22 @@ uv pip install -e ".[dev]"
 Skills are available from `.claude/skills/` directory.
 
 **Note**: Skills use symlinks for shared utilities (`test-plan-common/scripts → ../../../scripts`). Both installation methods clone the full repository, so symlinks resolve correctly.
+
+## Plugin Metadata
+
+The plugin is defined in [.claude-plugin/plugin.json](.claude-plugin/plugin.json):
+- **Name**: test-plan
+- **Version**: 0.2.0
+- **Category**: evaluation
+- **Dependencies**: Python ≥3.10, pyyaml
+
+Each skill includes an `argument-hint` field in its frontmatter for autocomplete guidance:
+```bash
+/test-plan.create <JIRA_KEY> [ADR_FILE_PATH]
+/test-plan.create-cases [FEATURE_SOURCE] [--output-dir PATH]
+/test-plan.publish [FEATURE_SOURCE] [--repo owner/repo] [--reviewers user1,user2]
+# ... and 5 more user-invocable skills
+```
 
 ## Artifact Location
 
@@ -251,6 +267,9 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 ## Repository Structure
 
 ```
+.claude-plugin/
+└── plugin.json             # Plugin metadata (name, version, description, dependencies)
+
 .claude/skills/
 ├── test-plan.create/
 │   ├── SKILL.md
