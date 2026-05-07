@@ -10,6 +10,7 @@ Defines schemas for:
 Provides validation and default value application.
 """
 
+import datetime
 import os
 import re
 import sys
@@ -317,6 +318,10 @@ def _validate_field(name, value, spec):
     expected_type = spec.get("type", "string")
 
     if expected_type == "string":
+        # Convert date/datetime objects to ISO format strings (YAML auto-parsing compatibility)
+        if isinstance(value, (datetime.date, datetime.datetime)):
+            value = value.isoformat().split('T')[0]  # Get YYYY-MM-DD
+
         if not isinstance(value, str):
             errors.append(
                 f"{name}: expected string, got {type(value).__name__}")

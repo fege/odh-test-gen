@@ -18,7 +18,7 @@ import pytest
 # Add the skill's scripts/ directory to sys.path so skill modules are importable.
 _SKILL_SCRIPTS = (
     Path(__file__).resolve().parent.parent.parent
-    / ".claude" / "skills" / "test-plan.ui-verify" / "scripts"
+    / "skills" / "test-plan-ui-verify" / "scripts"
 )
 sys.path.insert(0, str(_SKILL_SCRIPTS))
 

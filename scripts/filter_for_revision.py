@@ -20,25 +20,24 @@ import sys
 from scripts.utils.frontmatter_utils import read_frontmatter_validated, update_frontmatter
 
 
-def main():
-    if len(sys.argv) != 2:
-        print("Usage: filter_for_revision.py <feature_dir>", file=sys.stderr)
-        sys.exit(1)
+def filter_for_revision(feature_dir: str) -> str:
+    """Determine whether a test plan review warrants revision.
 
-    feature_dir = sys.argv[1]
+    Args:
+        feature_dir: Path to feature directory containing TestPlanReview.md
+
+    Returns:
+        "REVISE" if revision should run, "SKIP" if no revision needed
+    """
     review_path = os.path.join(feature_dir, "TestPlanReview.md")
 
     if not os.path.exists(review_path):
-        print(f"No review file at {review_path}", file=sys.stderr)
-        print("SKIP")
-        return
+        return "SKIP"
 
     try:
         data, _ = read_frontmatter_validated(review_path, "test-plan-review")
-    except Exception as e:
-        print(f"Cannot read review: {e}", file=sys.stderr)
-        print("SKIP")
-        return
+    except Exception:
+        return "SKIP"
 
     score = data.get("score", 0)
     before_score = data.get("before_score")
@@ -48,22 +47,26 @@ def main():
         update_frontmatter(review_path,
                            {"error": f"score_regression:{before_score}->{score}"},
                            "test-plan-review")
-        print(f"Score regressed ({before_score} -> {score}), "
-              f"recording score_regression in error", file=sys.stderr)
-        print("SKIP")
-        return
+        return "SKIP"
 
     criteria = ("specificity", "grounding", "scope_fidelity",
                 "actionability", "consistency")
     if not isinstance(scores, dict):
-        print("SKIP")
-        return
+        return "SKIP"
     if not any(isinstance(scores.get(k), int) and scores.get(k) < 2
                for k in criteria):
-        print("SKIP")
-        return
+        return "SKIP"
 
-    print("REVISE")
+    return "REVISE"
+
+
+def main():
+    if len(sys.argv) != 2:
+        print("Usage: filter_for_revision.py <feature_dir>", file=sys.stderr)
+        sys.exit(1)
+
+    result = filter_for_revision(sys.argv[1])
+    print(result)
 
 
 if __name__ == "__main__":

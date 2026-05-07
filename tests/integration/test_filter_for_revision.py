@@ -1,15 +1,10 @@
 import os
 import shutil
-import subprocess
-import sys
 import tempfile
 import unittest
 
+from scripts.filter_for_revision import filter_for_revision
 from scripts.utils.frontmatter_utils import read_frontmatter_validated, write_frontmatter
-from tests.constants import SCRIPTS_DIR
-
-
-FILTER_SCRIPT = str(SCRIPTS_DIR / "filter_for_revision.py")
 
 
 def _write_review(feature_dir, payload):
@@ -26,14 +21,6 @@ class TestFilterForRevision(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.tempdir, ignore_errors=True)
-
-    def _run_filter(self):
-        return subprocess.run(
-            [sys.executable, FILTER_SCRIPT, self.tempdir],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
 
     def test_revise_when_any_criterion_below_two_even_if_rework(self):
         _write_review(
@@ -58,9 +45,8 @@ class TestFilterForRevision(unittest.TestCase):
                 "last_updated": "2026-04-10",
             },
         )
-        result = self._run_filter()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), "REVISE")
+        result = filter_for_revision(self.tempdir)
+        self.assertEqual(result, "REVISE")
 
     def test_skip_when_all_criteria_are_two(self):
         _write_review(
@@ -85,9 +71,8 @@ class TestFilterForRevision(unittest.TestCase):
                 "last_updated": "2026-04-10",
             },
         )
-        result = self._run_filter()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), "SKIP")
+        result = filter_for_revision(self.tempdir)
+        self.assertEqual(result, "SKIP")
 
     def test_score_regression_records_error_and_skips(self):
         _write_review(
@@ -118,9 +103,8 @@ class TestFilterForRevision(unittest.TestCase):
                 "last_updated": "2026-04-10",
             },
         )
-        result = self._run_filter()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.strip(), "SKIP")
+        result = filter_for_revision(self.tempdir)
+        self.assertEqual(result, "SKIP")
 
         review_path = os.path.join(self.tempdir, "TestPlanReview.md")
         data, _ = read_frontmatter_validated(review_path, "test-plan-review")

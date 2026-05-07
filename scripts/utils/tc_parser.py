@@ -259,3 +259,74 @@ def _extract_numbered_list(section_content: str) -> List[str]:
         items.append(current_item.strip())
 
     return items
+
+
+def extract_category_from_tc_id(tc_id: str) -> str:
+    """
+    Extract category from TC ID.
+
+    Args:
+        tc_id: Test case ID (e.g., 'TC-API-001', 'TC-E2E-042')
+
+    Returns:
+        Category name in lowercase (e.g., 'api', 'e2e')
+        Returns 'other' if format is invalid
+
+    Examples:
+        >>> extract_category_from_tc_id("TC-API-001")
+        'api'
+        >>> extract_category_from_tc_id("TC-E2E-042")
+        'e2e'
+        >>> extract_category_from_tc_id("INVALID")
+        'other'
+    """
+    parts = tc_id.split('-')
+    return parts[1].lower() if len(parts) >= 2 and parts[1] else 'other'
+
+
+def extract_title_from_tc_file(tc_file: str) -> str:
+    """
+    Extract title from TC markdown file.
+
+    Tries multiple sources in order of preference:
+    1. Frontmatter 'title' field
+    2. ## Title section in body
+    3. Frontmatter 'test_case_id' as fallback
+
+    Args:
+        tc_file: Path to TC-*.md file
+
+    Returns:
+        Title string
+
+    Examples:
+        Frontmatter with title:
+        ---
+        title: Create notebook
+        ---
+        → Returns: "Create notebook"
+
+        Body with ## Title:
+        ## Title
+        Delete notebook
+        → Returns: "Delete notebook"
+    """
+    from .frontmatter_utils import read_frontmatter
+
+    frontmatter, body = read_frontmatter(tc_file)
+
+    # Try frontmatter title first
+    if 'title' in frontmatter:
+        return frontmatter['title']
+
+    # Try to find first ## Title section in body
+    title_match = re.search(
+        r'^##\s+Title\s*\n(.+?)(?:\n##|\Z)',
+        body,
+        re.MULTILINE | re.DOTALL
+    )
+    if title_match:
+        return title_match.group(1).strip()
+
+    # Fallback: use TC ID
+    return frontmatter.get('test_case_id', 'test')

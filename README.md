@@ -4,32 +4,32 @@ End-to-end test planning workflow for RHOAI: generate test plans from strategies
 
 ## Skills
 
-### User-invocable
+### User-invocable (8 skills)
 
 | Skill | Description |
 |-------|-------------|
-| `/test-plan.create` | Generate a test plan from a strategy (RHAISTRAT or RHOAIENG), with optional ADR |
-| `/test-plan.create-cases` | Generate individual test case files from an existing test plan |
-| `/test-plan.update` | Update test plan with new docs (ADR, API specs), re-analyze, bump version |
-| `/test-plan.case-implement` | Generate executable test automation code from TC specifications with intelligent placement |
-| `/test-plan.ui-verify` | Verify UI test cases from a PR against a live ODH/RHOAI cluster via Playwright; supports upgrade testing workflow — see [README](.claude/skills/test-plan.ui-verify/README.md) |
-| `/test-plan.publish` | Publish test plan artifacts to GitHub — branch, commit, and open a PR |
-| `/test-plan.resolve-feedback` | Assess PR review comments, let the user decide what to apply, and push updates |
-| `/test-plan.score` | Score an existing test plan using quality rubric (without auto-revision) |
+| `/test-plan-create` | Generate a test plan from a strategy (RHAISTRAT or RHOAIENG), with optional ADR |
+| `/test-plan-create-cases` | Generate individual test case files from an existing test plan |
+| `/test-plan-update` | Update test plan with new docs (ADR, API specs), re-analyze, bump version |
+| `/test-plan-case-implement` | Generate executable test automation code from TC specifications with intelligent placement |
+| `/test-plan-ui-verify` | Verify UI test cases from a PR against a live ODH/RHOAI cluster via Playwright |
+| `/test-plan-publish` | Publish test plan artifacts to GitHub — branch, commit, and open a PR |
+| `/test-plan-resolve-feedback` | Assess PR review comments, let the user decide what to apply, and push updates |
+| `/test-plan-score` | Score an existing test plan using quality rubric (without auto-revision) |
 
-### Sub-agents (forked, non-user-invocable)
+### Sub-agents (9 internal skills, forked with `context: fork`)
 
 | Skill | Description |
 |-------|-------------|
-| `test-plan.analyze.endpoints` | Extract feature scope, test objectives, and API endpoints/methods |
-| `test-plan.analyze.risks` | Determine test levels, types, priorities, and risks |
-| `test-plan.analyze.infra` | Identify environment config, test data, infrastructure requirements |
-| `test-plan.merge` | Intelligently merge new analyzer findings into existing test plan |
-| `test-plan.resolve-gaps` | Cross-reference gaps with new findings to determine what's resolved |
-| `test-plan.analyze.placement` | Analyze test cases and recommend placement (component repo vs downstream) |
-| `test-plan.review` | Review test plan for completeness, consistency, and quality |
-| `test-plan.create.test-function` | Generate test function code from TC specification matching repo conventions |
-| `test-plan.score.test-function` | Score generated test function code using 5-criteria quality rubric |
+| `test-plan-analyze-endpoints` | Extract feature scope, test objectives, and API endpoints from docs |
+| `test-plan-analyze-risks` | Analyze strategy/ADR to determine test levels, types, priorities, risks |
+| `test-plan-analyze-infra` | Identify test environment, data, infrastructure requirements |
+| `test-plan-analyze-placement` | Recommend test placement (component repo vs downstream) |
+| `test-plan-merge` | Intelligently merge new analyzer findings into existing test plan |
+| `test-plan-resolve-gaps` | Cross-reference gaps with new findings to determine what's resolved |
+| `test-plan-review` | Review test plan for completeness, consistency, and quality with auto-revision |
+| `test-plan-generate-test-file` | Generate complete test file with all functions, quality scoring and auto-revision |
+| `test-plan-score-test-function` | Score generated test function code using 5-criteria quality rubric |
 
 ## Installation
 
@@ -48,20 +48,20 @@ claude plugin marketplace add opendatahub-io/skills-registry
 This clones the repository and makes skills immediately available. Then install Python dependencies:
 
 ```bash
-cd ~/.claude/plugins/cache/opendatahub-skills/test-plan/<version>
-uv pip install -e ".[dev]"
+cd ~/.claude/plugins/test-plan
+uv sync --extra dev
 ```
 
 Use skills:
 ```bash
 # Will prompt for artifact location (default: ~/Code/collection-tests)
-/test-plan.create RHAISTRAT-400
+/test-plan-create RHAISTRAT-400
 
-# Auto-uses location from /test-plan.create
-/test-plan.create-cases
+# Auto-uses location from /test-plan-create
+/test-plan-create-cases
 
 # Will prompt for publish target (default: fege/collection-tests)
-/test-plan.publish
+/test-plan-publish
 ```
 
 ### Option 2: Manual Clone (For Contributors)
@@ -71,12 +71,12 @@ Clone the repository directly:
 ```bash
 git clone https://github.com/fege/test-plan ~/Code/test-plan
 cd ~/Code/test-plan
-uv pip install -e ".[dev]"
+uv sync --extra dev
 ```
 
-Skills are available from `.claude/skills/` directory.
+Skills are available from `skills/` directory.
 
-**Note**: Skills use symlinks for shared utilities (`test-plan-common/scripts → ../../../scripts`). Both installation methods clone the full repository, so symlinks resolve correctly.
+**Note**: Skills use symlinks for shared utilities (`_common/scripts → ../../scripts`). Both installation methods clone the full repository, so symlinks resolve correctly.
 
 Each skill includes an `argument-hint` field in its frontmatter for autocomplete guidance when typing slash commands.
 
@@ -86,7 +86,7 @@ Each skill includes an `argument-hint` field in its frontmatter for autocomplete
 
 ### Default Behavior
 
-When you run `/test-plan.create`, it asks where to save artifacts:
+When you run `/test-plan-create`, it asks where to save artifacts:
 ```
 Where should test plan artifacts be created?
 
@@ -99,11 +99,11 @@ Provide a directory path, or press Enter for: ~/Code/collection-tests
 
 ### Session Context
 
-`/test-plan.create-cases` automatically uses the same location as `/test-plan.create` when run in the same session (no prompt needed).
+`/test-plan-create-cases` automatically uses the same location as `/test-plan-create` when run in the same session (no prompt needed).
 
 ### Publishing
 
-`/test-plan.publish` always publishes to an external repository:
+`/test-plan-publish` always publishes to an external repository:
 - Default: `fege/collection-tests`
 - Prevents accidental publishing to the skill repository
 - Automatically detects and switches to the correct directory
@@ -112,10 +112,30 @@ Provide a directory path, or press Enter for: ~/Code/collection-tests
 
 Contributors testing skills can use `--output-dir` to force creation in the current directory:
 ```bash
-/test-plan.create RHAISTRAT-400 --output-dir .
+/test-plan-create RHAISTRAT-400 --output-dir .
 ```
 
 **Note**: The skill repository blocks artifact creation by default to prevent mixing code and test plan data.
+
+## Architecture
+
+### v1.0.0 Design Principles
+
+**Deterministic Scripts** - Procedural logic extracted to Python scripts (no LLM calls):
+- Feature validation, component detection, TC filtering, file mapping
+- AST-based function extraction, score parsing, frontmatter updates
+- 22 tested Python scripts
+
+**LLMs Only Where Necessary** - Semantic understanding and code generation:
+- Writing test code, quality scoring, semantic function matching
+- Analyzing requirements, merging findings, resolving gaps
+
+**Sub-Agent Orchestration** - 9 internal skills:
+- **Forked (8 with `context: fork`)**: Analyzers (endpoints, risks, infra, placement), workflow (merge, resolve-gaps), quality (generate-test-file, score-test-function) — clean isolation, parallel execution
+- **In-parent (1 without fork)**: review — writes persistent files in parent context
+- All invoked via Skill tool, deterministic return values
+
+**No Shell Parsing** - Scripts output JSON, Claude extracts values directly (no jq commands needed)
 
 ## Usage
 
@@ -124,71 +144,71 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 ```bash
 # 1. Generate a test plan from a Jira strategy
 #    Will ask: Where to save artifacts? [~/Code/collection-tests]
-/test-plan.create RHAISTRAT-400
+/test-plan-create RHAISTRAT-400
 
 # 2. Generate test cases (auto-uses location from step 1)
-/test-plan.create-cases
+/test-plan-create-cases
 
 # 3. Publish to GitHub
 #    Will ask: Where to publish? [fege/collection-tests]
-/test-plan.publish mcp_catalog
+/test-plan-publish mcp_catalog
 ```
 
 ### Advanced Options
 
 ```bash
 # Generate test plan with ADR for extra technical depth
-/test-plan.create RHAISTRAT-400 /path/to/adr.pdf
+/test-plan-create RHAISTRAT-400 /path/to/adr.pdf
 
-# Generate test cases from a GitHub PR (for /test-plan.resolve-feedback workflow)
-/test-plan.create-cases https://github.com/fege/collection-tests/pull/5
+# Generate test cases from a GitHub PR (for /test-plan-resolve-feedback workflow)
+/test-plan-create-cases https://github.com/fege/collection-tests/pull/5
 
 # Generate test cases for a specific local directory
-/test-plan.create-cases ~/Code/collection-tests/mcp_catalog
+/test-plan-create-cases ~/Code/collection-tests/mcp_catalog
 
 # Publish with specific reviewers
-/test-plan.publish mcp_catalog --reviewers alice,bob
+/test-plan-publish mcp_catalog --reviewers alice,bob
 
 # Publish to a specific repository
-/test-plan.publish mcp_catalog --repo opendatahub-io/test-plans
+/test-plan-publish mcp_catalog --repo opendatahub-io/test-plans
 
 # Resolve PR review feedback
-/test-plan.resolve-feedback https://github.com/fege/collection-tests/pull/42
+/test-plan-resolve-feedback https://github.com/fege/collection-tests/pull/42
 
 # Update test plan with new documentation
-/test-plan.update ~/Code/collection-tests/mcp_catalog adr.pdf api-spec.md
+/test-plan-update ~/Code/collection-tests/mcp_catalog adr.pdf api-spec.md
 
 # Update test plan from GitHub PR with new docs
-/test-plan.update https://github.com/fege/collection-tests/pull/42 design-doc.md
+/test-plan-update https://github.com/fege/collection-tests/pull/42 design-doc.md
 
 # Generate executable test code from test cases
-/test-plan.case-implement mcp_catalog
+/test-plan-case-implement mcp_catalog
 
 # Generate code for specific test cases only
-/test-plan.case-implement mcp_catalog --test-cases TC-API-001,TC-API-002
+/test-plan-case-implement mcp_catalog --test-cases TC-API-001,TC-API-002
 
 # Score a test plan without triggering auto-revision
-/test-plan.score mcp_catalog
+/test-plan-score mcp_catalog
 ```
 
 ### Contributor Workflow
 
 ```bash
 # Force creation in current directory (bypasses skill repo validation)
-/test-plan.create RHAISTRAT-400 --output-dir .
+/test-plan-create RHAISTRAT-400 --output-dir .
 
 # Force test case creation in current directory
-/test-plan.create-cases mcp_catalog --output-dir .
+/test-plan-create-cases mcp_catalog --output-dir .
 ```
 
 ## Pipeline
 
 ```
-/test-plan.create RHAISTRAT-400
+/test-plan-create RHAISTRAT-400
         │
-        ├── test-plan.analyze.endpoints  ─┐
-        ├── test-plan.analyze.risks      ─┤  (parallel)
-        └── test-plan.analyze.infra      ─┘
+        ├── test-plan-analyze-endpoints  ─┐
+        ├── test-plan-analyze-risks      ─┤  (parallel)
+        └── test-plan-analyze-infra      ─┘
                     │
                     ▼
             TestPlan.md + TestPlanGaps.md
@@ -197,10 +217,10 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
             Gap resolution (HITL)
                     │
                     ▼
-            test-plan.review (auto-revision, scoring)
+            test-plan-review (auto-revision, scoring)
                     │
                     ▼
-        /test-plan.create-cases (optional auto-run)
+        /test-plan-create-cases (optional auto-run)
                     │
                     ▼
             TC-*.md + INDEX.md
@@ -208,11 +228,15 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
                     ├─────────────────────┐
                     │                     │
                     ▼                     ▼
-        /test-plan.publish    /test-plan.case-implement
+        /test-plan-publish    /test-plan-case-implement
                     │                     │
-                    │                     ├── test-plan.analyze.placement
-                    │                     ├── test-plan.create.test-function (per TC)
-                    │                     └── test-plan.score.test-function (per TC)
+                    │                     ├── preflight.py (validation + detection)
+                    │                     ├── filter_test_cases.py, map_test_files.py
+                    │                     ├── test-plan-analyze-placement
+                    │                     └── test-plan-generate-test-file (parallel per file)
+                    │                         ├── list_test_functions.py (AST)
+                    │                         ├── test-plan-score-test-function (per function)
+                    │                         └── parse_test_score.py
                     │                     │
                     ▼                     ▼
             GitHub PR          Generated test code in target repos
@@ -223,18 +247,18 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
                     ├──────────────────────────────────────┐
                     │                                      │
                     ▼                                      ▼
-        /test-plan.resolve-feedback          /test-plan.update (new docs)
+        /test-plan-resolve-feedback          /test-plan-update (new docs)
         (after PR reviews)                    │
                     │                         ├── re-run analyzers
                     │                         ├── update TestPlan.md
-                    │                         ├── test-plan.review
+                    │                         ├── test-plan-review
                     │                         └── optionally regenerate test cases
                     │                         │
                     ▼                         ▼
             Updated artifacts ◄───────────────┘
                     │
                     ▼
-            /test-plan.publish (commit & push updates)
+            /test-plan-publish (commit & push updates)
 ```
 
 ## Prerequisites
@@ -246,47 +270,76 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 - Python 3.10 or higher
 
 ### Required for Specific Features
-- **Jira integration**: [Atlassian MCP server](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/) configured (for `/test-plan.create`)
-- **GitHub publishing**: [GitHub CLI (`gh`)](https://cli.github.com/) installed and authenticated (for `/test-plan.publish` and `/test-plan.resolve-feedback`)
-- **Test implementation**: Local or cloned target repositories (for `/test-plan.case-implement`)
+- **Jira integration**: [Atlassian MCP server](https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/) configured (for `/test-plan-create`)
+- **GitHub publishing**: [GitHub CLI (`gh`)](https://cli.github.com/) installed and authenticated (for `/test-plan-publish` and `/test-plan-resolve-feedback`)
+- **Test implementation**: Local or cloned target repositories (for `/test-plan-case-implement`)
 
 ## Repository Structure
 
 ```
-.claude/skills/
-├── test-plan.create/
+.claude-plugin/
+└── plugin.json             # Plugin metadata (v1.0.0)
+
+skills/
+├── test-plan-create/
 │   ├── SKILL.md
 │   └── test-plan-template.md
-├── test-plan.analyze.endpoints/
+├── test-plan-analyze-endpoints/
 │   └── SKILL.md
-├── test-plan.analyze.risks/
+├── test-plan-analyze-risks/
 │   └── SKILL.md
-├── test-plan.analyze.infra/
+├── test-plan-analyze-infra/
 │   └── SKILL.md
-├── test-plan.merge/
+├── test-plan-analyze-placement/
 │   └── SKILL.md
-├── test-plan.resolve-gaps/
+├── test-plan-merge/
 │   └── SKILL.md
-├── test-plan.review/
+├── test-plan-resolve-gaps/
 │   └── SKILL.md
-├── test-plan.create-cases/
+├── test-plan-review/
+│   └── SKILL.md
+├── test-plan-create-cases/
 │   ├── SKILL.md
 │   └── test-case-template.md
-├── test-plan.update/
+├── test-plan-update/
 │   └── SKILL.md
-├── test-plan.publish/
+├── test-plan-publish/
 │   └── SKILL.md
-├── test-plan.resolve-feedback/
+├── test-plan-resolve-feedback/
 │   └── SKILL.md
-└── test-plan.ui-verify/
-    ├── README.md
-    └── SKILL.md
+├── test-plan-case-implement/
+│   └── SKILL.md            # Main orchestration skill
+├── test-plan-generate-test-file/
+│   └── SKILL.md            # Test file generation sub-agent
+├── test-plan-ui-verify/
+│   ├── README.md
+│   └── SKILL.md
+├── test-plan-score/
+│   └── SKILL.md
+└── _common/                # Shared scripts (symlinked)
 
 scripts/
 ├── frontmatter.py          # YAML frontmatter validation and manipulation
-├── repo.py                 # Repository discovery, cloning, validation, and feature location
+├── repo.py                 # Repository discovery, cloning, validation
 ├── tc_regeneration.py      # Test case regeneration mode detection
-└── utils/                  # Shared utilities (schemas, repo utils, frontmatter utils)
+├── preflight.py            # Unified preflight checks (validation + detection + odh-test-context)
+├── validate_feature_dir.py # Feature directory structure validation
+├── detect_components.py    # Component detection and repository mapping
+├── filter_test_cases.py    # Filter test cases by automation status
+├── map_test_files.py       # Map test cases to test files (strategy pattern)
+├── list_test_functions.py  # Extract test functions from Python files (AST)
+├── load_pattern_guides.py  # Load CLAUDE.md and testing pattern guides
+├── parse_test_score.py     # Parse test quality score assessments
+├── update_tc_frontmatter.py # Bulk update TC frontmatter fields
+└── utils/                  # Shared utilities
+    ├── schemas.py          # Schema validation (test-plan, test-case, test-gaps, review)
+    ├── frontmatter_utils.py # Frontmatter read/write operations
+    ├── repo_utils.py       # Repository discovery and test context loading
+    ├── component_map.py    # Component to repository mapping
+    ├── repo_discovery.py   # Extract repo indicators from test plans
+    ├── tc_parser.py        # Test case file parsing (extended with category/title extraction)
+    ├── text_utils.py       # Text transformation utilities (snake_case conversion)
+    └── test_analyzer.py    # Common setup requirements identification
 ```
 
 ## Development
@@ -296,7 +349,7 @@ scripts/
 Install the package in development mode with dev dependencies:
 
 ```bash
-uv pip install -e ".[dev]"
+uv sync --extra dev
 ```
 
 This installs:
@@ -335,9 +388,25 @@ tests/
 ├── unit/                             # Unit tests (fast, isolated)
 │   ├── test_schema_validation.py     # Schema validation (test-plan, test-case, test-gaps)
 │   ├── test_frontmatter_operations.py # Read, write, update operations
-│   └── test_frontmatter_cli_unit.py  # CLI interface tests
+│   ├── test_frontmatter_cli_unit.py  # CLI interface tests
+│   ├── test_detect_components.py     # Component detection and repo mapping
+│   ├── test_filter_test_cases.py     # Test case filtering by status
+│   ├── test_map_test_files.py        # File mapping with strategy pattern
+│   ├── test_list_test_functions.py   # AST-based function extraction
+│   ├── test_load_pattern_guides.py   # Pattern guide loading
+│   ├── test_parse_test_score.py      # Score file parsing
+│   ├── test_update_tc_frontmatter.py # Bulk frontmatter updates
+│   ├── test_validate_feature_dir.py  # Directory validation
+│   ├── test_text_utils.py            # Text sanitization utilities
+│   ├── test_tc_parser_utils.py       # TC category/title extraction
+│   ├── test_repo_cli.py              # Repository CLI tests
+│   ├── test_repo_discovery.py        # Repository indicator extraction
+│   ├── test_repo_utils.py            # Repository utility functions
+│   ├── test_analyzer.py              # Common setup identification
+│   └── test_ui_verify_helpers.py     # UI test helpers
 └── integration/                      # Integration tests (subprocess, file I/O)
     ├── test_artifact_utils_validation.py # Review schema validation
     ├── test_filter_for_revision.py   # Revision filter (subprocess)
-    └── test_preserve_review_state.py # State persistence
+    ├── test_preserve_review_state.py # State persistence
+    └── test_tc_parser.py             # TC file parsing integration tests
 ```

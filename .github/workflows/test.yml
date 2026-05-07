@@ -23,12 +23,8 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Create virtual environment
-        run: uv venv
-
       - name: Install dependencies
-        run: |
-          uv pip install -e ".[dev]"
+        run: uv sync --extra dev
 
       - name: Run tests with coverage
         run: uv run pytest tests/ -v --cov=scripts --cov-report=term-missing --cov-fail-under=65
