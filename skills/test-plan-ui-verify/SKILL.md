@@ -24,7 +24,7 @@ allowedTools:
 
 # test-plan.ui-verify
 
-Verifies UI test cases against a live ODH/RHOAI cluster. Reads TC-*.md files from a `fege/test-plan` PR, runs browser interactions via the Playwright Python API (persistent CDP browser), and produces a PASS/FAIL/BLOCKED report with highlighted screenshots. Test cases with no UI steps are automatically marked BLOCKED.
+Verifies UI test cases against a live ODH/RHOAI cluster. Reads TC-*.md files from a GitHub PR or repository folder, runs browser interactions via the Playwright Python API (persistent CDP browser), and produces a PASS/FAIL/BLOCKED report with highlighted screenshots. Test cases with no UI steps are automatically marked BLOCKED.
 
 ## Two-step flow
 

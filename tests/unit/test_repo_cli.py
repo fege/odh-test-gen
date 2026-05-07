@@ -19,11 +19,13 @@ def test_find_command_basic():
     old_stdout = sys.stdout
 
     try:
-        sys.argv = ['repo.py', 'find', 'test-plan']
+        # Use generic repo name (repo-agnostic test)
+        sys.argv = ['repo.py', 'find', 'some-repo']
         sys.stdout = StringIO()
 
-        with patch('scripts.utils.repo_utils.find_repo_in_common_locations') as mock_find:
-            mock_find.return_value = '/Users/test/Code/test-plan'
+        with patch('scripts.repo.find_repo_in_common_locations') as mock_find:
+            expected_path = '/Users/test/Code/some-repo'
+            mock_find.return_value = expected_path
 
             # This should not raise
             try:
@@ -34,8 +36,10 @@ def test_find_command_basic():
 
             output = sys.stdout.getvalue().strip()
 
-            # Should print path
-            assert '/test-plan' in output
+            mock_find.assert_called_once_with('some-repo')
+
+            # Should print the mocked path exactly (repo-name-agnostic)
+            assert output == expected_path
 
     finally:
         sys.argv = old_argv
