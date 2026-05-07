@@ -51,7 +51,7 @@ Prints detected cluster API, username, and the exact fields to fill in.
 
 ```bash
 python3 skills/test-plan-ui-verify/scripts/ui_prepare.py \
-  --test-plan-pr https://github.com/fege/test-plan/pull/5
+  --test-plan-pr https://github.com/fege/collection-tests/pull/5
 ```
 
 This loads test cases, validates credentials, launches a headless Chromium browser, logs in, and writes a context file. Claude Code is launched automatically at the end.
@@ -84,7 +84,7 @@ Claude reads the context, executes each TC via the browser, logs assertions, and
 
 ```bash
 # Run all TCs from a PR
-python3 scripts/ui_prepare.py --test-plan-pr https://github.com/fege/test-plan/pull/5
+python3 scripts/ui_prepare.py --test-plan-pr https://github.com/fege/collection-tests/pull/5
 
 # Run only P0 TCs
 python3 scripts/ui_prepare.py --test-plan-pr <url> --priority P0

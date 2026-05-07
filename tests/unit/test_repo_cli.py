@@ -36,6 +36,8 @@ def test_find_command_basic():
 
             output = sys.stdout.getvalue().strip()
 
+            mock_find.assert_called_once_with('some-repo')
+
             # Should print the mocked path exactly (repo-name-agnostic)
             assert output == expected_path
 

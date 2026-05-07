@@ -69,8 +69,8 @@ Use skills:
 Clone the repository directly:
 
 ```bash
-git clone https://github.com/fege/test-plan ~/Code/test-plan
-cd ~/Code/test-plan
+git clone https://github.com/opendatahub-io/odh-test-gen ~/Code/odh-test-gen
+cd ~/Code/odh-test-gen
 uv sync --extra dev
 ```
 

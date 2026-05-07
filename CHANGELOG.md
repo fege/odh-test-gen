@@ -115,6 +115,6 @@ See git history before tag `pre-v1-migration` for details.
 ---
 
 ## Links
-- [Repository](https://github.com/fege/test-plan)
+- [Repository](https://github.com/opendatahub-io/odh-test-gen)
 - [Skills Registry](https://github.com/opendatahub-io/skills-registry)
-- [Bug Reports](https://github.com/fege/test-plan/issues)
+- [Bug Reports](https://github.com/opendatahub-io/odh-test-gen/issues)
