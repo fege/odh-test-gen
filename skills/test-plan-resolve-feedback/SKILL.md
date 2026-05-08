@@ -106,7 +106,10 @@ find . -name "TestPlan.md" -not -path "./.claude/*"
 If multiple feature directories are found, ask the user which one to use via AskUserQuestion.
 
 #### 0.6 Validate frontmatter
-Run `uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py validate <feature_dir>/TestPlan.md` via Bash. If validation fails, show the errors — these will need to be fixed as part of the feedback resolution.
+Validate the TestPlan.md frontmatter. If validation fails, show the errors — these will need to be fixed as part of the feedback resolution.
+```bash
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py validate <feature_dir>/TestPlan.md)
+```
 
 ### Step 1: Collect Review Comments
 
@@ -173,7 +176,10 @@ Keep a running tally of applied vs skipped items.
 For each accepted feedback item, apply the change:
 
 - Use the Edit tool to modify `TestPlan.md`, `TestPlanGaps.md`, or `test_cases/TC-*.md`
-- For frontmatter changes, use `uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py set` to ensure validation
+- For frontmatter changes, ensure validation:
+  ```bash
+  (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlan.md <field>=<value>)
+  ```
 - If a change affects test cases:
   - Update existing `TC-*.md` files as needed
   - **Regenerate `test_cases/INDEX.md` atomically** if test cases were added, removed, or re-prioritized:
@@ -189,14 +195,14 @@ After all changes are applied:
 
 1. Bump the `version` patch number (e.g., `1.0.0` → `1.0.1`):
    ```bash
-   uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py set <feature_dir>/TestPlan.md version="<new_version>"
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlan.md version="<new_version>")
    ```
 
 2. Keep `status` as `In Review`
 
 3. If gaps were resolved by the feedback, update `TestPlanGaps.md`:
    ```bash
-   uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py set <feature_dir>/TestPlanGaps.md gap_count=<new_count>
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlanGaps.md gap_count=<new_count>)
    ```
    If all gaps resolved, set `status=Resolved`.
 
@@ -204,7 +210,7 @@ After all changes are applied:
 
 Run validation on all modified artifacts:
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py validate <feature_dir>/TestPlan.md
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py validate <feature_dir>/TestPlan.md)
 ```
 
 If test cases were modified:

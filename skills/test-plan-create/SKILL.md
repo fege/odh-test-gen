@@ -111,7 +111,7 @@ If the MCP tool **is available**, proceed to Step 0.3.
    # Validate path is not in skill repo
    export CLAUDE_SKILL_DIR
    force_flag=$([ "$FORCE_OUTPUT_DIR" = "true" ] && echo "--force" || echo "")
-   uv run python ${CLAUDE_SKILL_DIR}/scripts/repo.py validate-local-path "$target_dir" $force_flag || exit 1
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-local-path "$target_dir" $force_flag) || exit 1
    ```
 
 6. **Ask to save preference** via AskUserQuestion (unless using `--output-dir`):
@@ -205,7 +205,7 @@ fi
 **IMPORTANT**: Run Python scripts from the test-plan repo directory (where pyproject.toml is). Do NOT `cd` to the output directory before running scripts — use absolute paths for file arguments.
 
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py set <absolute_path_to_output_dir>/<feature_name>/TestPlan.md \
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <absolute_path_to_output_dir>/<feature_name>/TestPlan.md \
     feature="<feature_name>" \
     source_key=<JIRA_KEY> \
     source_type=$SOURCE_TYPE \
@@ -213,7 +213,7 @@ uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py set <absolute_path_to_o
     status=Draft \
     author="<team_name>" \
     components="<comma-separated component names from Jira, or []>" \
-    additional_docs="<comma-separated list of doc links, or []>"
+    additional_docs="<comma-separated list of doc links, or []>")
 ```
 
 - `components`: comma-separated list of component names from Jira Components field (e.g., `"AI Hub,Model Serving"`). Use `[]` if none.
@@ -243,11 +243,11 @@ After generating the test plan, collect all gaps reported by the three sub-agent
    ```
 3. **Set frontmatter** on TestPlanGaps.md using the `frontmatter.py` script (reuse SOURCE_TYPE from Step 3.1):
    ```bash
-   uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py set <feature_name>/TestPlanGaps.md \
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_name>/TestPlanGaps.md \
        feature="<feature_name>" \
        source_key=<JIRA_KEY> \
        status=Open \
-       gap_count=<number_of_gaps>
+       gap_count=<number_of_gaps>)
    ```
    - `gap_count`: total number of individual gaps across all three sections
    - If no gaps were identified, set `status=Resolved` and `gap_count=0`

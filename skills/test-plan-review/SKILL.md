@@ -47,7 +47,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 1. Read `<feature_dir>/TestPlan.md`
 2. Read frontmatter to extract `source_key`:
    ```bash
-   uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py read <feature_dir>/TestPlan.md
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md)
    ```
 3. Fetch the source strategy from Jira using the `source_key`:
    ```
@@ -114,7 +114,7 @@ The review agent writes `<feature_dir>/TestPlanReview.md` with rubric scores, fe
 After the review agent completes, read the review frontmatter:
 
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py read <feature_dir>/TestPlanReview.md
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <feature_dir>/TestPlanReview.md)
 ```
 
 If all five criteria in `scores.*` are `2`, proceed to Step 5 (done).
@@ -128,7 +128,7 @@ Initialize cycle counter: `reassess_cycle=0`
 **4a. Filter for revision:**
 
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/filter_for_revision.py <feature_dir>
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/filter_for_revision.py <feature_dir>)
 ```
 
 If output is `SKIP`, stop the loop and proceed to Step 5.
@@ -146,7 +146,7 @@ The revise agent edits TestPlan.md (only sections mapped to failing criteria) an
 **4c. Check if reassessment is needed:**
 
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py read <feature_dir>/TestPlanReview.md
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <feature_dir>/TestPlanReview.md)
 ```
 
 If `auto_revised` is `false`, the revise agent found nothing to change — stop the loop.
@@ -156,7 +156,7 @@ Increment `reassess_cycle`. If `reassess_cycle >= 2`, stop — max cycles reache
 **4d. Save cumulative state:**
 
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/preserve_review_state.py save <feature_dir>
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/preserve_review_state.py save <feature_dir>)
 ```
 
 **4e. Re-score:**
@@ -175,7 +175,7 @@ Repeat Step 3 (review agent) with `{FIRST_PASS}=false`.
 **4g. Restore before_scores and revision history:**
 
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/preserve_review_state.py restore <feature_dir>
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/preserve_review_state.py restore <feature_dir>)
 ```
 
 **4h. Check criteria again:**

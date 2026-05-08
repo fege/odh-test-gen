@@ -48,7 +48,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 1. Read `<feature_dir>/TestPlan.md`
 2. Read frontmatter to extract `source_key`:
    ```bash
-   uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py read <feature_dir>/TestPlan.md
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md)
    ```
 3. Fetch the source strategy from Jira using the `source_key`:
    ```

@@ -86,7 +86,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    if [ "$source_type" = "local" ]; then
        # Validate against skill repository (no force flag for updates)
        export CLAUDE_SKILL_DIR
-       uv run python ${CLAUDE_SKILL_DIR}/scripts/repo.py validate-local-path "$feature_dir" || exit 1
+       (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-local-path "$feature_dir") || exit 1
    fi
    ```
 
@@ -247,8 +247,8 @@ unresolved_count=<from_statistics>
 new_count=<from_statistics>
 
 # Validate arithmetic (original - resolved + new = unresolved)
-uv run python ${CLAUDE_SKILL_DIR}/scripts/validate_gap_counts.py \
-    "$feature_dir" $resolved_count $unresolved_count $new_count
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/validate_gap_counts.py \
+    "$feature_dir" $resolved_count $unresolved_count $new_count)
 
 if [ $? -ne 0 ]; then
     echo "⚠️  Gap count mismatch detected. Please review resolve-gaps output manually."
@@ -269,9 +269,9 @@ fi
    # Update status: Open if gaps remain, Resolved if all resolved
    new_status=$([ $new_gap_count -eq 0 ] && echo "Resolved" || echo "Open")
    
-   uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py set <feature_dir>/TestPlanGaps.md \
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlanGaps.md \
        gap_count=$new_gap_count \
-       status=$new_status
+       status=$new_status)
    ```
 
 ### Step 6: Re-run Quality Review
@@ -335,9 +335,9 @@ Update the README with:
 
 2. **Update TestPlan.md frontmatter**:
    ```bash
-   uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py set <feature_dir>/TestPlan.md \
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlan.md \
        version=$new_version \
-       additional_docs="<updated_comma_separated_list>"
+       additional_docs="<updated_comma_separated_list>")
    ```
 
 3. **Update status** if needed:

@@ -93,7 +93,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
        # Validate against skill repository
        export CLAUDE_SKILL_DIR
        force_flag=$([ "$FORCE_OUTPUT_DIR" = "true" ] && echo "--force" || echo "")
-       uv run python ${CLAUDE_SKILL_DIR}/scripts/repo.py validate-local-path "$feature_dir" $force_flag || exit 1
+       (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-local-path "$feature_dir" $force_flag) || exit 1
    fi
    ```
 

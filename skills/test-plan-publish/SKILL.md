@@ -97,11 +97,14 @@ Check that the feature directory contains at least:
 If `TestPlanGaps.md` or `test_cases/` exist, they will be included. Do NOT fail if they are absent — the user may publish before generating test cases.
 
 #### 0.4 Validate frontmatter
-Run `uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py validate <feature_dir>/TestPlan.md` via Bash. If validation fails, show the errors and do NOT proceed. The user must fix frontmatter issues before publishing.
+Validate the TestPlan.md frontmatter. If validation fails, show the errors and do NOT proceed. The user must fix frontmatter issues before publishing.
+```bash
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py validate <feature_dir>/TestPlan.md)
+```
 
 If `TestPlanGaps.md` exists, validate it too:
 ```bash
-uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py validate <feature_dir>/TestPlanGaps.md
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py validate <feature_dir>/TestPlanGaps.md)
 ```
 
 If `test_cases/TC-*.md` files exist, validate them:
@@ -133,7 +136,7 @@ fi
 
 1. Read frontmatter from `<feature_dir>/TestPlan.md` using Bash:
    ```bash
-   uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py read <feature_dir>/TestPlan.md
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md)
    ```
 2. Extract: `source_key`, `version`, `feature`, `reviewers`
 3. Determine the branch name: `test-plan/<source_key>` (version not included)
@@ -153,7 +156,7 @@ fi
 2. **If `--repo` was provided in arguments**:
    - Validate it's not the skill repo:
      ```bash
-     if ! uv run python ${CLAUDE_SKILL_DIR}/scripts/repo.py validate-remote "$provided_repo"; then
+     if ! (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-remote "$provided_repo"); then
          echo "Suggested: fege/collection-tests"
          exit 1
      fi
@@ -169,7 +172,7 @@ fi
    - Check format (must be `owner/repo`)
    - **Validate not skill repo**:
      ```bash
-     if ! uv run python ${CLAUDE_SKILL_DIR}/scripts/repo.py validate-remote "$target_repo"; then
+     if ! (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-remote "$target_repo"); then
          echo "Please specify a different repository."
          # Ask again via AskUserQuestion
      fi
@@ -206,7 +209,7 @@ If the user declines, stop.
 
 1. Bump the `status` to `In Review`:
    ```bash
-   uv run python ${CLAUDE_SKILL_DIR}/scripts/frontmatter.py set <feature_dir>/TestPlan.md status="In Review"
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlan.md status="In Review")
    ```
 
 ### Step 4: Create Branch and Commit
@@ -264,7 +267,7 @@ If the user declines, stop.
    if git ls-remote --heads publish-target test-plan/<source_key> | grep -q test-plan/<source_key>; then
        echo "Branch test-plan/<source_key> already exists - updating"
        # Branch exists - use safe-checkout to handle stale local branches
-       uv run python ${CLAUDE_SKILL_DIR}/scripts/repo.py safe-checkout "$repo_root" test-plan/<source_key> --remote publish-target
+       (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py safe-checkout "$repo_root" test-plan/<source_key> --remote publish-target)
        if [ $? -ne 0 ]; then
            echo "Failed to checkout branch safely"
            exit 1
@@ -273,7 +276,7 @@ If the user declines, stop.
        echo "Creating new branch test-plan/<source_key>"
        # New branch - create from main (initial publish workflow)
        # First ensure we're on main and up-to-date
-       uv run python ${CLAUDE_SKILL_DIR}/scripts/repo.py safe-checkout "$repo_root" main --remote publish-target || exit 1
+       (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py safe-checkout "$repo_root" main --remote publish-target) || exit 1
        # Then create new branch from main
        git checkout -b test-plan/<source_key>
    fi
