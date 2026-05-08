@@ -243,7 +243,7 @@ After generating the test plan, collect all gaps reported by the three sub-agent
    ```
 3. **Set frontmatter** on TestPlanGaps.md using the `frontmatter.py` script (reuse SOURCE_TYPE from Step 3.1):
    ```bash
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_name>/TestPlanGaps.md \
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <absolute_path_to_output_dir>/<feature_name>/TestPlanGaps.md \
        feature="<feature_name>" \
        source_key=<JIRA_KEY> \
        status=Open \
