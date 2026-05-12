@@ -11,6 +11,7 @@ allowedTools:
   - Glob
   - Skill
   - mcp__atlassian__getJiraIssue
+  - mcp__atlassian__editJiraIssue
   - AskUserQuestion
 ---
 
@@ -269,6 +270,16 @@ After generating the test plan, collect all gaps reported by the three sub-agent
 7. **If the user chooses option 2 or no gaps exist**: Proceed to Step 4.
 8. **If the user chooses option 3**: Proceed to Step 4, and after the review is complete, automatically invoke `/test-plan-create-cases` with the feature directory.
 
+### Step 3.6: Stamp Jira label — test plan created
+
+Add the `test-plan-auto-created` label to the source Jira issue to mark that an AI-generated test plan exists. This enables the org-pulse dashboard to track AI involvement in the test planning pipeline.
+
+Use `mcp__atlassian__editJiraIssue` with:
+- issueIdOrKey: `{source_key from frontmatter}`
+- fields: `{ "labels": { "add": ["test-plan-auto-created"] } }`
+
+Label stamping is **non-blocking** — if it fails (e.g., MCP unavailable, insufficient permissions, network error), log a warning and continue to the next step. Do not retry or halt the workflow.
+
 ### Step 4: Review, Score, and Improve
 
 After the gaps flow is complete, invoke the internal **`test-plan.review`** skill with the feature directory.
@@ -298,6 +309,28 @@ The reviewer handles auto-revision internally (up to 2 cycles) and writes `<feat
    - Any remaining gaps from `TestPlanGaps.md`
    - Full visibility into the test plan's quality before proceeding to test case generation
 4. **If verdict is Rework**: Advise the user to provide additional source documents (ADR, API spec, design doc) to resolve quality issues before generating test cases
+
+### Step 4.5: Stamp rubric verdict label
+
+After reading the review verdict from `TestPlanReview.md`, stamp the appropriate label on the source Jira issue. This enables the org-pulse dashboard to track review outcomes.
+
+**Determine which labels to add:**
+- Verdict **"Ready"** → add label `test-plan-rubric-pass`
+- Verdict **"Rework"** → add label `test-plan-rubric-fail`
+- Verdict **"Revise"** → do not add a rubric label (intermediate state handled by auto-revision)
+
+**Check for auto-revision:** If `auto_revised` is `true` in the `TestPlanReview.md` frontmatter, also add `test-plan-auto-revised` to the labels list.
+
+**Apply labels** using `mcp__atlassian__editJiraIssue` with:
+- issueIdOrKey: `{source_key}`
+- fields: `{ "labels": { "add": [<computed label list>] } }`
+
+For example, if verdict is "Ready" and auto_revised is true:
+```
+fields: { "labels": { "add": ["test-plan-rubric-pass", "test-plan-auto-revised"] } }
+```
+
+Label stamping is **non-blocking** — if it fails, log a warning and continue. Do not retry or halt the workflow.
 
 ### What this skill does NOT do
 
