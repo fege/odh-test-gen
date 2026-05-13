@@ -199,17 +199,31 @@ fi
 
 **IMPORTANT**: Check if the local repository is a personal fork, not the upstream repository.
 
-1. **Get the git remote** of the feature directory:
+1. **Get and normalize the git remote** of the feature directory:
    ```bash
    cd <feature_dir>
    remote_url=$(git config --get remote.origin.url)
-   # Extract owner/repo from URL
-   remote_repo=$(echo "$remote_url" | sed -E 's|.*github\.com[:/](.+/[^/]+)(\.git)?$|\1|' | sed 's/\.git$//')
+   
+   # Normalize: remove .git suffix and all trailing slashes
+   normalized=$(echo "$remote_url" | sed -E 's|\.git$||; s|/+$||')
+   
+   # Extract owner/repo from both SSH (git@github.com:owner/repo) and HTTPS (https://github.com/owner/repo)
+   if [[ "$normalized" =~ github\.com[:/]([^/]+)/([^/]+)$ ]]; then
+       owner="${BASH_REMATCH[1]}"
+       repo="${BASH_REMATCH[2]}"
+       remote_repo="${owner}/${repo}"
+   else
+       echo "❌ Cannot parse GitHub repository from remote URL: $remote_url"
+       exit 1
+   fi
+   
+   # Lowercase for case-insensitive comparison
+   remote_repo_lower=$(echo "$remote_repo" | tr '[:upper:]' '[:lower:]')
    ```
 
 2. **Check if it's the upstream repository**:
    ```bash
-   if [ "$remote_repo" = "opendatahub-io/odh-test-plans" ]; then
+   if [ "$remote_repo_lower" = "opendatahub-io/odh-test-plans" ]; then
        echo "❌ You are working directly in the upstream repository."
        echo ""
        echo "You must work from a personal fork to contribute:"

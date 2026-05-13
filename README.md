@@ -60,6 +60,7 @@ Use skills:
 # Auto-uses location from /test-plan-create
 /test-plan-create-cases
 
+# Auto-detects feature from /test-plan-create session
 # Will prompt for publish target (default: opendatahub-io/odh-test-plans)
 /test-plan-publish
 ```
@@ -87,15 +88,20 @@ Each skill includes an `argument-hint` field in its frontmatter for autocomplete
 ### Default Behavior
 
 When you run `/test-plan-create`, it asks where to save artifacts:
-```
+```text
 Where should test plan artifacts be created?
 
-Provide a directory path, or press Enter for: ~/Code/odh-test-plans
+Provide a directory path (e.g., ~/Code/odh-test-plans/plans/<team-name>), or press Enter for: ~/Code/odh-test-plans/plans/
+
+Note: Replace <team-name> with your team name (e.g., ai-hub, dashboard, etc.)
 ```
 
-- **QE Teams**: Work in the shared test plans repository with a fork (`~/Code/odh-test-plans/`)
-- **Contributors**: Use default `~/Code/odh-test-plans` to keep artifacts out of the skill repo
+- **QE Teams**: Provide your team's directory path (e.g., `~/Code/odh-test-plans/plans/ai-hub`)
+- **Contributors**: Use default `~/Code/odh-test-plans/plans/` or any path outside the skill repo
 - **Save Preference**: Optionally save your choice to `.claude/settings.json` for future runs
+
+The skill creates: `<your-path>/<feature-name>/`  
+Example: If you enter `~/Code/odh-test-plans/plans/ai-hub`, it creates `~/Code/odh-test-plans/plans/ai-hub/mcp_catalog/`
 
 ### Session Context
 
@@ -114,17 +120,6 @@ Provide a directory path, or press Enter for: ~/Code/odh-test-plans
    - The skill verifies you're working from a fork, not upstream
 
 **Default publish target**: `opendatahub-io/odh-test-plans`
-
-Test plans are organized by team under `plans/` in the repository:
-```
-~/Code/odh-test-plans/
-└── plans/
-    ├── ai-hub/          # AI Hub team test plans
-    │   ├── mcp_catalog/
-    │   └── ...
-    └── <team-name>/     # Other teams
-        └── ...
-```
 
 ### Contributor Override
 
@@ -163,14 +158,16 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 
 ```bash
 # 1. Generate a test plan from a Jira strategy
-#    Will ask: Where to save artifacts? [~/Code/odh-test-plans]
-#    Saved to: ~/Code/odh-test-plans/plans/<team-name>/<feature>/
+#    Will ask: Where to save artifacts? [~/Code/odh-test-plans/plans/]
+#    Provide your team path, e.g.: ~/Code/odh-test-plans/plans/ai-hub
+#    Creates: ~/Code/odh-test-plans/plans/ai-hub/<feature>/
 /test-plan-create RHAISTRAT-400
 
 # 2. Generate test cases (auto-uses location from step 1)
 /test-plan-create-cases
 
 # 3. Publish to GitHub
+#    Auto-detects feature directory from /test-plan-create session
 #    Verifies you're working from a fork
 #    Creates PR from your-username/odh-test-plans → opendatahub-io/odh-test-plans
 /test-plan-publish

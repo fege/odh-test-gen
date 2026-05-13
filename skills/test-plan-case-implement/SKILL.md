@@ -33,7 +33,7 @@ Examples:
 - `/test-plan-case-implement features/notebooks/RHAISTRAT-400 --target-repo ~/Code/opendatahub-tests`
 
 **Note:** After publishing a test plan, artifacts only exist on the PR branch. Pass the PR URL:
-```
+```bash
 /test-plan-publish
 /test-plan-case-implement https://github.com/opendatahub-io/odh-test-plans/pull/7
 ```

@@ -203,7 +203,9 @@ def phase1_load_tcs(args):
             fail(f"Cannot parse PR number from: {args.test_plan_pr}")
         pr_number = int(m.group(1))
         repo_m = re.search(r'github\.com/([^/]+/[^/]+)/pull', args.test_plan_pr)
-        repo = repo_m.group(1) if repo_m else "opendatahub-io/odh-test-plans" 
+        if not repo_m:
+            fail(f"Cannot parse GitHub repo from: {args.test_plan_pr}")
+        repo = repo_m.group(1)
         # Get PR head SHA and feature directory from PR files
         ref_r = run(["gh", "api", f"repos/{repo}/pulls/{pr_number}", "--jq", ".head.sha"])
         ref = ref_r.stdout.strip() if ref_r.returncode == 0 and ref_r.stdout.strip() else "main"
