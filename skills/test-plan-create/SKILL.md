@@ -274,9 +274,16 @@ After generating the test plan, collect all gaps reported by the three sub-agent
 
 Add the `test-plan-auto-created` label to the source Jira issue to mark that an AI-generated test plan exists. This enables the org-pulse dashboard to track AI involvement in the test planning pipeline.
 
-Use `mcp__atlassian__editJiraIssue` with:
-- issueIdOrKey: `{source_key from frontmatter}`
-- fields: `{ "labels": { "add": ["test-plan-auto-created"] } }`
+Read `source_key` from `<feature_name>/TestPlan.md` frontmatter before stamping:
+```bash
+source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <absolute_path_to_output_dir>/<feature_name>/TestPlan.md source_key)
+```
+
+Then fetch the existing Jira issue with `mcp__atlassian__getJiraIssue`, merge labels in memory, and call `mcp__atlassian__editJiraIssue` with:
+- issueIdOrKey: `{source_key}`
+- fields: `{ "labels": [<existing labels + test-plan-auto-created>] }`
+
+After calling `mcp__atlassian__editJiraIssue`, verify the response (or re-fetch the issue if needed) to confirm `test-plan-auto-created` is present. If the label is not visible or the response shape is unexpected, log a warning and continue.
 
 Label stamping is **non-blocking** — if it fails (e.g., MCP unavailable, insufficient permissions, network error), log a warning and continue to the next step. Do not retry or halt the workflow.
 
@@ -318,17 +325,29 @@ After reading the review verdict from `TestPlanReview.md`, stamp the appropriate
 - Verdict **"Ready"** → add label `test-plan-rubric-pass`
 - Verdict **"Rework"** → add label `test-plan-rubric-fail`
 - Verdict **"Revise"** → do not add a rubric label (intermediate state handled by auto-revision)
+- Any other verdict value → log a warning and skip rubric label stamping
 
-**Check for auto-revision:** If `auto_revised` is `true` in the `TestPlanReview.md` frontmatter, also add `test-plan-auto-revised` to the labels list.
+**Read frontmatter values explicitly before stamping:**
+```bash
+verdict=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <absolute_path_to_output_dir>/<feature_name>/TestPlanReview.md verdict)
+auto_revised=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <absolute_path_to_output_dir>/<feature_name>/TestPlanReview.md auto_revised)
+source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <absolute_path_to_output_dir>/<feature_name>/TestPlan.md source_key)
+```
 
-**Apply labels** using `mcp__atlassian__editJiraIssue` with:
+**Check for auto-revision:** If `auto_revised` is `true`, also add `test-plan-auto-revised` to the labels list.
+
+If `verdict` is not `Ready`, `Rework`, or `Revise`, log a warning and skip stamping in this step.
+
+For valid verdict values, fetch the existing Jira issue with `mcp__atlassian__getJiraIssue`, merge labels in memory, and apply labels using `mcp__atlassian__editJiraIssue` with:
 - issueIdOrKey: `{source_key}`
-- fields: `{ "labels": { "add": [<computed label list>] } }`
+- fields: `{ "labels": [<existing labels + computed label list>] }`
 
 For example, if verdict is "Ready" and auto_revised is true:
+```json
+fields: { "labels": ["existing-label", "test-plan-rubric-pass", "test-plan-auto-revised"] }
 ```
-fields: { "labels": { "add": ["test-plan-rubric-pass", "test-plan-auto-revised"] } }
-```
+
+After calling `mcp__atlassian__editJiraIssue`, verify the response (or re-fetch the issue) to confirm the expected labels are present. If verification fails or the response is unexpected, log a warning and continue.
 
 Label stamping is **non-blocking** — if it fails, log a warning and continue. Do not retry or halt the workflow.
 
