@@ -24,7 +24,7 @@ Update an existing test plan when new information becomes available (ADRs, API s
 ```
 
 Examples:
-- `/test-plan-update ~/Code/collection-tests/mcp_catalog adr.pdf`
+- `/test-plan-update ~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog adr.pdf`
 - `/test-plan-update https://github.com/org/repo/pull/42 api-spec.md design.md`
 - `/test-plan-update https://github.com/org/repo/tree/test-plan/RHAISTRAT-400 requirements-v2.md`
 
@@ -43,7 +43,7 @@ If insufficient arguments are provided, ask the user via AskUserQuestion:
 > **Where is the test plan to update?**
 >
 > You can provide:
-> - Local directory path (e.g., `~/Code/collection-tests/mcp_catalog`)
+> - Local directory path (e.g., `~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog`)
 > - GitHub branch URL (e.g., `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`)
 > - GitHub PR URL (e.g., `https://github.com/org/repo/pull/5`)
 

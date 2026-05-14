@@ -100,10 +100,12 @@ If the MCP tool **is available**, proceed to Step 0.3.
    - If no saved preference:
      > **Where should test plan artifacts be created?**
      >
-     > Provide a directory path, or press Enter for: `~/Code/collection-tests`
+     > Provide a directory path (e.g., `~/Code/opendatahub-test-plans/plans/<team-name>`), or press Enter for: `~/Code/opendatahub-test-plans/plans/`
+     >
+     > Note: Replace `<team-name>` with your team name (e.g., `ai-hub`, `dashboard`, etc.)
 
 4. **Parse user input**:
-   - Empty/Enter → use default (`~/Code/collection-tests`) or saved preference
+   - Empty/Enter → use default (`~/Code/opendatahub-test-plans/plans/`) or saved preference
    - Path provided → use that path
    - Expand `~` to home directory
 

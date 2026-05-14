@@ -54,13 +54,14 @@ uv sync --extra dev
 
 Use skills:
 ```bash
-# Will prompt for artifact location (default: ~/Code/collection-tests)
+# Will prompt for artifact location (default: ~/Code/opendatahub-test-plans)
 /test-plan-create RHAISTRAT-400
 
 # Auto-uses location from /test-plan-create
 /test-plan-create-cases
 
-# Will prompt for publish target (default: fege/collection-tests)
+# Auto-detects feature from /test-plan-create session
+# Will prompt for publish target (default: opendatahub-io/opendatahub-test-plans)
 /test-plan-publish
 ```
 
@@ -87,15 +88,20 @@ Each skill includes an `argument-hint` field in its frontmatter for autocomplete
 ### Default Behavior
 
 When you run `/test-plan-create`, it asks where to save artifacts:
-```
+```text
 Where should test plan artifacts be created?
 
-Provide a directory path, or press Enter for: ~/Code/collection-tests
+Provide a directory path (e.g., ~/Code/opendatahub-test-plans/plans/<team-name>), or press Enter for: ~/Code/opendatahub-test-plans/plans/
+
+Note: Replace <team-name> with your team name (e.g., ai-hub, dashboard, etc.)
 ```
 
-- **QE Teams**: Typically work in their own test plans repository (e.g., `~/Code/opendatahub-test-plans/`)
-- **Contributors**: Use default `~/Code/collection-tests` to keep artifacts out of the skill repo
+- **QE Teams**: Provide your team's directory path (e.g., `~/Code/opendatahub-test-plans/plans/ai-hub`)
+- **Contributors**: Use default `~/Code/opendatahub-test-plans/plans/` or any path outside the skill repo
 - **Save Preference**: Optionally save your choice to `.claude/settings.json` for future runs
+
+The skill creates: `<your-path>/<feature-name>/`  
+Example: If you enter `~/Code/opendatahub-test-plans/plans/ai-hub`, it creates `~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog/`
 
 ### Session Context
 
@@ -103,10 +109,17 @@ Provide a directory path, or press Enter for: ~/Code/collection-tests
 
 ### Publishing
 
-`/test-plan-publish` always publishes to an external repository:
-- Default: `fege/collection-tests`
-- Prevents accidental publishing to the skill repository
-- Automatically detects and switches to the correct directory
+**Fork Workflow Required**: You must work from a personal fork to contribute:
+
+1. **Fork** `opendatahub-io/opendatahub-test-plans` on GitHub to `your-username/opendatahub-test-plans`
+2. **Clone** your fork: `git clone https://github.com/YOUR-USERNAME/opendatahub-test-plans ~/Code/opendatahub-test-plans`
+3. **Create** test plans with `/test-plan-create` (saved in your fork)
+4. **Publish** with `/test-plan-publish`:
+   - Pushes to YOUR fork
+   - Creates PR from your fork → upstream `opendatahub-io/opendatahub-test-plans`
+   - The skill verifies you're working from a fork, not upstream
+
+**Default publish target**: `opendatahub-io/opendatahub-test-plans`
 
 ### Contributor Override
 
@@ -141,16 +154,22 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 
 ### Basic Workflow
 
+**Prerequisites**: Fork and clone `opendatahub-io/opendatahub-test-plans` first (see Publishing section above).
+
 ```bash
 # 1. Generate a test plan from a Jira strategy
-#    Will ask: Where to save artifacts? [~/Code/collection-tests]
+#    Will ask: Where to save artifacts? [~/Code/opendatahub-test-plans/plans/]
+#    Provide your team path, e.g.: ~/Code/opendatahub-test-plans/plans/ai-hub
+#    Creates: ~/Code/opendatahub-test-plans/plans/ai-hub/<feature>/
 /test-plan-create RHAISTRAT-400
 
 # 2. Generate test cases (auto-uses location from step 1)
 /test-plan-create-cases
 
 # 3. Publish to GitHub
-#    Will ask: Where to publish? [fege/collection-tests]
+#    Auto-detects feature directory from /test-plan-create session
+#    Verifies you're working from a fork
+#    Creates PR from your-username/opendatahub-test-plans → opendatahub-io/opendatahub-test-plans
 /test-plan-publish mcp_catalog
 ```
 
@@ -161,10 +180,10 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 /test-plan-create RHAISTRAT-400 /path/to/adr.pdf
 
 # Generate test cases from a GitHub PR (for /test-plan-resolve-feedback workflow)
-/test-plan-create-cases https://github.com/fege/collection-tests/pull/5
+/test-plan-create-cases https://github.com/opendatahub-io/opendatahub-test-plans/pull/5
 
 # Generate test cases for a specific local directory
-/test-plan-create-cases ~/Code/collection-tests/mcp_catalog
+/test-plan-create-cases ~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog
 
 # Publish with specific reviewers
 /test-plan-publish mcp_catalog --reviewers alice,bob
@@ -173,13 +192,13 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 /test-plan-publish mcp_catalog --repo opendatahub-io/test-plans
 
 # Resolve PR review feedback
-/test-plan-resolve-feedback https://github.com/fege/collection-tests/pull/42
+/test-plan-resolve-feedback https://github.com/opendatahub-io/opendatahub-test-plans/pull/42
 
 # Update test plan with new documentation
-/test-plan-update ~/Code/collection-tests/mcp_catalog adr.pdf api-spec.md
+/test-plan-update ~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog adr.pdf api-spec.md
 
 # Update test plan from GitHub PR with new docs
-/test-plan-update https://github.com/fege/collection-tests/pull/42 design-doc.md
+/test-plan-update https://github.com/opendatahub-io/opendatahub-test-plans/pull/42 design-doc.md
 
 # Generate executable test code from test cases
 /test-plan-case-implement mcp_catalog

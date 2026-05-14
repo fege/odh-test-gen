@@ -202,7 +202,8 @@ def test_validate_remote_allows_external():
 
     try:
         os.environ['CLAUDE_SKILL_DIR'] = TEST_SKILL_DIR
-        sys.argv = ['repo.py', 'validate-remote', 'fege/collection-tests']
+        # Use a neutral external repo (not the default publish target to avoid confusion)
+        sys.argv = ['repo.py', 'validate-remote', 'example-org/external-test-repo']
 
         exit_code = repo.main()
         assert exit_code == 0

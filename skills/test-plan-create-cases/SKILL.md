@@ -49,7 +49,7 @@ If no arguments AND no session context, ask the user via AskUserQuestion:
 > **Where is the TestPlan.md located?**
 >
 > You can provide:
-> - Local directory path (e.g., `~/Code/collection-tests/mcp_catalog`)
+> - Local directory path (e.g., `~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog`)
 > - GitHub branch URL (e.g., `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`)
 > - GitHub PR URL (e.g., `https://github.com/org/repo/pull/5`)
 

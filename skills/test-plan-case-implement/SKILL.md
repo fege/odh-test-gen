@@ -27,15 +27,15 @@ Generate executable test automation code (pytest, etc.) from TC-*.md test case s
 
 Examples:
 - `/test-plan-case-implement features/notebooks/RHAISTRAT-400-notebook-spawning`
-- `/test-plan-case-implement https://github.com/fege/collection-tests/pull/7` (GitHub PR)
+- `/test-plan-case-implement https://github.com/opendatahub-io/opendatahub-test-plans/pull/7` (GitHub PR)
 - `/test-plan-case-implement test-plan/RHAISTRAT-400` (GitHub branch)
-- `/test-plan-case-implement https://github.com/fege/collection-tests/pull/7 --test-cases TC-API-001,TC-API-002` (selective)
+- `/test-plan-case-implement https://github.com/opendatahub-io/opendatahub-test-plans/pull/7 --test-cases TC-API-001,TC-API-002` (selective)
 - `/test-plan-case-implement features/notebooks/RHAISTRAT-400 --target-repo ~/Code/opendatahub-tests`
 
 **Note:** After publishing a test plan, artifacts only exist on the PR branch. Pass the PR URL:
-```
+```bash
 /test-plan-publish
-/test-plan-case-implement https://github.com/fege/collection-tests/pull/7
+/test-plan-case-implement https://github.com/opendatahub-io/opendatahub-test-plans/pull/7
 ```
 
 ## Inputs

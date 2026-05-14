@@ -7,9 +7,9 @@ resolution, URL resolution, cluster snapshot) and writes a context file
 that the Claude skill reads to skip setup and jump straight to TC execution.
 
 Usage:
-    python3 ui_prepare.py --test-plan-pr https://github.com/fege/test-plan/pull/5
+    python3 ui_prepare.py --test-plan-pr https://github.com/opendatahub-io/opendatahub-test-plans/pull/5
     python3 ui_prepare.py --test-plan-pr <url> --tc TC-FILTER --priority P0
-    python3 ui_prepare.py --test-plan fege/test-plan/tool_calling_model_catalog   # reads from main
+    python3 ui_prepare.py --test-plan opendatahub-io/opendatahub-test-plans/tool_calling_model_catalog   # reads from main
     python3 ui_prepare.py --target-url https://... --test-plan-pr <url>
     python3 ui_prepare.py --setup
 """
@@ -203,7 +203,9 @@ def phase1_load_tcs(args):
             fail(f"Cannot parse PR number from: {args.test_plan_pr}")
         pr_number = int(m.group(1))
         repo_m = re.search(r'github\.com/([^/]+/[^/]+)/pull', args.test_plan_pr)
-        repo = repo_m.group(1) if repo_m else "fege/collection-tests" 
+        if not repo_m:
+            fail(f"Cannot parse GitHub repo from: {args.test_plan_pr}")
+        repo = repo_m.group(1)
         # Get PR head SHA and feature directory from PR files
         ref_r = run(["gh", "api", f"repos/{repo}/pulls/{pr_number}", "--jq", ".head.sha"])
         ref = ref_r.stdout.strip() if ref_r.returncode == 0 and ref_r.stdout.strip() else "main"
@@ -219,7 +221,7 @@ def phase1_load_tcs(args):
         ref = "main"
     elif args.jira:
         fail("--jira mode is not yet implemented.\n"
-             "  Use --test-plan-pr or --test-plan to load TCs from fege/test-plan.")
+             "  Use --test-plan-pr or --test-plan to load TCs from opendatahub-io/opendatahub-test-plans.")
     else:
         fail("No input mode specified. Use --test-plan-pr, --test-plan, or --jira.")
 

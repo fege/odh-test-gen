@@ -9,7 +9,7 @@ def test_find_testplan_with_multiple_features_uses_branch_hint():
     """
     Verify _find_testplan_in_repo uses branch hint to pick correct feature.
 
-    Scenario: Repo has multiple features (e.g., collection-tests).
+    Scenario: Repo has multiple features (e.g., opendatahub-test-plans).
     When branch is "test-plan/RHAISTRAT-1507", should pick the feature
     with matching source_key in TestPlan.md frontmatter.
     """

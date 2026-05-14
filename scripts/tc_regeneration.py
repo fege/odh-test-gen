@@ -10,7 +10,7 @@ Usage:
     # Exit code: 0 always (informational only)
 
 Examples:
-    uv run python scripts/tc_regeneration.py check ~/Code/collection-tests/mcp_catalog
+    uv run python scripts/tc_regeneration.py check ~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog
 """
 
 import argparse

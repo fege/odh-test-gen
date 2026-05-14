@@ -42,16 +42,16 @@ Usage:
     # Exit code: 0 if success, 1 if uncommitted changes or git error
 
 Examples:
-    uv run python scripts/repo.py find collection-tests
+    uv run python scripts/repo.py find opendatahub-test-plans
     uv run python scripts/repo.py find-known odh-test-context
     uv run python scripts/repo.py find-target opendatahub-io/odh-dashboard
-    uv run python scripts/repo.py clone https://github.com/fege/test-plan ~/Code/test-plan
-    uv run python scripts/repo.py locate-feature-dir ~/Code/collection-tests/mcp_catalog
+    uv run python scripts/repo.py clone https://github.com/opendatahub-io/opendatahub-test-plans ~/Code/opendatahub-test-plans
+    uv run python scripts/repo.py locate-feature-dir ~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog
     uv run python scripts/repo.py locate-feature-dir https://github.com/org/repo/pull/5
     uv run python scripts/repo.py validate-local-path /tmp/test-validation
-    uv run python scripts/repo.py validate-remote fege/collection-tests
-    uv run python scripts/repo.py safe-checkout ~/Code/collection-tests test-plan/RHAISTRAT-400
-    uv run python scripts/repo.py safe-checkout ~/Code/collection-tests test-plan/RHAISTRAT-400 --remote publish-target
+    uv run python scripts/repo.py validate-remote opendatahub-io/opendatahub-test-plans
+    uv run python scripts/repo.py safe-checkout ~/Code/opendatahub-test-plans test-plan/RHAISTRAT-400
+    uv run python scripts/repo.py safe-checkout ~/Code/opendatahub-test-plans test-plan/RHAISTRAT-400 --remote publish-target
 """
 
 import argparse

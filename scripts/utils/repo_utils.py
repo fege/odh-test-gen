@@ -300,7 +300,7 @@ def get_git_remote(path: str) -> Optional[str]:
         path: Directory inside a git repo
 
     Returns:
-        Remote in "owner/repo" format (e.g., "fege/test-plan") or None
+        Remote in "owner/repo" format (e.g., "opendatahub-io/opendatahub-test-plans") or None
     """
     try:
         result = subprocess.run(
