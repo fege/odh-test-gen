@@ -305,10 +305,10 @@ Read `source_key` from `<feature_name>/TestPlan.md` frontmatter before stamping:
 source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <absolute_path_to_output_dir>/<feature_name>/TestPlan.md source_key)
 ```
 
-Then add the label using the `jira_utils.add_labels()` function via a Python one-liner:
+Then add the label using the `add_jira_labels.py` script:
 ```bash
 (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
- uv run python -c "from scripts.jira_utils import add_labels; add_labels('${source_key}', ['test-plan-auto-created'])")
+ uv run python scripts/add_jira_labels.py "$source_key" test-plan-auto-created)
 ```
 
 Label stamping is **non-blocking** — if it fails (e.g., API unavailable, insufficient permissions, network error), log a warning and continue to the next step. Do not retry or halt the workflow.
@@ -363,14 +363,25 @@ source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv ru
 **Build label list and apply:**
 ```bash
 # Build label list based on verdict
-labels="test-plan-rubric-pass"  # or test-plan-rubric-fail
-if [ "$auto_revised" = "true" ]; then
-    labels="$labels,test-plan-auto-revised"
+if [ "$verdict" = "Ready" ]; then
+    rubric_label="test-plan-rubric-pass"
+elif [ "$verdict" = "Rework" ]; then
+    rubric_label="test-plan-rubric-fail"
+else
+    echo "Warning: Unexpected verdict '$verdict', skipping rubric label" >&2
+    rubric_label=""
 fi
 
-# Add labels using Python script
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
- uv run python -c "from scripts.jira_utils import add_labels; add_labels('${source_key}', ['${labels//,/\',\'}'])")
+# Add labels (conditionally include auto-revised)
+if [ -n "$rubric_label" ]; then
+    if [ "$auto_revised" = "true" ]; then
+        (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+         uv run python scripts/add_jira_labels.py "$source_key" "$rubric_label" test-plan-auto-revised)
+    else
+        (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+         uv run python scripts/add_jira_labels.py "$source_key" "$rubric_label")
+    fi
+fi
 ```
 
 Label stamping is **non-blocking** — if it fails, log a warning and continue. Do not retry or halt the workflow.

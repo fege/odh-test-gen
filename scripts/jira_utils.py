@@ -11,7 +11,7 @@ Environment variables:
 import os
 import sys
 import time
-from typing import Any, Dict, Optional
+from typing import Any
 import requests
 
 
@@ -38,8 +38,8 @@ def require_env(var_name: str) -> str:
 def make_request(
     method: str,
     endpoint: str,
-    json_data: Optional[Dict[str, Any]] = None,
-    params: Optional[Dict[str, Any]] = None,
+    json_data: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
 ) -> requests.Response:
     """
     Make an HTTP request to the Jira API.
@@ -78,9 +78,9 @@ def make_request(
 def api_call(
     endpoint: str,
     method: str = "GET",
-    json_data: Optional[Dict[str, Any]] = None,
-    params: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    json_data: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
     """
     Make a Jira API call and return the JSON response.
 
@@ -91,23 +91,28 @@ def api_call(
         params: Optional query parameters
 
     Returns:
-        The JSON response as a dictionary
+        The JSON response as a dictionary, or None for empty responses (e.g., 204 No Content)
 
     Raises:
         requests.HTTPError: If the request fails
     """
     response = make_request(method, endpoint, json_data, params)
+
+    # Handle empty responses (e.g., 204 No Content from PUT/DELETE)
+    if response.status_code == 204 or not response.content:
+        return None
+
     return response.json()
 
 
 def api_call_with_retry(
     endpoint: str,
     method: str = "GET",
-    json_data: Optional[Dict[str, Any]] = None,
-    params: Optional[Dict[str, Any]] = None,
+    json_data: dict[str, Any] | None = None,
+    params: dict[str, Any] | None = None,
     max_retries: int = 3,
     retry_delay: float = 1.0,
-) -> Dict[str, Any]:
+) -> dict[str, Any] | None:
     """
     Make a Jira API call with exponential backoff retry logic.
 
@@ -145,7 +150,7 @@ def api_call_with_retry(
     raise last_exception
 
 
-def get_issue(issue_key: str, fields: Optional[str] = None) -> Dict[str, Any]:
+def get_issue(issue_key: str, fields: str | None = None) -> dict[str, Any]:
     """
     Fetch a Jira issue by key.
 
@@ -167,19 +172,17 @@ def get_issue(issue_key: str, fields: Optional[str] = None) -> Dict[str, Any]:
     return api_call_with_retry(endpoint, params=params)
 
 
-def add_labels(issue_key: str, labels: list[str]) -> Dict[str, Any]:
+def add_labels(issue_key: str, labels: list[str]) -> None:
     """
     Add labels to a Jira issue.
 
     This function fetches the current labels and merges them with the new labels
-    to avoid removing existing labels.
+    to avoid removing existing labels. Preserves label order and only makes API
+    calls when labels actually change.
 
     Args:
         issue_key: The Jira issue key (e.g., 'PROJ-123')
         labels: List of labels to add
-
-    Returns:
-        The updated issue data
 
     Raises:
         requests.HTTPError: If the request fails
@@ -188,11 +191,18 @@ def add_labels(issue_key: str, labels: list[str]) -> Dict[str, Any]:
     issue = get_issue(issue_key, fields="labels")
     existing_labels = issue.get("fields", {}).get("labels", [])
 
-    # Merge labels (remove duplicates)
-    all_labels = list(set(existing_labels + labels))
+    # Merge labels preserving order (append new ones at end, deduplicate)
+    all_labels = existing_labels.copy()
+    for label in labels:
+        if label not in all_labels:
+            all_labels.append(label)
 
-    # Update the issue
+    # Only update if labels actually changed
+    if all_labels == existing_labels:
+        return
+
+    # Update the issue (returns None for 204 No Content)
     endpoint = f"/rest/api/2/issue/{issue_key}"
     update_data = {"fields": {"labels": all_labels}}
 
-    return api_call_with_retry(endpoint, method="PUT", json_data=update_data)
+    api_call_with_retry(endpoint, method="PUT", json_data=update_data)

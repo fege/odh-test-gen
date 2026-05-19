@@ -18,11 +18,11 @@ Examples:
 
 import argparse
 import sys
-from typing import Any, Dict
+from typing import Any
 from scripts.jira_utils import get_issue
 
 
-def format_issue_as_markdown(issue_data: Dict[str, Any]) -> str:
+def format_issue_as_markdown(issue_data: dict[str, Any]) -> str:
     """
     Format Jira issue data as markdown.
 

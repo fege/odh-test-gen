@@ -1,8 +1,8 @@
 """
-Tests for jira_utils module.
+Unit tests for scripts/jira_utils.py
 
-These tests mock the HTTP layer to verify retry logic, error handling,
-and label formatting without making actual API calls.
+Tests Jira REST API client with retry logic, error handling,
+and label merging. Mocks HTTP layer to avoid actual API calls.
 """
 
 import os
@@ -82,6 +82,8 @@ class TestApiCall:
     def test_api_call_returns_json(self, mock_make_request):
         """Test that api_call returns JSON response."""
         mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.content = b'{"key": "TEST-123"}'
         mock_response.json.return_value = {"key": "TEST-123", "fields": {}}
         mock_make_request.return_value = mock_response
 
@@ -91,6 +93,30 @@ class TestApiCall:
         mock_make_request.assert_called_once_with(
             "GET", "/rest/api/2/issue/TEST-123", None, None
         )
+
+    @patch("scripts.jira_utils.make_request")
+    def test_api_call_handles_204_no_content(self, mock_make_request):
+        """Test that api_call handles 204 No Content responses."""
+        mock_response = Mock()
+        mock_response.status_code = 204
+        mock_response.content = b''
+        mock_make_request.return_value = mock_response
+
+        result = api_call("/rest/api/2/issue/TEST-123", method="PUT")
+
+        assert result is None
+
+    @patch("scripts.jira_utils.make_request")
+    def test_api_call_handles_empty_content(self, mock_make_request):
+        """Test that api_call handles empty response content."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.content = b''
+        mock_make_request.return_value = mock_response
+
+        result = api_call("/rest/api/2/issue/TEST-123")
+
+        assert result is None
 
 
 class TestApiCallWithRetry:
@@ -198,9 +224,12 @@ class TestAddLabels:
             "key": "TEST-123",
             "fields": {"labels": []}
         }
-        mock_api_call.return_value = {}
+        mock_api_call.return_value = None  # 204 No Content
 
-        add_labels("TEST-123", ["new-label"])
+        result = add_labels("TEST-123", ["new-label"])
+
+        # Should return None (void function)
+        assert result is None
 
         # Verify the update call
         mock_api_call.assert_called_once_with(
@@ -217,7 +246,7 @@ class TestAddLabels:
             "key": "TEST-123",
             "fields": {"labels": ["existing-label"]}
         }
-        mock_api_call.return_value = {}
+        mock_api_call.return_value = None  # 204 No Content
 
         add_labels("TEST-123", ["new-label"])
 
@@ -234,7 +263,7 @@ class TestAddLabels:
             "key": "TEST-123",
             "fields": {"labels": ["existing-label"]}
         }
-        mock_api_call.return_value = {}
+        mock_api_call.return_value = None  # 204 No Content
 
         add_labels("TEST-123", ["existing-label", "new-label"])
 
@@ -243,3 +272,60 @@ class TestAddLabels:
         labels = call_args[1]["json_data"]["fields"]["labels"]
         assert set(labels) == {"existing-label", "new-label"}
         assert len(labels) == 2
+
+    @patch("scripts.jira_utils.api_call_with_retry")
+    @patch("scripts.jira_utils.get_issue")
+    def test_add_labels_preserves_order(self, mock_get_issue, mock_api_call):
+        """Test that label order is deterministic (existing first, new appended)."""
+        mock_get_issue.return_value = {
+            "key": "TEST-123",
+            "fields": {"labels": ["label-a", "label-b", "label-c"]}
+        }
+        mock_api_call.return_value = None  # 204 No Content
+
+        add_labels("TEST-123", ["label-d", "label-e"])
+
+        # Should preserve existing order and append new labels
+        call_args = mock_api_call.call_args
+        labels = call_args[1]["json_data"]["fields"]["labels"]
+        assert labels == ["label-a", "label-b", "label-c", "label-d", "label-e"]
+
+    @patch("scripts.jira_utils.api_call_with_retry")
+    @patch("scripts.jira_utils.get_issue")
+    def test_add_labels_skips_api_call_when_no_change(self, mock_get_issue, mock_api_call):
+        """Test that no API call is made when all labels already exist."""
+        mock_get_issue.return_value = {
+            "key": "TEST-123",
+            "fields": {"labels": ["existing-label", "another-label"]}
+        }
+
+        add_labels("TEST-123", ["existing-label"])
+
+        # Should NOT call the update API (all labels already present)
+        mock_api_call.assert_not_called()
+
+    @patch("scripts.jira_utils.api_call_with_retry")
+    @patch("scripts.jira_utils.get_issue")
+    def test_add_labels_deterministic_on_retry(self, mock_get_issue, mock_api_call):
+        """Test that repeated calls produce same label order (deterministic)."""
+        mock_get_issue.return_value = {
+            "key": "TEST-123",
+            "fields": {"labels": ["a", "b"]}
+        }
+        mock_api_call.return_value = None
+
+        # First call
+        add_labels("TEST-123", ["c", "d"])
+        first_call_labels = mock_api_call.call_args[1]["json_data"]["fields"]["labels"]
+
+        # Simulate second call (labels now include c, d)
+        mock_get_issue.return_value = {
+            "key": "TEST-123",
+            "fields": {"labels": ["a", "b", "c", "d"]}
+        }
+        mock_api_call.reset_mock()
+
+        add_labels("TEST-123", ["c", "d"])
+
+        # Should not make API call (no change)
+        mock_api_call.assert_not_called()

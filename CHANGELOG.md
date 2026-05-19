@@ -9,12 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Jira integration**: Replaced MCP calls with direct Python scripts for improved cost efficiency and reliability ([#18](https://github.com/opendatahub-io/odh-test-gen/issues/18))
-  - Added `scripts/jira_utils.py` - Jira REST API client with retry logic
+  - Added `scripts/jira_utils.py` - Jira REST API client with retry logic, proper 204 No Content handling, and deterministic label ordering
   - Added `scripts/fetch_issue.py` - CLI tool for fetching issues and converting to markdown
+  - Added `scripts/add_jira_labels.py` - Safe CLI wrapper for adding labels (replaces fragile shell string manipulation)
   - Updated skills to use environment variables (`JIRA_URL`, `JIRA_USER`, `JIRA_TOKEN`) instead of MCP server
-  - Follows same pattern as rfe-creator and strat-creator for consistency
-  - Comprehensive test coverage: 22 new unit tests with mocked HTTP calls
   - No MCP server setup required - works with standard Jira API tokens
+  - Prevents unnecessary API calls by detecting when labels haven't changed
 
 ## [1.0.0] - 2026-05-06
 
