@@ -9,7 +9,6 @@ allowedTools:
   - Bash
   - Glob
   - Skill
-  - mcp__atlassian__getJiraIssue
 ---
 
 # Test Plan Reviewer
@@ -47,13 +46,35 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 1. Read `<feature_dir>/TestPlan.md`
 2. Read frontmatter to extract `source_key`:
    ```bash
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md)
+   source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+                uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md source_key)
    ```
 3. Fetch the source strategy from Jira using the `source_key`:
+   ```bash
+   # Fetch strategy and save to temporary file
+   strategy_file=$(mktemp)
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+    uv run python scripts/fetch_issue.py "$source_key" --output "$strategy_file") || {
+       echo "Warning: Failed to fetch Jira issue, checking for local file..." >&2
+       rm -f "$strategy_file"
+       strategy_file=""
+   }
+
+   # If fetch failed, check for local strategy file
+   if [ -z "$strategy_file" ] || [ ! -f "$strategy_file" ]; then
+       local_file="artifacts/strat-tasks/${source_key}.md"
+       if [ -f "$local_file" ]; then
+           strategy_content=$(cat "$local_file")
+       else
+           echo "Warning: Neither Jira API nor local strategy file available. Grounding and scope fidelity scoring will be degraded." >&2
+           strategy_content=""
+       fi
+   else
+       strategy_content=$(cat "$strategy_file")
+       rm "$strategy_file"
+   fi
    ```
-   mcp__atlassian__getJiraIssue with issueIdOrKey=<source_key>
-   ```
-   If MCP is unavailable, check for a local strategy file in `artifacts/strat-tasks/<source_key>.md` (rfe-creator convention). If neither is available, warn the user that grounding and scope fidelity scoring will be degraded, and proceed with the test plan content only.
+   If neither Jira API nor local file is available, warn the user that grounding and scope fidelity scoring will be degraded, and proceed with the test plan content only.
 
 4. Store the raw strategy text for passing to sub-agents.
 

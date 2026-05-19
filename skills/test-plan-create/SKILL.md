@@ -10,8 +10,6 @@ allowedTools:
   - Bash
   - Glob
   - Skill
-  - mcp__atlassian__getJiraIssue
-  - mcp__atlassian__editJiraIssue
   - AskUserQuestion
 ---
 
@@ -65,16 +63,30 @@ Install the test-plan package (makes all scripts importable):
 
 If installation fails, inform the user and do NOT proceed. Once installed, all Python scripts will work from any directory.
 
-#### 0.2 MCP Integration
+#### 0.2 Jira Environment Variables
 
-Verify that the Atlassian MCP integration is available by attempting to use the `mcp__atlassian__getJiraIssue` tool.
+Verify that Jira API credentials are configured via environment variables:
 
-If the MCP tool is **not available**:
-1. Inform the user that Jira MCP integration is required to fetch strategy details
-2. Ask the user to set up the official Atlassian MCP server (see https://support.atlassian.com/atlassian-rovo-mcp-server/docs/getting-started-with-the-atlassian-remote-mcp-server/)
-3. Do NOT proceed until MCP is available or the user provides a local strategy file from `artifacts/strat-tasks/` as an alternative
+```bash
+# Check for required environment variables
+for var in JIRA_URL JIRA_USER JIRA_TOKEN; do
+    if [ -z "${!var}" ]; then
+        echo "Error: $var environment variable is required" >&2
+        echo "See CONTRIBUTING.md for Jira API setup instructions" >&2
+        exit 1
+    fi
+done
+```
 
-If the MCP tool **is available**, proceed to Step 0.3.
+If any environment variable is missing:
+1. Inform the user that Jira API credentials are required to fetch strategy details
+2. Ask the user to set up environment variables:
+   - `JIRA_URL`: Base URL for the Jira instance (e.g., `https://issues.redhat.com`)
+   - `JIRA_USER`: Username or email for authentication
+   - `JIRA_TOKEN`: API token for authentication
+3. Do NOT proceed until credentials are available or the user provides a local strategy file from `artifacts/strat-tasks/` as an alternative
+
+If environment variables are set, proceed to Step 0.3.
 
 #### 0.3 Determine Output Directory
 
@@ -154,8 +166,20 @@ If the MCP tool **is available**, proceed to Step 0.3.
 
 ### Step 1: Gather Information
 
-1. **Strategy**: If a Jira key was provided, fetch it using `mcp__atlassian__getJiraIssue`. The strategy contains both the technical approach (HOW) and the business need (WHAT/WHY). If auto-detected, read the local file from `artifacts/strat-tasks/`.
-   - Extract `components` from the Jira response (list of RHOAI product component names, e.g., `["AI Hub", "Model Serving"]`)
+1. **Strategy**: If a Jira key was provided, fetch it using the `fetch_issue.py` script. The strategy contains both the technical approach (HOW) and the business need (WHAT/WHY). If auto-detected, read the local file from `artifacts/strat-tasks/`.
+   ```bash
+   # Fetch strategy and save to temporary file
+   strategy_file=$(mktemp)
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+    uv run python scripts/fetch_issue.py <JIRA_KEY> --output "$strategy_file")
+
+   # Read the saved strategy
+   strategy_content=$(cat "$strategy_file")
+
+   # Clean up
+   rm "$strategy_file"
+   ```
+   - Extract `components` from the Jira response by parsing the markdown output (list of RHOAI product component names, e.g., `["AI Hub", "Model Serving"]`)
    - If Components field is empty or missing, set `components = []`
    - Store for use in frontmatter (Step 3.1)
 2. **ADR** (if provided): Read the ADR file for additional technical detail (API endpoints, data models, implementation specifics).
@@ -281,13 +305,13 @@ Read `source_key` from `<feature_name>/TestPlan.md` frontmatter before stamping:
 source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <absolute_path_to_output_dir>/<feature_name>/TestPlan.md source_key)
 ```
 
-Then fetch the existing Jira issue with `mcp__atlassian__getJiraIssue`, merge labels in memory, and call `mcp__atlassian__editJiraIssue` with:
-- issueIdOrKey: `{source_key}`
-- fields: `{ "labels": [<existing labels + test-plan-auto-created>] }`
+Then add the label using the `jira_utils.add_labels()` function via a Python one-liner:
+```bash
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+ uv run python -c "from scripts.jira_utils import add_labels; add_labels('${source_key}', ['test-plan-auto-created'])")
+```
 
-After calling `mcp__atlassian__editJiraIssue`, verify the response (or re-fetch the issue if needed) to confirm `test-plan-auto-created` is present. If the label is not visible or the response shape is unexpected, log a warning and continue.
-
-Label stamping is **non-blocking** — if it fails (e.g., MCP unavailable, insufficient permissions, network error), log a warning and continue to the next step. Do not retry or halt the workflow.
+Label stamping is **non-blocking** — if it fails (e.g., API unavailable, insufficient permissions, network error), log a warning and continue to the next step. Do not retry or halt the workflow.
 
 ### Step 4: Review, Score, and Improve
 
@@ -336,20 +360,18 @@ auto_revised=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv 
 source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <absolute_path_to_output_dir>/<feature_name>/TestPlan.md source_key)
 ```
 
-**Check for auto-revision:** If `auto_revised` is `true`, also add `test-plan-auto-revised` to the labels list.
+**Build label list and apply:**
+```bash
+# Build label list based on verdict
+labels="test-plan-rubric-pass"  # or test-plan-rubric-fail
+if [ "$auto_revised" = "true" ]; then
+    labels="$labels,test-plan-auto-revised"
+fi
 
-If `verdict` is not `Ready`, `Rework`, or `Revise`, log a warning and skip stamping in this step.
-
-For valid verdict values, fetch the existing Jira issue with `mcp__atlassian__getJiraIssue`, merge labels in memory, and apply labels using `mcp__atlassian__editJiraIssue` with:
-- issueIdOrKey: `{source_key}`
-- fields: `{ "labels": [<existing labels + computed label list>] }`
-
-For example, if verdict is "Ready" and auto_revised is true:
-```json
-fields: { "labels": ["existing-label", "test-plan-rubric-pass", "test-plan-auto-revised"] }
+# Add labels using Python script
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+ uv run python -c "from scripts.jira_utils import add_labels; add_labels('${source_key}', ['${labels//,/\',\'}'])")
 ```
-
-After calling `mcp__atlassian__editJiraIssue`, verify the response (or re-fetch the issue) to confirm the expected labels are present. If verification fails or the response is unexpected, log a warning and continue.
 
 Label stamping is **non-blocking** — if it fails, log a warning and continue. Do not retry or halt the workflow.
 

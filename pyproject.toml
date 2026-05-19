@@ -5,6 +5,7 @@ description = "Claude Code skills for generating test plans and test cases"
 requires-python = ">=3.10"
 dependencies = [
     "pyyaml",
+    "requests>=2.31.0",
 ]
 
 [project.optional-dependencies]
