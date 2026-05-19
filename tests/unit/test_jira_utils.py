@@ -306,26 +306,20 @@ class TestAddLabels:
 
     @patch("scripts.jira_utils.api_call_with_retry")
     @patch("scripts.jira_utils.get_issue")
-    def test_add_labels_deterministic_on_retry(self, mock_get_issue, mock_api_call):
-        """Test that repeated calls produce same label order (deterministic)."""
+    def test_add_labels_deterministic_order(self, mock_get_issue, mock_api_call):
+        """Test that label order is deterministic (no set() randomness)."""
         mock_get_issue.return_value = {
             "key": "TEST-123",
-            "fields": {"labels": ["a", "b"]}
+            "fields": {"labels": ["z", "a", "m"]}
         }
         mock_api_call.return_value = None
 
-        # First call
-        add_labels("TEST-123", ["c", "d"])
-        first_call_labels = mock_api_call.call_args[1]["json_data"]["fields"]["labels"]
+        # Add labels
+        add_labels("TEST-123", ["b", "y"])
 
-        # Simulate second call (labels now include c, d)
-        mock_get_issue.return_value = {
-            "key": "TEST-123",
-            "fields": {"labels": ["a", "b", "c", "d"]}
-        }
-        mock_api_call.reset_mock()
+        # Should preserve existing order and append new labels in given order
+        call_args = mock_api_call.call_args
+        labels = call_args[1]["json_data"]["fields"]["labels"]
 
-        add_labels("TEST-123", ["c", "d"])
-
-        # Should not make API call (no change)
-        mock_api_call.assert_not_called()
+        # Verify exact order (not set-based which would be random)
+        assert labels == ["z", "a", "m", "b", "y"]

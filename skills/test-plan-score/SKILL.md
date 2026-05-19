@@ -63,7 +63,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
    # If fetch failed, check for local strategy file
    if [ -z "$strategy_file" ] || [ ! -f "$strategy_file" ]; then
-       local_file="artifacts/strat-tasks/${source_key}.md"
+       local_file="$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)/artifacts/strat-tasks/${source_key}.md"
        if [ -f "$local_file" ]; then
            strategy_content=$(cat "$local_file")
        else

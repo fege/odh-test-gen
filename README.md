@@ -289,7 +289,7 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 - Python 3.10 or higher
 
 ### Required for Specific Features
-- **Jira integration**: Environment variables configured (for `/test-plan-create`):
+- **Jira integration**: Environment variables configured (for `/test-plan-create`, `/test-plan-review`, `/test-plan-score`):
   - `JIRA_URL`: Base URL for your Jira instance (e.g., `https://issues.redhat.com`)
   - `JIRA_USER`: Username or email for authentication
   - `JIRA_TOKEN`: [API token](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/) for authentication

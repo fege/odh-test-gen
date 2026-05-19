@@ -69,6 +69,7 @@ def make_request(
         headers={"Content-Type": "application/json"},
         json=json_data,
         params=params,
+        timeout=60,
     )
 
     response.raise_for_status()
