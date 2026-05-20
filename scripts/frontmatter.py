@@ -205,8 +205,11 @@ def _print_violations(filepath, failures):
           file=sys.stderr)
 
 
-def cmd_lint(args):
-    """Lint the markdown body of a file using pymarkdownlnt."""
+def _load_body_for_lint(args):
+    """Validate file exists, resolve config, and read the markdown body.
+
+    Returns (config_path, body) or exits/returns None on empty body.
+    """
     if not os.path.exists(args.file):
         print(f"Error: {args.file} not found", file=sys.stderr)
         sys.exit(1)
@@ -216,6 +219,15 @@ def cmd_lint(args):
     _, body = read_frontmatter(args.file)
     if not body.strip():
         print(f"OK: {args.file} (no markdown body)")
+        return None, None
+
+    return config_path, body
+
+
+def cmd_lint(args):
+    """Lint the markdown body of a file using pymarkdownlnt."""
+    config_path, body = _load_body_for_lint(args)
+    if body is None:
         return
 
     failures = lint_markdown_body(body, config_path=config_path)
@@ -229,19 +241,12 @@ def cmd_lint(args):
 
 def cmd_fix(args):
     """Auto-fix markdown lint violations where supported."""
-    if not os.path.exists(args.file):
-        print(f"Error: {args.file} not found", file=sys.stderr)
-        sys.exit(1)
-
-    config_path = _resolve_config_path(args.config_file)
+    config_path, body = _load_body_for_lint(args)
+    if body is None:
+        return
 
     with open(args.file, encoding="utf-8") as f:
         original = f.read()
-
-    _, body = read_frontmatter(args.file)
-    if not body.strip():
-        print(f"OK: {args.file} (no markdown body)")
-        return
 
     fixed_body, was_fixed = fix_markdown_body(body, config_path=config_path)
 
