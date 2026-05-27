@@ -95,7 +95,7 @@ The script returns JSON with:
 - `repos_from_frontmatter` (repos from Jira components - highest priority)
 - `odh_test_context_path` (or null if not found)
 
-Extract values from the JSON result as needed for subsequent steps.
+Extract values from the JSON result for subsequent steps.
 
 #### 0.3 Handle odh-test-context if not found
 

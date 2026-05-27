@@ -181,7 +181,7 @@ For each accepted feedback item, apply the change:
   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlan.md <field>=<value>)
   ```
 - If a change affects test cases:
-  - Update existing `TC-*.md` files as needed
+  - Update existing `TC-*.md` files to reflect the feedback
   - **Regenerate `test_cases/INDEX.md` atomically** if test cases were added, removed, or re-prioritized:
     - Scan all TC-*.md files in test_cases/
     - Extract test_case_id, priority, title from each

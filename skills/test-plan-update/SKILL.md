@@ -305,7 +305,7 @@ If `has_test_cases=true` (test cases exist), ask the user via AskUserQuestion:
 
 If user selects option 1:
 - Invoke `/test-plan-create-cases <feature_dir>` to regenerate test cases
-- The skill will update existing TCs and generate new ones as needed
+- The skill will update existing TCs and generate new ones for changed requirements
 
 If user selects option 3:
 - Show summary of TestPlan.md changes (what sections were updated)

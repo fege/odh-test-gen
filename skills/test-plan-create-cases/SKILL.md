@@ -153,7 +153,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
       >
       > Proceed with regeneration? [yes/no]
    
-   c. If **no**: Exit gracefully
+   c. If **no**: Exit without changes
    
    d. If **yes**: Continue to Step 3 with `REGENERATION_MODE=true`
 
@@ -195,7 +195,7 @@ Process **one category at a time** from Section 5.2. For each category:
    - `last_updated`: MUST be quoted string (e.g., "2026-05-04"), not unquoted date
    - If the test plan's Section 7.2 is non-trivial, evaluate `upgrade_phase` for every TC before finalising its frontmatter — including TC-UI-*, TC-E2E-*, and all other categories, not just TC-UPGRADE-*. The question is always the same: does this TC's expected behaviour differ between the old and new version? If yes, set the phase. Do not skip this evaluation for any TC.
    - Write the frontmatter directly — validation happens in Step 5.7
-   - **Important**: In regeneration mode, files were already read in Step 2.5, so Edit/Write will work correctly
+   - **Important**: In regeneration mode, files were already read in Step 2.5, so Edit/Write will succeed
 
 3. **E2E test cases (mandatory)**: After processing all categories, generate TC-E2E-*.md test cases that validate the user journeys defined in the strategy:
    - Every P0 endpoint from Section 4 MUST be covered by at least one E2E scenario
@@ -220,7 +220,7 @@ Process **one category at a time** from Section 5.2. For each category:
 
 This category-by-category approach ensures cross-category awareness (no duplicate coverage) while keeping each batch focused.
 
-**Expected Results quality:** Each Expected Result must be an observable fact that directly confirms the test objective. Avoid vague conclusions ("works correctly", "renders successfully"). Name the specific page state, URL pattern, response code, element, or resource field.
+**Expected Results quality:** Each Expected Result must be an observable fact that directly confirms the test objective. Avoid vague conclusions ("works as expected", "renders successfully"). Name the specific page state, URL pattern, response code, element, or resource field.
 
 Before writing each assertion, ask: **"Is this testing what the TC is fundamentally about, or just a side effect?"** Two patterns follow from this:
 
