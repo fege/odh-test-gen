@@ -20,7 +20,7 @@ try:
 except ImportError:
     print(
         "Error: PyYAML is required but not installed.\n"
-        "Install it with: uv pip install -r requirements.txt",
+        "Install it with: uv sync",
         file=sys.stderr,
     )
     sys.exit(1)

@@ -10,7 +10,7 @@ Test cases with no UI steps are automatically marked BLOCKED; they are not skipp
 |-------------|---------|
 | Python 3.11+ | `brew install python` or system package manager |
 | Playwright | `pip install playwright && playwright install chromium` |
-| pyyaml | `pip install pyyaml` (or `pip install -r requirements.txt`) |
+| pyyaml | `pip install pyyaml` (or `uv sync`) |
 | GitHub CLI | `brew install gh && gh auth login` |
 | Live ODH/RHOAI cluster | Access to `oc login` or credentials in `test-variables.yml` |
 

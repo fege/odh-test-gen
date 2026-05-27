@@ -121,8 +121,9 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 1. Read the template from `${CLAUDE_SKILL_DIR}/test-case-template.md` using the Read tool
 2. Follow this template structure for every generated test case
-3. Omit optional sections (Preconditions, Test Data, Expected Response, Validation) when they are empty or not applicable — do not include empty sections
-4. Always leave **Automation Status** and **Notes** as placeholders — they are filled later in the process
+3. **Line length**: Wrap all prose lines to a maximum of 100 characters. This does not apply to tables, code blocks, or headings — only paragraph text and list items.
+4. Omit optional sections (Preconditions, Test Data, Expected Response, Validation) when they are empty or not applicable — do not include empty sections
+5. Always leave **Automation Status** and **Notes** as placeholders — they are filled later in the process
 
 ### Step 2.5: Detect Regeneration Mode
 

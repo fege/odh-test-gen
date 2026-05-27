@@ -206,6 +206,7 @@ Once all three sub-agents return:
    - We're already in `target_dir` from Step 0.3, so: `mkdir -p <feature_name>/test_cases`
 2. Read the template from `${CLAUDE_SKILL_DIR}/test-plan-template.md` using the Read tool
 3. Generate `<feature_name>/TestPlan.md` by filling in the template with the gathered information. Follow the template structure exactly — do not add, remove, or reorder sections. Do NOT write frontmatter manually — Step 3.1 handles it.
+   - **Line length**: Wrap all prose lines to a maximum of 100 characters. This does not apply to tables, code blocks, or headings — only paragraph text and list items.
 4. For Section 10.2 ({Endpoint/Method} Coverage): fill in the Endpoint column using the endpoints identified in Section 4. Leave the Test Cases and Coverage columns empty — they will be filled later in the process.
 5. Generate `<feature_name>/README.md` with:
    - Feature name and one-line description
