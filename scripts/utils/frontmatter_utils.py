@@ -13,10 +13,12 @@ try:
 except ImportError:
     print(
         "Error: PyYAML is required but not installed.\n"
-        "Install it with: uv pip install -r requirements.txt",
+        "Install it with: uv sync",
         file=sys.stderr,
     )
     sys.exit(1)
+
+from pymarkdown.api import PyMarkdownApi
 
 from .schemas import ValidationError, validate, apply_defaults
 
@@ -143,3 +145,88 @@ def update_frontmatter(path, updates, schema_type):
 
     with open(path, "w", encoding="utf-8") as f:
         f.write(content)
+
+
+# ─── Markdown Linting ─────────────────────────────────────────────────────────
+
+def load_markdownlint_config(config_path):
+    """Load rules from a .markdownlint.yaml config file."""
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+        return config if isinstance(config, dict) else {}
+    except (FileNotFoundError, yaml.YAMLError):
+        return {}
+
+
+def configure_pymarkdown(api, config):
+    """Translate .markdownlint.yaml config into PyMarkdownApi settings."""
+    for rule_id, rule_config in config.items():
+        rule_lower = rule_id.lower()
+
+        if rule_config is False:
+            api.disable_rule_by_identifier(rule_lower)
+            continue
+
+        if isinstance(rule_config, dict):
+            for prop, value in rule_config.items():
+                key = f"plugins.{rule_lower}.{prop}"
+                if isinstance(value, bool):
+                    api.set_boolean_property(key, value)
+                elif isinstance(value, int):
+                    api.set_integer_property(key, value)
+                else:
+                    api.set_string_property(key, str(value))
+
+
+def lint_markdown_body(body, config_path=None):
+    """Lint markdown content using pymarkdownlnt.
+
+    Args:
+        body: markdown string to lint (frontmatter already stripped).
+        config_path: optional path to .markdownlint.yaml config file.
+
+    Returns:
+        list of failure dicts with keys: line, column, rule_id,
+        rule_name, description, extra_info.
+    """
+    api = PyMarkdownApi()
+
+    if config_path:
+        config = load_markdownlint_config(config_path)
+        configure_pymarkdown(api, config)
+
+    result = api.scan_string(body)
+
+    return [
+        {
+            "line": f.line_number,
+            "column": f.column_number,
+            "rule_id": f.rule_id,
+            "rule_name": f.rule_name,
+            "description": f.rule_description,
+            "extra_info": f.extra_error_information or "",
+        }
+        for f in result.scan_failures
+    ]
+
+
+def fix_markdown_body(body, config_path=None):
+    """Auto-fix markdown content where supported by pymarkdownlnt.
+
+    Args:
+        body: markdown string to fix (frontmatter already stripped).
+        config_path: optional path to .markdownlint.yaml config file.
+
+    Returns:
+        (fixed_body, was_fixed) — the corrected string and whether
+        any changes were made.
+    """
+    api = PyMarkdownApi()
+
+    if config_path:
+        config = load_markdownlint_config(config_path)
+        configure_pymarkdown(api, config)
+
+    result = api.fix_string(body)
+    return result.fixed_file, result.was_fixed
