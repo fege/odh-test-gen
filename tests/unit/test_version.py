@@ -1,0 +1,84 @@
+"""Unit tests for scripts/version.py — version management CLI."""
+
+import json
+import sys
+import tempfile
+from datetime import date
+from io import StringIO
+from pathlib import Path
+
+import pytest
+
+from tests.constants import VALID_TEST_PLAN_DATA
+from scripts import version
+from scripts.version import bump_version
+from scripts.utils.frontmatter_utils import write_frontmatter, read_frontmatter
+
+
+def _create_test_plan(tmpdir, ver="1.0.0", body="# Test Plan\n\nBody content.\n"):
+    """Create a TestPlan.md with given version in a temp directory."""
+    path = Path(tmpdir) / "TestPlan.md"
+    data = {**VALID_TEST_PLAN_DATA, "version": ver}
+    write_frontmatter(str(path), data, "test-plan")
+    with open(path, "a", encoding="utf-8") as f:
+        f.write(body)
+    return str(path)
+
+
+class TestBumpVersion:
+    """Unit tests for the bump_version function."""
+
+    @pytest.mark.parametrize("version_in,bump_type,expected", [
+        ("1.0.0", "patch", "1.0.1"),
+        ("1.2.3", "minor", "1.3.0"),
+        ("1.2.3", "major", "2.0.0"),
+    ])
+    def test_bump(self, version_in, bump_type, expected):
+        assert bump_version(version_in, bump_type) == expected
+
+    @pytest.mark.parametrize("version_in,bump_type,error_match", [
+        ("not-a-version", "patch", "Invalid semver"),
+        ("1.0.0", "invalid", "Unknown bump type"),
+    ])
+    def test_bump_raises(self, version_in, bump_type, error_match):
+        with pytest.raises(ValueError, match=error_match):
+            bump_version(version_in, bump_type)
+
+
+class TestVersionCLI:
+    """Tests for bump and set subcommands via CLI."""
+
+    @pytest.mark.parametrize("cli_args,expected_new", [
+        (["bump", "PLACEHOLDER", "patch"], "1.0.1"),
+        (["set", "PLACEHOLDER", "3.0.0"], "3.0.0"),
+    ])
+    def test_outputs_json_and_updates_file(self, cli_args, expected_new):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = _create_test_plan(tmpdir, "1.0.0")
+            cli_args = [a if a != "PLACEHOLDER" else path for a in cli_args]
+
+            old_argv = sys.argv
+            old_stdout = sys.stdout
+
+            try:
+                sys.argv = ["version.py", *cli_args]
+                sys.stdout = StringIO()
+
+                try:
+                    version.main()
+                except SystemExit as e:
+                    assert e.code == 0
+
+                output = sys.stdout.getvalue()
+                result = json.loads(output)
+                assert result["old_version"] == "1.0.0"
+                assert result["new_version"] == expected_new
+
+                data, _ = read_frontmatter(path)
+                assert data["version"] == expected_new
+                assert data["last_updated"] == date.today().isoformat()
+
+            finally:
+                sys.argv = old_argv
+                sys.stdout = old_stdout
+

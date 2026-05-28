@@ -136,6 +136,11 @@ def cmd_set(args):
 
         field_name, value_str = field_value.split("=", 1)
 
+        if field_name == "version":
+            print("Error: use scripts/version.py to manage versions",
+                  file=sys.stderr)
+            sys.exit(1)
+
         if "." in field_name:
             parent, child = field_name.split(".", 1)
             if parent not in schema:
