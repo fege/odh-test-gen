@@ -236,11 +236,11 @@ fi
     feature="<feature_name>" \
     source_key=<JIRA_KEY> \
     source_type=$SOURCE_TYPE \
-    version=1.0.0 \
     status=Draft \
     author="<team_name>" \
     components="<comma-separated component names from Jira, or []>" \
     additional_docs="<comma-separated list of doc links, or []>")
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/version.py set <absolute_path_to_output_dir>/<feature_name>/TestPlan.md 1.0.0)
 ```
 
 - `components`: comma-separated list of component names from Jira Components field (e.g., `"AI Hub,Model Serving"`). Use `[]` if none.

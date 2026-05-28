@@ -58,6 +58,7 @@ SCHEMAS = {
             "type": "string",
             "required": True,
             "pattern": r"^\d+\.\d+\.\d+$",
+            "default": "0.0.0",
         },
         "status": {
             "type": "string",
