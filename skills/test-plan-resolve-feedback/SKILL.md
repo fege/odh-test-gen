@@ -1,6 +1,6 @@
 ---
 name: test-plan-resolve-feedback
-description: Assess PR review comments on a published test plan, let the user decide what to apply, make changes, and push updates to the same branch. Use after receiving PR review feedback to efficiently apply approved changes with human control over what gets updated.
+description: Assess PR review comments on a published test plan, let the user decide what to apply, make changes, and push updates to the same branch. Use when receiving PR review feedback to efficiently apply approved changes with human control over what gets updated.
 argument-hint: <PR_URL>
 user-invocable: true
 model: sonnet
@@ -235,13 +235,23 @@ If any validation fails, fix the issue before proceeding.
 
    If the user declines, leave the changes uncommitted and stop.
 
-2. Stage artifact changes selectively (exclude temp files):
+2. Stage artifact changes selectively (exclude internal working files):
    ```bash
-   git add <feature_dir>/TestPlan.md \
-           <feature_dir>/test_cases/*.md \
-           <feature_dir>/TestPlanGaps.md
-   # Explicitly excludes: .review-state.json and other temp files
+   # Get feature directory name (relative path from repo root)
+   feature_name=$(basename "$feature_dir")
+
+   # Always stage these required files
+   git add $feature_name/TestPlan.md $feature_name/README.md
+
+   # Stage optional files if they exist
+   [ -f $feature_name/TestPlanGaps.md ] && git add $feature_name/TestPlanGaps.md
+   [ -f $feature_name/TestPlanReview.md ] && git add $feature_name/TestPlanReview.md
+
+   # Stage test_cases files if they exist
+   [ -d $feature_name/test_cases ] && git add $feature_name/test_cases/*.md
    ```
+
+   **Important**: This selectively stages only the public artifacts, excluding internal working files like `.review-state.json`, `repo_instructions.md`, `test_implementation_conventions.md`, and `test_scores/` which are meant for internal orchestration only.
 
 3. Commit with a descriptive message that summarizes the actual changes applied, not just "resolve feedback". Use a heredoc to avoid shell injection from frontmatter values:
    ```bash
@@ -250,12 +260,7 @@ If any validation fails, fix the issue before proceeding.
    EOF
    )"
    ```
-   Examples:
-   - `test-plan(RHAISTRAT-400): add rollback test coverage, fix P0 priority definitions (PR #5)`
-   - `test-plan(RHAISTRAT-1262): clarify scope boundaries, add missing DB endpoints (PR #12)`
-   - `test-plan(RHAISTRAT-400): rewrite risk section per reviewer feedback (PR #5)`
-
-   Generate the summary from the list of applied feedback items. Keep it concise — highlight the 2-3 most significant changes.
+   Generate the summary from the list of applied feedback items. Keep it concise — highlight the 2-3 most significant changes. See `skills/commit-examples.md` for examples.
 
 4. Push to the same branch:
    ```bash
@@ -282,10 +287,6 @@ If any validation fails, fix the issue before proceeding.
 
 ### What this skill does NOT do
 
-- Does NOT create the initial test plan — use `/test-plan-create` for that
-- Does NOT create the PR — use `/test-plan-publish` for that
-- Does NOT re-run sub-agent analyzers — if feedback requires deeper re-analysis with new source documents, use `/test-plan-update` (planned)
-- Does NOT change the PR title, description, or reviewers
-- Does NOT blindly apply all feedback — every item is assessed and presented to the user for decision
+See `skills/scope-boundaries.md` for the full list of what this skill explicitly excludes and which skills to use instead.
 
 $ARGUMENTS
