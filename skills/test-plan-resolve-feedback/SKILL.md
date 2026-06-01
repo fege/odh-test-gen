@@ -236,30 +236,35 @@ If any validation fails, fix the issue before proceeding.
    If the user declines, leave the changes uncommitted and stop.
 
 2. Stage artifact changes selectively (exclude internal working files):
+
    ```bash
    # Get feature directory name (relative path from repo root)
    feature_name=$(basename "$feature_dir")
 
    # Always stage these required files
-   git add $feature_name/TestPlan.md $feature_name/README.md
+   git add "$feature_name/TestPlan.md" "$feature_name/README.md"
 
    # Stage optional files if they exist
-   [ -f $feature_name/TestPlanGaps.md ] && git add $feature_name/TestPlanGaps.md
-   [ -f $feature_name/TestPlanReview.md ] && git add $feature_name/TestPlanReview.md
+   [ -f "$feature_name/TestPlanGaps.md" ] && git add "$feature_name/TestPlanGaps.md"
+   [ -f "$feature_name/TestPlanReview.md" ] && git add "$feature_name/TestPlanReview.md"
 
-   # Stage test_cases files if they exist
-   [ -d $feature_name/test_cases ] && git add $feature_name/test_cases/*.md
+   # Stage test_cases markdown files if any exist
+   if [ -d "$feature_name/test_cases" ] && ls "$feature_name"/test_cases/*.md >/dev/null 2>&1; then
+     git add "$feature_name"/test_cases/*.md
+   fi
    ```
 
    **Important**: This selectively stages only the public artifacts, excluding internal working files like `.review-state.json`, `repo_instructions.md`, `test_implementation_conventions.md`, and `test_scores/` which are meant for internal orchestration only.
 
 3. Commit with a descriptive message that summarizes the actual changes applied, not just "resolve feedback". Use a heredoc to avoid shell injection from frontmatter values:
+
    ```bash
    git commit -m "$(cat <<'EOF'
    test-plan(<source_key>): <short summary of changes> (PR #<PR_NUMBER>)
    EOF
    )"
    ```
+
    Generate the summary from the list of applied feedback items. Keep it concise — highlight the 2-3 most significant changes. See `skills/commit-examples.md` for examples.
 
 4. Push to the same branch:
