@@ -18,7 +18,7 @@ Usage:
 
     # Set/update frontmatter on a file (validates before writing)
     python3 scripts/frontmatter.py set mcp_catalog/TestPlan.md \
-        feature="MCP Catalog" source_key=RHAISTRAT-400 version=1 \
+        feature="MCP Catalog" source_key=RHAISTRAT-400 version=1.0.0 \
         status=Draft author="QA Team"
 
     python3 scripts/frontmatter.py set mcp_catalog/test_cases/TC-API-001.md \
@@ -135,6 +135,11 @@ def cmd_set(args):
             sys.exit(1)
 
         field_name, value_str = field_value.split("=", 1)
+
+        if field_name == "version":
+            print("Error: use scripts/version.py to manage versions",
+                  file=sys.stderr)
+            sys.exit(1)
 
         if "." in field_name:
             parent, child = field_name.split(".", 1)
