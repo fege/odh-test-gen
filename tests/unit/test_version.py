@@ -25,6 +25,16 @@ def _create_test_plan(tmpdir, ver="1.0.0", body="# Test Plan\n\nBody content.\n"
     return str(path)
 
 
+def _write_raw_frontmatter(tmpdir, yaml_body):
+    """Write a TestPlan.md with raw YAML frontmatter (no schema validation)."""
+    path = Path(tmpdir) / "TestPlan.md"
+    path.write_text(
+        f"---\n{yaml_body}---\n# Body\n",
+        encoding="utf-8",
+    )
+    return str(path)
+
+
 class TestBumpVersion:
     """Unit tests for the bump_version function."""
 
@@ -43,6 +53,66 @@ class TestBumpVersion:
     def test_bump_raises(self, version_in, bump_type, error_match):
         with pytest.raises(ValueError, match=error_match):
             bump_version(version_in, bump_type)
+
+
+class TestVersionFieldEdgeCases:
+    """Tests for version field handling via CLI."""
+
+    def test_falsy_version_not_treated_as_missing(self):
+        """A falsy version value (e.g. 0) should not be rejected as missing."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = _write_raw_frontmatter(tmpdir, (
+                "feature: Test Feature\n"
+                "source_key: RHAISTRAT-400\n"
+                "version: 0\n"
+                "status: Draft\n"
+                "last_updated: '2026-04-14'\n"
+                "author: QE Team\n"
+            ))
+
+            ver, schema_type = version._read_current_version(path)
+            assert ver == "0"
+            assert schema_type == "test-plan"
+
+
+class TestCmdSetErrorPaths:
+    """Tests for cmd_set error handling."""
+
+    def test_invalid_semver_exits(self):
+        """set with a non-semver string should exit 1."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = _create_test_plan(tmpdir)
+
+            old_argv, old_stdout = sys.argv, sys.stdout
+            try:
+                sys.argv = ["version.py", "set", path, "not-a-version"]
+                sys.stdout = StringIO()
+
+                with pytest.raises(SystemExit) as exc_info:
+                    version.main()
+                assert exc_info.value.code == 1
+            finally:
+                sys.argv, sys.stdout = old_argv, old_stdout
+
+    def test_same_version_signals_no_change(self):
+        """set to the current version should exit 0 with no_change in output."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = _create_test_plan(tmpdir, "1.0.0")
+
+            old_argv, old_stdout = sys.argv, sys.stdout
+            try:
+                sys.argv = ["version.py", "set", path, "1.0.0"]
+                sys.stdout = StringIO()
+
+                with pytest.raises(SystemExit) as exc_info:
+                    version.main()
+                assert exc_info.value.code == 0
+
+                result = json.loads(sys.stdout.getvalue())
+                assert result["no_change"] is True
+                assert result["old_version"] == "1.0.0"
+            finally:
+                sys.argv, sys.stdout = old_argv, old_stdout
 
 
 class TestVersionCLI:

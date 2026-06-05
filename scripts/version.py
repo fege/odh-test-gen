@@ -89,7 +89,7 @@ def _read_current_version(filepath):
         sys.exit(1)
 
     old_version = data.get("version")
-    if not old_version:
+    if old_version is None:
         print(f"Error: no 'version' field in frontmatter of {filepath}",
               file=sys.stderr)
         sys.exit(1)
@@ -135,6 +135,15 @@ def cmd_set(args):
         sys.exit(1)
 
     old_version, schema_type = _read_current_version(args.file)
+
+    if old_version == args.version:
+        print(f"Warning: version already set to {args.version}",
+              file=sys.stderr)
+        json.dump({"old_version": old_version, "new_version": args.version,
+                    "no_change": True}, sys.stdout, indent=2)
+        print()
+        sys.exit(0)
+
     _write_version(args.file, schema_type, args.version)
 
     json.dump({"old_version": old_version, "new_version": args.version},

@@ -18,7 +18,7 @@ Usage:
 
     # Set/update frontmatter on a file (validates before writing)
     python3 scripts/frontmatter.py set mcp_catalog/TestPlan.md \
-        feature="MCP Catalog" source_key=RHAISTRAT-400 version=1 \
+        feature="MCP Catalog" source_key=RHAISTRAT-400 version=1.0.0 \
         status=Draft author="QA Team"
 
     python3 scripts/frontmatter.py set mcp_catalog/test_cases/TC-API-001.md \
