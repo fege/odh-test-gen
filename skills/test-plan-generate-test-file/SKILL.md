@@ -140,7 +140,7 @@ For each TC in `tcs_for_this_file` (sequential):
 
 **Docstring:**
 - Format: `{tc_id}: {objective}`
-- Example: `TC-API-001: Verify metadata returned correctly`
+- Example: `TC-API-001: Verify metadata fields match expected schema`
 
 **Implementation** (AAA pattern):
 - **Arrange**: Setup from preconditions

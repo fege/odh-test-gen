@@ -305,7 +305,7 @@ If `has_test_cases=true` (test cases exist), ask the user via AskUserQuestion:
 
 If user selects option 1:
 - Invoke `/test-plan-create-cases <feature_dir>` to regenerate test cases
-- The skill will update existing TCs and generate new ones as needed
+- The skill will update existing TCs and generate new ones for changed requirements
 
 If user selects option 3:
 - Show summary of TestPlan.md changes (what sections were updated)
@@ -328,15 +328,16 @@ Update the README with:
 
 ### Step 9: Version Bump and Frontmatter Update
 
-1. **Determine version bump**:
-   - Parse current version (e.g., `1.0.0`)
-   - Increment minor version: `1.0.0` → `1.1.0`
-   - If test cases were regenerated, increment: `1.1.0` → `1.2.0`
+1. **Bump version** (minor; if test cases were regenerated, bump twice):
+   ```bash
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/version.py bump <feature_dir>/TestPlan.md minor)
+   ```
+   If test cases were regenerated, run a second minor bump.
+   The script outputs JSON with `old_version` and `new_version`.
 
-2. **Update TestPlan.md frontmatter**:
+2. **Update TestPlan.md frontmatter** (additional_docs and other fields):
    ```bash
    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlan.md \
-       version=$new_version \
        additional_docs="<updated_comma_separated_list>")
    ```
 

@@ -181,7 +181,7 @@ For each accepted feedback item, apply the change:
   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlan.md <field>=<value>)
   ```
 - If a change affects test cases:
-  - Update existing `TC-*.md` files as needed
+  - Update existing `TC-*.md` files to reflect the feedback
   - **Regenerate `test_cases/INDEX.md` atomically** if test cases were added, removed, or re-prioritized:
     - Scan all TC-*.md files in test_cases/
     - Extract test_case_id, priority, title from each
@@ -195,8 +195,9 @@ After all changes are applied:
 
 1. Bump the `version` patch number (e.g., `1.0.0` → `1.0.1`):
    ```bash
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlan.md version="<new_version>")
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/version.py bump <feature_dir>/TestPlan.md patch)
    ```
+   The script outputs JSON with `old_version` and `new_version`.
 
 2. Keep `status` as `In Review`
 

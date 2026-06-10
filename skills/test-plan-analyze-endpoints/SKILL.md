@@ -41,7 +41,7 @@ Identify every testable interface mentioned in the source documents:
 **Critical anti-hallucination rules:**
 - ONLY include endpoints/methods/components that are **explicitly mentioned** in the strategy or ADR
 - Do NOT infer, guess, or fabricate API paths, query parameters, or method signatures
-- If the source documents describe functionality without specifying concrete endpoints, report the functionality and note that endpoint details are pending
+- If the source documents describe functionality without specifying concrete endpoints, report the functionality and state that endpoint details are pending
 - If the ADR provides API specs, use those as the authoritative source for endpoint details
 
 ### 3. Priority Assignment
