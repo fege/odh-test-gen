@@ -247,7 +247,7 @@ unresolved_count=<from_statistics>
 new_count=<from_statistics>
 
 # Validate arithmetic (original - resolved + new = unresolved)
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/validate_gap_counts.py \
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/validate.py gap-counts \
     "$feature_dir" $resolved_count $unresolved_count $new_count)
 
 if [ $? -ne 0 ]; then

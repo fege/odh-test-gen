@@ -29,7 +29,7 @@ import sys
 
 from scripts.detect_components import detect_components
 from scripts.utils.repo_utils import find_known_repo
-from scripts.validate_feature_dir import validate_feature_dir
+from scripts.validate import validate_feature_dir
 
 
 def run_preflight(feature_dir: str) -> str:
