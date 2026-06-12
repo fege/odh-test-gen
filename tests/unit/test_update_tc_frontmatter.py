@@ -8,7 +8,7 @@ import json
 
 from scripts.update_tc_frontmatter import update_tc_frontmatter
 from scripts.utils.frontmatter_utils import read_frontmatter
-from tests.constants import TC_WITH_NON_ALPHABETICAL_FRONTMATTER
+from tests.constants import VALID_TC_CONTENT
 
 
 def test_preserves_frontmatter_field_order(tmp_path):
@@ -19,7 +19,7 @@ def test_preserves_frontmatter_field_order(tmp_path):
     tc_dir.mkdir()
 
     tc_file = tc_dir / "TC-API-001.md"
-    tc_file.write_text(TC_WITH_NON_ALPHABETICAL_FRONTMATTER)
+    tc_file.write_text(VALID_TC_CONTENT)
 
     # Update automation_status field (must use valid enum value from schema)
     updates = [{

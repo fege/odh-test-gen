@@ -355,7 +355,7 @@ scripts/
 ├── repo.py                 # Repository discovery, cloning, validation
 ├── tc_regeneration.py      # Test case regeneration mode detection
 ├── preflight.py            # Unified preflight checks (validation + detection + odh-test-context)
-├── validate_feature_dir.py # Feature directory structure validation
+├── validate.py             # Unified validation CLI (feature-dir, gap-counts, test-cases, all)
 ├── detect_components.py    # Component detection and repository mapping
 ├── filter_test_cases.py    # Filter test cases by automation status
 ├── map_test_files.py       # Map test cases to test files (strategy pattern)
@@ -420,6 +420,7 @@ uv run pytest tests/test_schema_validation.py::TestPlanSchemaValidation::test_fi
 ```
 tests/
 ├── constants.py                      # Shared test data constants
+├── conftest.py                       # Shared fixtures (feature_dir)
 ├── unit/                             # Unit tests (fast, isolated)
 │   ├── test_schema_validation.py     # Schema validation (test-plan, test-case, test-gaps)
 │   ├── test_frontmatter_operations.py # Read, write, update operations
@@ -431,7 +432,7 @@ tests/
 │   ├── test_load_pattern_guides.py   # Pattern guide loading
 │   ├── test_parse_test_score.py      # Score file parsing
 │   ├── test_update_tc_frontmatter.py # Bulk frontmatter updates
-│   ├── test_validate_feature_dir.py  # Directory validation
+│   ├── test_validate.py              # Unified validation (feature-dir, gap-counts, test-cases, all)
 │   ├── test_text_utils.py            # Text sanitization utilities
 │   ├── test_tc_parser_utils.py       # TC category/title extraction
 │   ├── test_repo_cli.py              # Repository CLI tests
@@ -445,5 +446,6 @@ tests/
     ├── test_artifact_utils_validation.py # Review schema validation
     ├── test_filter_for_revision.py   # Revision filter (subprocess)
     ├── test_preserve_review_state.py # State persistence
-    └── test_tc_parser.py             # TC file parsing integration tests
+    ├── test_tc_parser.py             # TC file parsing integration tests
+    └── test_validate_cli.py          # Validation CLI smoke tests
 ```

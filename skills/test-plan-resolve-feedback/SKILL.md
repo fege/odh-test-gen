@@ -209,14 +209,9 @@ After all changes are applied:
 
 ### Step 6: Validate
 
-Run validation on all modified artifacts:
+Run unified validation on all artifacts:
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py validate <feature_dir>/TestPlan.md)
-```
-
-If test cases were modified:
-```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/validate_test_cases.py <feature_dir> test-case)
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/validate.py all <feature_dir>)
 ```
 
 If any validation fails, fix the issue before proceeding.

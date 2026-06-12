@@ -219,8 +219,8 @@ automation_status: Not Started
 - Pipeline rejects the request
 """
 
-# TC file with fields in non-alphabetical order (for formatting tests)
-TC_WITH_NON_ALPHABETICAL_FRONTMATTER = """---
+# Valid TC file with all required fields
+VALID_TC_CONTENT = """---
 test_case_id: TC-API-001
 source_key: RHAISTRAT-1519
 priority: P0

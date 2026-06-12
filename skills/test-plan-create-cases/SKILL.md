@@ -283,7 +283,7 @@ After generating all test case files and updating the test plan, validate covera
 After all test case files are written, validate their frontmatter in one pass:
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/validate_test_cases.py <feature_dir> test-case)
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/validate.py test-cases <feature_dir>)
 ```
 
 If any file fails validation, fix the frontmatter in that file and re-run the validation.

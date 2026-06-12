@@ -101,28 +101,13 @@ if [ "$source_type" = "github" ]; then
 fi
 ```
 
-#### 0.3 Validate artifacts exist
-Check that the feature directory contains at least:
-- `TestPlan.md`
-- `README.md`
-
-If `TestPlanGaps.md` or `test_cases/` exist, they will be included. Do NOT fail if they are absent — the user may publish before generating test cases.
-
-#### 0.4 Validate frontmatter
-Validate the TestPlan.md frontmatter. If validation fails, show the errors and do NOT proceed. The user must fix frontmatter issues before publishing.
+#### 0.3 Validate artifacts and frontmatter
+Run unified validation on the feature directory. This checks structure (TestPlan.md, test_cases/), validates frontmatter for all present artifacts (TestPlan.md, TestPlanGaps.md if exists), and validates test case files (if any). If validation fails, show the errors and do NOT proceed.
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py validate <feature_dir>/TestPlan.md)
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/validate.py all <feature_dir>)
 ```
 
-If `TestPlanGaps.md` exists, validate it too:
-```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py validate <feature_dir>/TestPlanGaps.md)
-```
-
-If `test_cases/TC-*.md` files exist, validate them:
-```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/validate_test_cases.py <feature_dir> test-case)
-```
+Check that `README.md` exists. Do NOT fail if `TestPlanGaps.md` or `test_cases/` are absent — the user may publish before generating test cases.
 
 #### 0.5 Check for clean working state
 Check if there are uncommitted changes in the feature directory. This is informational only — warn the user if there are unstaged changes, but do not block.
