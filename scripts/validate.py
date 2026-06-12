@@ -15,6 +15,7 @@ Usage:
 import argparse
 import json
 import sys
+import yaml
 from pathlib import Path
 
 from scripts.utils.frontmatter_utils import read_frontmatter, read_frontmatter_validated
@@ -58,7 +59,7 @@ def validate_feature_dir(feature_dir: str) -> str:
 
     try:
         testplan_frontmatter, _ = read_frontmatter(str(testplan_path))
-    except Exception as e:
+    except (OSError, yaml.YAMLError, ValueError) as e:
         return json.dumps({
             "valid": False,
             "error": f"Failed to read TestPlan.md frontmatter: {e}",
