@@ -56,7 +56,13 @@ def validate_feature_dir(feature_dir: str) -> str:
             "error": f"No TC-*.md files found in {tc_dir}",
         }, indent=2)
 
-    testplan_frontmatter, _ = read_frontmatter(str(testplan_path))
+    try:
+        testplan_frontmatter, _ = read_frontmatter(str(testplan_path))
+    except Exception as e:
+        return json.dumps({
+            "valid": False,
+            "error": f"Failed to read TestPlan.md frontmatter: {e}",
+        }, indent=2)
     if "components" not in testplan_frontmatter:
         testplan_frontmatter["components"] = []
 
@@ -111,6 +117,9 @@ def validate_test_cases(feature_dir: str, schema_type: str = "test-case") -> dic
     tc_files = list(test_cases_dir.glob("TC-*.md"))
     if not tc_files:
         return {"valid": True, "checked": 0, "failed": 0, "errors": []}
+
+    if not (test_cases_dir / "INDEX.md").exists():
+        return {"valid": False, "checked": 0, "failed": 0, "errors": [{"file": "INDEX.md", "error": "INDEX.md not found in test_cases/"}]}
 
     errors = []
     for f in tc_files:

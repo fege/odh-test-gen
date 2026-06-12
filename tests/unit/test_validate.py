@@ -46,6 +46,18 @@ class TestValidateFeatureDir:
         assert result["valid"] is False
         assert "test_cases" in result["error"]
 
+    def test_malformed_yaml_returns_json_error(self, tmp_path):
+        (tmp_path / "TestPlan.md").write_text("---\n: invalid yaml: [\n---\n")
+        tc_dir = tmp_path / "test_cases"
+        tc_dir.mkdir()
+        (tc_dir / "INDEX.md").write_text("# Index")
+        (tc_dir / "TC-API-001.md").write_text(VALID_TC_CONTENT)
+
+        result = json.loads(validate_feature_dir(str(tmp_path)))
+
+        assert result["valid"] is False
+        assert "error" in result
+
     def test_no_tc_files(self, tmp_path):
         (tmp_path / "TestPlan.md").write_text(VALID_TESTPLAN_CONTENT)
         tc_dir = tmp_path / "test_cases"
@@ -96,6 +108,7 @@ class TestValidateTestCases:
         (tmp_path / "TestPlan.md").write_text(VALID_TESTPLAN_CONTENT)
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
+        (tc_dir / "INDEX.md").write_text("# Index")
         (tc_dir / "TC-API-001.md").write_text("---\ntest_case_id: TC-API-001\n---\n")
 
         result = validate_test_cases(str(tmp_path))
@@ -103,6 +116,16 @@ class TestValidateTestCases:
         assert result["valid"] is False
         assert result["failed"] > 0
         assert len(result["errors"]) > 0
+
+    def test_missing_index_with_tc_files(self, tmp_path):
+        tc_dir = tmp_path / "test_cases"
+        tc_dir.mkdir()
+        (tc_dir / "TC-API-001.md").write_text(VALID_TC_CONTENT)
+
+        result = validate_test_cases(str(tmp_path))
+
+        assert result["valid"] is False
+        assert "INDEX.md" in result["errors"][0]["error"]
 
     def test_no_test_cases_dir(self, tmp_path):
         result = validate_test_cases(str(tmp_path))
