@@ -68,23 +68,13 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 Verify that Jira API credentials are configured via environment variables:
 
 ```bash
-# Check for required environment variables
-for var in JIRA_URL JIRA_USER JIRA_TOKEN; do
-    if [ -z "${!var}" ]; then
-        echo "Error: $var environment variable is required" >&2
-        echo "See CONTRIBUTING.md for Jira API setup instructions" >&2
-        exit 1
-    fi
-done
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python -c "from scripts.jira_utils import require_env; [require_env(v) for v in ('JIRA_URL','JIRA_USER','JIRA_TOKEN')]")
 ```
 
-If any environment variable is missing:
-1. Inform the user that Jira API credentials are required to fetch strategy details
-2. Ask the user to set up environment variables:
+If the check above exits non-zero, **STOP immediately**. Do NOT proceed with the rest of the skill. Do NOT attempt alternative data sources (MCP tools, cached files, web fetches, or any other workaround). Report the error and tell the user to set the missing variables:
    - `JIRA_URL`: Base URL for the Jira instance (e.g., `https://issues.redhat.com`)
    - `JIRA_USER`: Username or email for authentication
    - `JIRA_TOKEN`: API token for authentication
-3. Do NOT proceed until credentials are available or the user provides a local strategy file from `artifacts/strat-tasks/` as an alternative
 
 If environment variables are set, proceed to Step 0.3.
 

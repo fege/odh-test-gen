@@ -30,6 +30,23 @@ VALID_TEST_CASE_DATA = {
     "last_updated": "2026-04-14",
 }
 
+VALID_TEST_PLAN_REVIEW_DATA = {
+    "feature": "Test Feature",
+    "source_key": "RHAISTRAT-400",
+    "score": 8,
+    "pass": True,
+    "verdict": "Ready",
+    "scores": {
+        "specificity": 2,
+        "grounding": 2,
+        "scope_fidelity": 1,
+        "actionability": 2,
+        "consistency": 1,
+    },
+    "auto_revised": False,
+    "last_updated": "2026-04-14",
+}
+
 VALID_TEST_GAPS_DATA = {
     "feature": "Test Feature",
     "source_key": "RHAISTRAT-400",

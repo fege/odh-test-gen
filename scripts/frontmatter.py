@@ -29,8 +29,11 @@ Usage:
         feature="MCP Catalog" source_key=RHAISTRAT-400 \
         status=Open gap_count=3
 
-    # Read and validate frontmatter from a file
+    # Read and validate frontmatter from a file (all fields as JSON)
     python3 scripts/frontmatter.py read mcp_catalog/TestPlan.md
+
+    # Read a single field value
+    python3 scripts/frontmatter.py read mcp_catalog/TestPlan.md source_key
 
     # Validate frontmatter without modifying the file
     python3 scripts/frontmatter.py validate mcp_catalog/TestPlan.md
@@ -113,8 +116,15 @@ def cmd_read(args):
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    json.dump(data, sys.stdout, indent=2, default=str)
-    print()
+    if args.field:
+        if args.field not in data:
+            print(f"Error: field '{args.field}' not found in "
+                  f"frontmatter", file=sys.stderr)
+            sys.exit(1)
+        print(data[args.field])
+    else:
+        json.dump(data, sys.stdout, indent=2, default=str)
+        print()
 
 
 def cmd_set(args):
@@ -313,6 +323,8 @@ def main():
     p_read = subparsers.add_parser("read",
                                    help="Read frontmatter from a file")
     p_read.add_argument("file", help="Path to the markdown file")
+    p_read.add_argument("field", nargs="?", default=None,
+                        help="Single field name to extract (omit for all)")
     p_read.add_argument("--schema-type", dest="schema_type",
                         choices=list(SCHEMAS.keys()),
                         help="Schema type (auto-detected from filename)")
