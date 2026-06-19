@@ -41,6 +41,16 @@ Usage:
     uv run python scripts/repo.py safe-checkout <repo_path> <branch> [--remote <remote_name>]
     # Exit code: 0 if success, 1 if uncommitted changes or git error
 
+    # Fetch all review comments from a PR (conversation + inline, bots filtered)
+    uv run python scripts/repo.py pr-comments <owner/repo> <pr_number>
+    # Outputs JSON: [{"author": "...", "body": "...", "type": "conversation|review|inline", ...}]
+    # Exit code: 0 if success, 1 if gh CLI fails
+
+    # Create a PR or detect an existing one for a branch
+    uv run python scripts/repo.py pr-create <target_repo> <branch> <title> <body> [--reviewers user1,user2]
+    # Outputs JSON: {"pr_url": "...", "pr_number": N, "created": true/false}
+    # Exit code: 0 if success, 1 if gh CLI fails
+
     # Stage, check for changes, and commit test plan artifacts in one call
     uv run python scripts/repo.py publish-artifacts <repo_path> <feature_name> <message>
     # Outputs JSON: {"staged_files": [...], "skipped_files": [...], "committed": true/false, "message": "..."}
@@ -64,6 +74,8 @@ Examples:
     uv run python scripts/repo.py safe-checkout ~/Code/opendatahub-test-plans test-plan/RHAISTRAT-400 --remote publish-target
     uv run python scripts/repo.py publish-artifacts ~/Code/opendatahub-test-plans mcp_catalog "test-plan(RHAISTRAT-400): publish mcp_catalog v1.0.0"
     uv run python scripts/repo.py stage ~/Code/opendatahub-test-plans mcp_catalog
+    uv run python scripts/repo.py pr-create opendatahub-io/opendatahub-test-plans test-plan/RHAISTRAT-400 "Test Plan: mcp_catalog (v1.0.0)" "PR body"
+    uv run python scripts/repo.py pr-comments opendatahub-io/opendatahub-test-plans 10
 """
 
 import argparse
@@ -265,6 +277,152 @@ def publish_artifacts(repo_path, feature_name, message):
         return 1, {**stage_result, "committed": False, "error": f"git commit failed: {e}"}
 
     return 0, {**stage_result, "committed": True, "message": message}
+
+
+def pr_create(target_repo, branch, title, body, reviewers=None):
+    """Create a PR or detect an existing one for the given branch.
+
+    Args:
+        target_repo: Target repository in owner/repo format
+        branch: Branch name (e.g., test-plan/RHAISTRAT-400)
+        title: PR title
+        body: PR body (markdown)
+        reviewers: Comma-separated reviewer usernames (optional)
+
+    Returns:
+        (exit_code, result_dict) where result_dict contains:
+        - pr_url: URL of the created or existing PR
+        - pr_number: PR number
+        - created: bool (True if new PR, False if existing)
+        - error: error message (only on failure)
+    """
+    try:
+        list_result = subprocess.run(
+            ["gh", "pr", "list", "--repo", target_repo, "--head", branch,
+             "--json", "number,url"],
+            capture_output=True, text=True, check=True,
+        )
+        existing = json.loads(list_result.stdout.strip())
+
+        if existing:
+            pr = existing[0]
+            return 0, {
+                "pr_url": pr["url"],
+                "pr_number": pr["number"],
+                "created": False,
+            }
+
+        create_cmd = [
+            "gh", "pr", "create",
+            "--repo", target_repo,
+            "--title", title,
+            "--body", body,
+            "--base", "main",
+            "--head", branch,
+        ]
+        if reviewers:
+            create_cmd.extend(["--reviewer", reviewers])
+
+        create_result = subprocess.run(
+            create_cmd, capture_output=True, text=True, check=True,
+        )
+        pr_url = create_result.stdout.strip()
+        pr_number_match = re.search(r'/pull/(\d+)', pr_url)
+        pr_number = int(pr_number_match.group(1)) if pr_number_match else 0
+        return 0, {
+            "pr_url": pr_url,
+            "pr_number": pr_number,
+            "created": True,
+        }
+
+    except subprocess.CalledProcessError as e:
+        return 1, {"error": f"GitHub CLI failed: {e.stderr or e}"}
+    except (json.JSONDecodeError, KeyError, IndexError) as e:
+        return 1, {"error": f"Failed to parse gh output: {e}"}
+
+
+def pr_comments(repo, pr_number):
+    """Fetch all review comments from a PR.
+
+    Merges conversation comments, formal reviews, and inline comments.
+    Filters out bot accounts (usernames ending with [bot]).
+
+    Args:
+        repo: Repository in owner/repo format
+        pr_number: PR number
+
+    Returns:
+        (exit_code, comments_list) where each comment has:
+        - author: username
+        - body: comment text
+        - type: "conversation", "review", or "inline"
+        - path: file path (inline only)
+        - line: line number (inline only)
+    """
+    try:
+        # Use REST API for conversation comments — preserves [bot] suffix
+        conv_result = subprocess.run(
+            ["gh", "api", f"repos/{repo}/issues/{pr_number}/comments"],
+            capture_output=True, text=True, check=True,
+        )
+        conv_data = json.loads(conv_result.stdout.strip())
+
+        review_result = subprocess.run(
+            ["gh", "api", f"repos/{repo}/pulls/{pr_number}/reviews"],
+            capture_output=True, text=True, check=True,
+        )
+        review_data = json.loads(review_result.stdout.strip())
+
+        # REST API for inline review comments
+        inline_result = subprocess.run(
+            ["gh", "api", f"repos/{repo}/pulls/{pr_number}/comments"],
+            capture_output=True, text=True, check=True,
+        )
+        inline_data = json.loads(inline_result.stdout.strip())
+
+    except subprocess.CalledProcessError as e:
+        return 1, {"error": f"GitHub CLI failed: {e.stderr or e}"}
+    except json.JSONDecodeError as e:
+        return 1, {"error": f"Failed to parse gh output: {e}"}
+
+    comments = []
+
+    for c in conv_data:
+        author = c.get("user", {}).get("login", "")
+        if author.endswith("[bot]"):
+            continue
+        comments.append({
+            "author": author,
+            "body": c.get("body", ""),
+            "type": "conversation",
+        })
+
+    for r in review_data:
+        author = r.get("user", {}).get("login", "")
+        if author.endswith("[bot]"):
+            continue
+        body = r.get("body", "")
+        if not body:
+            continue
+        comments.append({
+            "author": author,
+            "body": body,
+            "type": "review",
+        })
+
+    for ic in inline_data:
+        author = ic.get("user", {}).get("login", "")
+        if author.endswith("[bot]"):
+            continue
+        comments.append({
+            "author": author,
+            "body": ic.get("body", ""),
+            "type": "inline",
+            "path": ic.get("path", ""),
+            "line": ic.get("line"),
+        })
+
+    return 0, comments
 
 
 def safe_checkout_branch(repo_path, branch, remote="origin"):
@@ -546,6 +704,23 @@ def cmd_validate_remote_repo(args):
     return 0
 
 
+def cmd_pr_comments(args):
+    """Fetch all review comments from a PR."""
+    exit_code, result = pr_comments(args.repo, args.pr_number)
+    print(json.dumps(result, indent=2))
+    return exit_code
+
+
+def cmd_pr_create(args):
+    """Create a PR or detect an existing one."""
+    exit_code, result = pr_create(
+        args.target_repo, args.branch, args.title, args.body,
+        reviewers=args.reviewers,
+    )
+    print(json.dumps(result, indent=2))
+    return exit_code
+
+
 def cmd_publish_artifacts(args):
     """Stage test plan artifacts, check for changes, and commit."""
     repo_path = os.path.expanduser(args.repo_path)
@@ -661,6 +836,27 @@ def main():
         help="Remote repository in owner/repo format"
     )
     parser_validate_remote.set_defaults(func=cmd_validate_remote_repo)
+
+    # pr-comments command
+    parser_pr_comments = subparsers.add_parser(
+        "pr-comments",
+        help="Fetch all review comments from a PR"
+    )
+    parser_pr_comments.add_argument("repo", help="Repository (owner/repo)")
+    parser_pr_comments.add_argument("pr_number", type=int, help="PR number")
+    parser_pr_comments.set_defaults(func=cmd_pr_comments)
+
+    # pr-create command
+    parser_pr_create = subparsers.add_parser(
+        "pr-create",
+        help="Create a PR or detect an existing one for a branch"
+    )
+    parser_pr_create.add_argument("target_repo", help="Target repository (owner/repo)")
+    parser_pr_create.add_argument("branch", help="Branch name")
+    parser_pr_create.add_argument("title", help="PR title")
+    parser_pr_create.add_argument("body", help="PR body (markdown)")
+    parser_pr_create.add_argument("--reviewers", help="Comma-separated reviewer usernames")
+    parser_pr_create.set_defaults(func=cmd_pr_create)
 
     # publish-artifacts command
     parser_publish = subparsers.add_parser(

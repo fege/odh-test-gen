@@ -352,7 +352,7 @@ skills/
 
 scripts/
 ├── frontmatter.py          # YAML frontmatter validation and manipulation
-├── repo.py                 # Repository discovery, cloning, validation, artifact publishing
+├── repo.py                 # Repository discovery, cloning, validation, artifact publishing, PR operations
 ├── tc_regeneration.py      # Test case regeneration mode detection
 ├── preflight.py            # Unified preflight checks (validation + detection + odh-test-context)
 ├── validate.py             # Unified validation CLI (feature-dir, gap-counts, test-cases, all)

@@ -69,18 +69,7 @@ repo_path=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run
 
 If found (exit code 0, prints path):
 ```bash
-cd "$repo_path"
-current_branch=$(git branch --show-current)
-
-if [ "$current_branch" = "<head_branch>" ]; then
-    # Already on the PR branch, just pull latest
-    git pull origin <head_branch>
-else
-    # Need to switch to PR branch
-    git fetch origin
-    git checkout <head_branch> 2>/dev/null || git checkout -b <head_branch> origin/<head_branch>
-    git pull origin <head_branch>
-fi
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py safe-checkout "$repo_path" "<head_branch>")
 ```
 - Set `repo_path` to the output
 - Log: "✓ Using local clone: $repo_path (updated)"
@@ -113,23 +102,14 @@ Validate the TestPlan.md frontmatter. If validation fails, show the errors — t
 
 ### Step 1: Collect Review Comments
 
-1. Fetch conversation comments and formal reviews in one call:
+1. Fetch all review comments (conversation + inline, bots filtered):
    ```bash
-   gh pr view <PR_NUMBER> --repo <owner>/<repo> --json comments,reviews
+   comments_json=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py pr-comments "<owner>/<repo>" <PR_NUMBER>)
    ```
 
-2. Fetch inline review comments (comments on specific lines/files):
-   ```bash
-   gh api repos/<owner>/<repo>/pulls/<PR_NUMBER>/comments
-   ```
+   The script returns a JSON array of comments, each with `author`, `body`, `type` (conversation/review/inline), and optional `path`/`line` for inline comments. Bot comments are already filtered.
 
-3. Parse and build a list of all comments with:
-   - **Who**: reviewer username
-   - **Where**: general, or specific file + line
-   - **What**: the comment body
-
-4. Filter out:
-   - Bot comments
+2. From the returned comments, filter out:
    - Purely conversational comments (e.g., "looks good", "thanks", "LGTM")
    - Already-resolved review threads (if resolution status is available)
 

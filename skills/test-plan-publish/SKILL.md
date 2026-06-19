@@ -382,32 +382,14 @@ If the user declines, stop.
    - test_cases/INDEX.md (if exists, with count)
    ```
 
-3. Check if PR already exists for this branch, and create or update accordingly:
+3. Create or detect existing PR:
    ```bash
-   # Check if PR exists for this branch
-   existing_pr=$(gh pr list --repo $target_repo --head test-plan/<source_key> --json number --jq '.[0].number' 2>/dev/null)
-   
-   if [ -n "$existing_pr" ]; then
-       # PR exists - just confirm the push updated it
-       echo "✓ PR #$existing_pr updated with new commits"
-       pr_url=$(gh pr view $existing_pr --repo $target_repo --json url --jq '.url')
-   else
-       # No PR - create new one
-       pr_url=$(gh pr create \
-           --repo $target_repo \
-           --title "Test Plan: <feature> (v<version>)" \
-           --body "$(cat <<'EOF'
-   <pr_body>
-   EOF
-   )" \
-           --base main \
-           --head test-plan/<source_key> \
-           $([ -n "$reviewers" ] && echo "--reviewer $reviewers") \
-           --json url --jq '.url')
-   fi
+   pr_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py pr-create "$target_repo" "test-plan/<source_key>" "Test Plan: <feature> (v<version>)" "<pr_body>" $([ -n "$reviewers" ] && echo "--reviewers $reviewers"))
+   pr_url=$(echo "$pr_result" | jq -r '.pr_url')
+   pr_created=$(echo "$pr_result" | jq -r '.created')
    ```
    
-   **Note**: When updating an existing PR, the new commits are automatically added. The PR title and body are NOT updated (preserving any manual edits reviewers may have made).
+   **Note**: When an existing PR is detected, the new commits are automatically added by the push. The PR title and body are NOT updated (preserving any manual edits reviewers may have made).
 
 ### Step 6: Confirm
 
