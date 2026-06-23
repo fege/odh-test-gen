@@ -188,10 +188,10 @@ fi
    ```bash
    cd <feature_dir>
    remote_url=$(git config --get remote.origin.url)
-   
+
    # Normalize: remove .git suffix and all trailing slashes
    normalized=$(echo "$remote_url" | sed -E 's|\.git$||; s|/+$||')
-   
+
    # Extract owner/repo — portable across bash, zsh, sh, dash, ksh
    if ! echo "$normalized" | grep -qE 'github\.com[:/][^/]+/[^/]+$'; then
        echo "❌ Cannot parse GitHub repository from remote URL: $remote_url"
@@ -200,7 +200,7 @@ fi
    owner=$(echo "$normalized" | sed -E 's|.*github\.com[:/]([^/]+)/[^/]+$|\1|')
    repo=$(echo "$normalized"  | sed -E 's|.*github\.com[:/][^/]+/([^/]+)$|\1|')
    remote_repo="${owner}/${repo}"
-   
+
    # Lowercase for case-insensitive comparison
    remote_repo_lower=$(echo "$remote_repo" | tr '[:upper:]' '[:lower:]')
    ```
@@ -265,7 +265,7 @@ If the user declines, stop.
 
    # Check if we're in the skill repo
    current_repo=$(git rev-parse --show-toplevel 2>/dev/null || echo "")
-   
+
    # Get skill repo root
    skill_parent="${CLAUDE_SKILL_DIR}/../.."
    skill_repo_root=$(cd "$skill_parent" && git rev-parse --show-toplevel 2>/dev/null || echo "")
@@ -301,7 +301,7 @@ If the user declines, stop.
    ```bash
    # Get repo root (feature_dir may be a subdirectory)
    repo_root=$(git -C "$feature_dir" rev-parse --show-toplevel)
-   
+
    # Check if branch exists remotely
    git fetch publish-target main
    if git ls-remote --heads publish-target test-plan/<source_key> | grep -q test-plan/<source_key>; then
@@ -322,7 +322,7 @@ If the user declines, stop.
    fi
    ```
 
-   **Rationale**: 
+   **Rationale**:
    - Version-free branch names (`test-plan/<source_key>`) allow updates to push to the same PR
    - Uses shared `safe-checkout` utility for:
      - Uncommitted changes check (prevents data loss)
@@ -350,7 +350,7 @@ If the user declines, stop.
    ```bash
    git push publish-target test-plan/<source_key>
    ```
-   
+
    **Note**: Always use regular push (not `--force`) since we're either creating a new branch or adding commits on top of an existing one.
 
 6. Clean up the temporary remote:
@@ -390,14 +390,14 @@ If the user declines, stop.
    pr_url=$(echo "$pr_result" | jq -r '.pr_url')
    pr_created=$(echo "$pr_result" | jq -r '.created')
    ```
-   
+
    **Note**: When an existing PR is detected, the new commits are automatically added by the push. The PR title and body are NOT updated (preserving any manual edits reviewers may have made).
 
 ### Step 6: Confirm
 
 1. Display the PR URL to the user
 2. Show a summary:
-   
+
    If **new PR created**:
    > **Published successfully**
    >
@@ -408,7 +408,7 @@ If the user declines, stop.
    > - **Reviewers**: <list or "none assigned">
    >
    > The test plan is now ready for review.
-   
+
    If **existing PR updated**:
    > **PR updated successfully**
    >

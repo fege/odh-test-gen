@@ -19,11 +19,11 @@ def test_finds_and_loads_guides(tmp_path):
     result = load_pattern_guides(str(tmp_path), "pytest")
     data = json.loads(result)
 
-    assert "CLAUDE.md" in data['repo_instructions_files']
-    assert "Repo context" in data['repo_instructions_content']
-    assert ".claude/rules/pytest-tests.md" in data['pattern_guide_files'][0]
-    assert "Pytest patterns" in data['pattern_guide_content']
-    assert data['needs_generation'] is False
+    assert "CLAUDE.md" in data["repo_instructions_files"]
+    assert "Repo context" in data["repo_instructions_content"]
+    assert ".claude/rules/pytest-tests.md" in data["pattern_guide_files"][0]
+    assert "Pytest patterns" in data["pattern_guide_content"]
+    assert data["needs_generation"] is False
 
 
 def test_detects_needs_generation_when_empty(tmp_path):
@@ -31,5 +31,5 @@ def test_detects_needs_generation_when_empty(tmp_path):
     result = load_pattern_guides(str(tmp_path), "pytest")
     data = json.loads(result)
 
-    assert data['needs_generation'] is True
-    assert data['pattern_guide_files'] == []
+    assert data["needs_generation"] is True
+    assert data["pattern_guide_files"] == []

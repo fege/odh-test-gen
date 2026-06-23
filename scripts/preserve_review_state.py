@@ -38,10 +38,9 @@ def _extract_revision_history_from_content(content):
     if content.startswith("---"):
         end = content.find("---", 3)
         if end != -1:
-            content = content[end + 3:].lstrip("\n")
+            content = content[end + 3 :].lstrip("\n")
 
-    match = re.search(r"^## Revision History\s*\n(.*)", content,
-                      re.MULTILINE | re.DOTALL)
+    match = re.search(r"^## Revision History\s*\n(.*)", content, re.MULTILINE | re.DOTALL)
     if not match:
         return ""
 
@@ -49,7 +48,7 @@ def _extract_revision_history_from_content(content):
 
     next_heading = re.search(r"^## ", section, re.MULTILINE)
     if next_heading:
-        section = section[:next_heading.start()]
+        section = section[: next_heading.start()]
 
     return section.strip()
 
@@ -143,8 +142,7 @@ def restore(feature_dir):
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: preserve_review_state.py save|restore <feature_dir>",
-              file=sys.stderr)
+        print("Usage: preserve_review_state.py save|restore <feature_dir>", file=sys.stderr)
         sys.exit(2)
 
     action = sys.argv[1]

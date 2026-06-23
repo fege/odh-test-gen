@@ -8,10 +8,10 @@ record as literals. Also creates ui_tc_log.json if it does not exist.
 Usage:
     python3 ui_read_ctx.py
 """
+
 import json
 import sys
-from pathlib import Path
-from paths import SKILL_DIR, TMP_DIR
+from paths import TMP_DIR
 
 ctx_path = TMP_DIR / "ui_context.json"
 if not ctx_path.exists():
@@ -20,9 +20,18 @@ if not ctx_path.exists():
 
 ctx = json.loads(ctx_path.read_text())
 
-for k in ["target_url", "cluster_api", "username", "idp",
-          "skill_dir", "session_dir", "component", "feature",
-          "browser_cdp", "browser_pid"]:
+for k in [
+    "target_url",
+    "cluster_api",
+    "username",
+    "idp",
+    "skill_dir",
+    "session_dir",
+    "component",
+    "feature",
+    "browser_cdp",
+    "browser_pid",
+]:
     print(f"{k.upper()}={ctx.get(k, '')}")
 
 print(f"TC_COUNT={len(ctx['test_cases'])}")

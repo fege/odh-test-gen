@@ -52,14 +52,14 @@ Parse `$ARGUMENTS` to extract file paths:
 For each TC:
 
 1. **Extract characteristics** by analyzing TC text (preconditions + steps + expected results):
-   
+
    **Test level signals:**
    - `is_unit`: contains "single function", "isolated", "mock", "unit test", "no dependencies"
    - `is_integration`: contains "multiple components", "database", "service", "integration"
    - `is_api`: contains "HTTP", "REST", "API", "endpoint", "/api/"
    - `is_e2e`: contains "end-to-end", "E2E", "user workflow", "full flow", "UI", "browser"
    - `is_contract`: contains "contract test", "API contract", "schema validation"
-   
+
    **Infrastructure requirement signals:**
    - `requires_k8s_api`: contains "Kubernetes", "K8s", "CRD", "Custom Resource", "kubectl", "namespace" (but NOT "full deployment")
    - `requires_cluster`: contains "OpenShift", "cluster", "pod", "deployment" (actual cluster, not just K8s API)

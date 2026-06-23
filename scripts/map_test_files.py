@@ -62,15 +62,17 @@ def _map_one_per_tc(tc_dir: Path, tc_ids: List[str], test_dir: str, _feature_nam
     # Generate mapping
     return [
         {
-            'file_path': f"{test_dir}/test_{tc_id.lower().replace('-', '_')}.py",
-            'test_cases': [tc_id],
-            'function_names': [f"test_{tc_id.lower().replace('-', '_')}"],
+            "file_path": f"{test_dir}/test_{tc_id.lower().replace('-', '_')}.py",
+            "test_cases": [tc_id],
+            "function_names": [f"test_{tc_id.lower().replace('-', '_')}"],
         }
         for tc_id in tc_ids
     ]
 
 
-def _map_by_category(tc_dir: Path, tc_ids: List[str], test_dir: str, feature_name: str, use_subdirs: bool = False) -> List[Dict]:
+def _map_by_category(
+    tc_dir: Path, tc_ids: List[str], test_dir: str, feature_name: str, use_subdirs: bool = False
+) -> List[Dict]:
     """Strategy: Group by category, optionally with subdirectories."""
     category_groups: Dict[str, List[str]] = {}
 
@@ -83,36 +85,35 @@ def _map_by_category(tc_dir: Path, tc_ids: List[str], test_dir: str, feature_nam
     # Generate mapping for each category
     file_mapping = []
     for category, tc_list in category_groups.items():
-        file_path = f"{test_dir}/{category}/test_{feature_name}.py" if use_subdirs else f"{test_dir}/test_{category}_{feature_name}.py"
+        file_path = (
+            f"{test_dir}/{category}/test_{feature_name}.py"
+            if use_subdirs
+            else f"{test_dir}/test_{category}_{feature_name}.py"
+        )
 
-        function_names = [
-            _generate_function_name(tc_dir / f"{tc_id}.md")
-            for tc_id in tc_list
-        ]
+        function_names = [_generate_function_name(tc_dir / f"{tc_id}.md") for tc_id in tc_list]
 
-        file_mapping.append({
-            'file_path': file_path,
-            'test_cases': tc_list,
-            'function_names': function_names,
-        })
+        file_mapping.append(
+            {
+                "file_path": file_path,
+                "test_cases": tc_list,
+                "function_names": function_names,
+            }
+        )
 
     return file_mapping
 
 
 # Strategy dispatch
 _STRATEGIES = {
-    'one-per-tc': _map_one_per_tc,
-    'by-category': partial(_map_by_category, use_subdirs=False),
-    'by-category-with-subdirs': partial(_map_by_category, use_subdirs=True),
+    "one-per-tc": _map_one_per_tc,
+    "by-category": partial(_map_by_category, use_subdirs=False),
+    "by-category-with-subdirs": partial(_map_by_category, use_subdirs=True),
 }
 
 
 def map_test_files(
-    feature_dir: str,
-    tc_ids: List[str],
-    strategy: str,
-    test_dir: str = "tests",
-    feature_name: str = "feature"
+    feature_dir: str, tc_ids: List[str], strategy: str, test_dir: str = "tests", feature_name: str = "feature"
 ) -> str:
     """
     Map test cases to test files based on organization strategy.
@@ -140,19 +141,25 @@ def map_test_files(
 
     file_mapping = strategy_fn(tc_dir, tc_ids, test_dir, feature_name)
 
-    return json.dumps({
-        'file_mapping': file_mapping,
-        'strategy': strategy,
-        'total_test_cases': len(tc_ids),
-        'total_files': len(file_mapping),
-    }, indent=2)
+    return json.dumps(
+        {
+            "file_mapping": file_mapping,
+            "strategy": strategy,
+            "total_test_cases": len(tc_ids),
+            "total_files": len(file_mapping),
+        },
+        indent=2,
+    )
 
 
 def main():
     """CLI entry point."""
     if len(sys.argv) < 4:
-        print("Usage: python scripts/map_test_files.py <feature_dir> <strategy> <test_dir> [--feature-name NAME] [--tc-ids TC1,TC2,...]",
-              file=sys.stderr)
+        print(
+            "Usage: python scripts/map_test_files.py <feature_dir> <strategy>"
+            " <test_dir> [--feature-name NAME] [--tc-ids TC1,TC2,...]",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     feature_dir = sys.argv[1]
@@ -165,11 +172,11 @@ def main():
 
     i = 4
     while i < len(sys.argv):
-        if sys.argv[i] == '--feature-name' and i + 1 < len(sys.argv):
+        if sys.argv[i] == "--feature-name" and i + 1 < len(sys.argv):
             feature_name = sys.argv[i + 1]
             i += 2
-        elif sys.argv[i] == '--tc-ids' and i + 1 < len(sys.argv):
-            tc_ids = sys.argv[i + 1].split(',')
+        elif sys.argv[i] == "--tc-ids" and i + 1 < len(sys.argv):
+            tc_ids = sys.argv[i + 1].split(",")
             i += 2
         else:
             i += 1
@@ -185,5 +192,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

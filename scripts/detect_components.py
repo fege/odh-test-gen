@@ -39,12 +39,10 @@ def detect_components(feature_dir: str) -> str:
 
     # --- Extract frontmatter components ---
     frontmatter, _ = read_frontmatter(str(testplan_path))
-    frontmatter_components_raw = frontmatter.get('components') or []
+    frontmatter_components_raw = frontmatter.get("components") or []
 
     # Preserve original casing (get_repo_for_component handles case-insensitive lookup)
-    frontmatter_components = [
-        c.strip() for c in frontmatter_components_raw if c
-    ]
+    frontmatter_components = [c.strip() for c in frontmatter_components_raw if c]
 
     # --- Extract content components ---
     tc_dir = feature_path / "test_cases"
@@ -52,7 +50,7 @@ def detect_components(feature_dir: str) -> str:
 
     # Use existing extraction logic (returns lowercase)
     indicators = extract_repo_indicators(str(testplan_path), tc_files)
-    content_components = indicators.get('components', [])
+    content_components = indicators.get("components", [])
 
     # --- Merge components (deduplicate case-insensitively, prefer frontmatter casing) ---
     all_components_map = {}
@@ -75,14 +73,17 @@ def detect_components(feature_dir: str) -> str:
     # --- Get repos from frontmatter components (for prioritization) ---
     repos_from_frontmatter = list({repos[c] for c in frontmatter_components if repos.get(c)})
 
-    return json.dumps({
-        'frontmatter_components': frontmatter_components,
-        'content_components': content_components,
-        'all_components': all_components,
-        'repos': repos,
-        'unique_repos': unique_repos,
-        'repos_from_frontmatter': repos_from_frontmatter,
-    }, indent=2)
+    return json.dumps(
+        {
+            "frontmatter_components": frontmatter_components,
+            "content_components": content_components,
+            "all_components": all_components,
+            "repos": repos,
+            "unique_repos": unique_repos,
+            "repos_from_frontmatter": repos_from_frontmatter,
+        },
+        indent=2,
+    )
 
 
 def main():
@@ -104,5 +105,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

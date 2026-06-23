@@ -38,18 +38,24 @@ def _write_raw_frontmatter(tmpdir, yaml_body):
 class TestBumpVersion:
     """Unit tests for the bump_version function."""
 
-    @pytest.mark.parametrize("version_in,bump_type,expected", [
-        ("1.0.0", "patch", "1.0.1"),
-        ("1.2.3", "minor", "1.3.0"),
-        ("1.2.3", "major", "2.0.0"),
-    ])
+    @pytest.mark.parametrize(
+        "version_in,bump_type,expected",
+        [
+            ("1.0.0", "patch", "1.0.1"),
+            ("1.2.3", "minor", "1.3.0"),
+            ("1.2.3", "major", "2.0.0"),
+        ],
+    )
     def test_bump(self, version_in, bump_type, expected):
         assert bump_version(version_in, bump_type) == expected
 
-    @pytest.mark.parametrize("version_in,bump_type,error_match", [
-        ("not-a-version", "patch", "Invalid semver"),
-        ("1.0.0", "invalid", "Unknown bump type"),
-    ])
+    @pytest.mark.parametrize(
+        "version_in,bump_type,error_match",
+        [
+            ("not-a-version", "patch", "Invalid semver"),
+            ("1.0.0", "invalid", "Unknown bump type"),
+        ],
+    )
     def test_bump_raises(self, version_in, bump_type, error_match):
         with pytest.raises(ValueError, match=error_match):
             bump_version(version_in, bump_type)
@@ -61,14 +67,17 @@ class TestVersionFieldEdgeCases:
     def test_falsy_version_not_treated_as_missing(self):
         """A falsy version value (e.g. 0) should not be rejected as missing."""
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = _write_raw_frontmatter(tmpdir, (
-                "feature: Test Feature\n"
-                "source_key: RHAISTRAT-400\n"
-                "version: 0\n"
-                "status: Draft\n"
-                "last_updated: '2026-04-14'\n"
-                "author: QE Team\n"
-            ))
+            path = _write_raw_frontmatter(
+                tmpdir,
+                (
+                    "feature: Test Feature\n"
+                    "source_key: RHAISTRAT-400\n"
+                    "version: 0\n"
+                    "status: Draft\n"
+                    "last_updated: '2026-04-14'\n"
+                    "author: QE Team\n"
+                ),
+            )
 
             ver, schema_type = version._read_current_version(path)
             assert ver == "0"
@@ -118,10 +127,13 @@ class TestCmdSetErrorPaths:
 class TestVersionCLI:
     """Tests for bump and set subcommands via CLI."""
 
-    @pytest.mark.parametrize("cli_args,expected_new", [
-        (["bump", "PLACEHOLDER", "patch"], "1.0.1"),
-        (["set", "PLACEHOLDER", "3.0.0"], "3.0.0"),
-    ])
+    @pytest.mark.parametrize(
+        "cli_args,expected_new",
+        [
+            (["bump", "PLACEHOLDER", "patch"], "1.0.1"),
+            (["set", "PLACEHOLDER", "3.0.0"], "3.0.0"),
+        ],
+    )
     def test_outputs_json_and_updates_file(self, cli_args, expected_new):
         with tempfile.TemporaryDirectory() as tmpdir:
             path = _create_test_plan(tmpdir, "1.0.0")
@@ -151,4 +163,3 @@ class TestVersionCLI:
             finally:
                 sys.argv = old_argv
                 sys.stdout = old_stdout
-

@@ -53,26 +53,28 @@ def filter_test_cases(feature_dir: str, tc_ids: List[str]) -> str:
         frontmatter, _ = read_frontmatter(str(tc_file))
 
         # Check automation_status
-        automation_status = frontmatter.get('automation_status', '').strip().lower()
+        automation_status = frontmatter.get("automation_status", "").strip().lower()
 
         # Consider 'implemented' as already done
-        if automation_status == 'implemented':
+        if automation_status == "implemented":
             already_implemented.append(tc_id)
         else:
             # All other statuses (Not Started, In Progress, null, etc.) need implementation
             to_implement.append(tc_id)
 
-    return json.dumps({
-        'to_implement': to_implement,
-        'already_implemented': already_implemented,
-    }, indent=2)
+    return json.dumps(
+        {
+            "to_implement": to_implement,
+            "already_implemented": already_implemented,
+        },
+        indent=2,
+    )
 
 
 def main():
     """CLI entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python scripts/filter_test_cases.py <feature_dir> [tc_id ...]",
-              file=sys.stderr)
+        print("Usage: python scripts/filter_test_cases.py <feature_dir> [tc_id ...]", file=sys.stderr)
         sys.exit(1)
 
     feature_dir = sys.argv[1]
@@ -89,5 +91,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

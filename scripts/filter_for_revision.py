@@ -44,17 +44,13 @@ def filter_for_revision(feature_dir: str) -> str:
     scores = data.get("scores", {})
 
     if before_score is not None and score < before_score:
-        update_frontmatter(review_path,
-                           {"error": f"score_regression:{before_score}->{score}"},
-                           "test-plan-review")
+        update_frontmatter(review_path, {"error": f"score_regression:{before_score}->{score}"}, "test-plan-review")
         return "SKIP"
 
-    criteria = ("specificity", "grounding", "scope_fidelity",
-                "actionability", "consistency")
+    criteria = ("specificity", "grounding", "scope_fidelity", "actionability", "consistency")
     if not isinstance(scores, dict):
         return "SKIP"
-    if not any(isinstance(scores.get(k), int) and scores.get(k) < 2
-               for k in criteria):
+    if not any(isinstance(scores.get(k), int) and scores.get(k) < 2 for k in criteria):
         return "SKIP"
 
     return "REVISE"

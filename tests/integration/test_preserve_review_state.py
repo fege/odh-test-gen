@@ -34,11 +34,7 @@ def _write_review(feature_dir, revision_history):
     review_path = os.path.join(feature_dir, "TestPlanReview.md")
     with open(review_path, "w", encoding="utf-8") as f:
         f.write(
-            "## Test Plan Review\n\n"
-            "## Revision History\n"
-            f"{revision_history}\n\n"
-            "## Notes\n"
-            "- review body placeholder\n"
+            f"## Test Plan Review\n\n## Revision History\n{revision_history}\n\n## Notes\n- review body placeholder\n"
         )
     write_frontmatter(review_path, _base_review_payload(), "test-plan-review")
     return review_path
@@ -99,11 +95,7 @@ class TestPreserveReviewState(unittest.TestCase):
 
     def test_restore_does_not_duplicate_history_when_already_prefixed(self):
         saved_history = "### Cycle 1 Revision\n- tightened scope fidelity notes"
-        current_history = (
-            f"{saved_history}\n\n"
-            "### Cycle 2 Reassessment\n"
-            "- no further changes needed"
-        )
+        current_history = f"{saved_history}\n\n### Cycle 2 Reassessment\n- no further changes needed"
         review_path = _write_review(self.tempdir, current_history)
         _write_state(self.tempdir, saved_history)
 

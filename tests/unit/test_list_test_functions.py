@@ -30,12 +30,12 @@ def test_delete_notebook():
     result = list_test_functions(str(test_file))
     data = json.loads(result)
 
-    assert len(data['functions']) == 2
-    assert data['functions'][0]['name'] == 'test_create_notebook'
-    assert data['functions'][0]['line'] == 2
-    assert data['functions'][0]['docstring'] == 'Test notebook creation via API.'
-    assert data['functions'][1]['name'] == 'test_delete_notebook'
-    assert data['functions'][1]['docstring'] is None
+    assert len(data["functions"]) == 2
+    assert data["functions"][0]["name"] == "test_create_notebook"
+    assert data["functions"][0]["line"] == 2
+    assert data["functions"][0]["docstring"] == "Test notebook creation via API."
+    assert data["functions"][1]["name"] == "test_delete_notebook"
+    assert data["functions"][1]["docstring"] is None
 
 
 def test_handles_missing_file(tmp_path):

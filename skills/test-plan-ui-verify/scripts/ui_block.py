@@ -8,24 +8,25 @@ feature not deployed). Never substitute — always block with an exact reason.
 Usage:
     python3 ui_block.py --tc <TC_ID> --reason "<specific reason>"
 """
+
 import argparse
 import json
 import sys
-from pathlib import Path
 
-from paths import SKILL_DIR, TMP_DIR
-TC_LOG    = SKILL_DIR / ".tmp" / "ui_tc_log.json"
+from paths import SKILL_DIR
+
+TC_LOG = SKILL_DIR / ".tmp" / "ui_tc_log.json"
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--tc",         required=True, help="TC ID e.g. TC-E2E-003")
-    parser.add_argument("--title",      default="",   help="Human-readable TC title (stored in log for report)")
-    parser.add_argument("--reason",     required=True, help="Specific reason this step is blocked")
-    parser.add_argument("--what",       default="",   help="Optional: what was being attempted")
-    parser.add_argument("--incomplete", action="store_true",
-                        help="Mark TC as INCOMPLETE — execution was interrupted before finishing")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--tc", required=True, help="TC ID e.g. TC-E2E-003")
+    parser.add_argument("--title", default="", help="Human-readable TC title (stored in log for report)")
+    parser.add_argument("--reason", required=True, help="Specific reason this step is blocked")
+    parser.add_argument("--what", default="", help="Optional: what was being attempted")
+    parser.add_argument(
+        "--incomplete", action="store_true", help="Mark TC as INCOMPLETE — execution was interrupted before finishing"
+    )
     args = parser.parse_args()
 
     log = {}
@@ -51,12 +52,14 @@ def main() -> int:
     log[args.tc]["blocked_reason"] = args.reason
 
     if args.what:
-        log[args.tc]["assertions"].append({
-            "checked":  args.what,
-            "expected": "Step executable",
-            "result":   "BLOCKED",
-            "detail":   args.reason,
-        })
+        log[args.tc]["assertions"].append(
+            {
+                "checked": args.what,
+                "expected": "Step executable",
+                "result": "BLOCKED",
+                "detail": args.reason,
+            }
+        )
 
     TC_LOG.parent.mkdir(parents=True, exist_ok=True)
     TC_LOG.write_text(json.dumps(log, indent=2))

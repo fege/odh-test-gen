@@ -4,8 +4,6 @@ Unit tests for scripts/utils/text_utils.py
 Tests text transformation utilities.
 """
 
-import pytest
-
 from scripts.utils.text_utils import sanitize_to_snake_case
 
 

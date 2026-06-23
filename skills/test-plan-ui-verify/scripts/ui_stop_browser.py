@@ -7,14 +7,15 @@ Reads the browser PID from ui_context.json and sends SIGTERM.
 Usage:
     python3 ui_stop_browser.py
 """
+
 import json
 import os
 import signal
 import sys
-from pathlib import Path
 
-from paths import SKILL_DIR, TMP_DIR
-ctx_path  = SKILL_DIR / ".tmp" / "ui_context.json"
+from paths import SKILL_DIR
+
+ctx_path = SKILL_DIR / ".tmp" / "ui_context.json"
 
 if not ctx_path.exists():
     print("No context found — browser already stopped or never started.")

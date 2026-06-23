@@ -10,6 +10,7 @@ Usage:
 Run this whenever the dashboard source changes significantly.
 The output is committed to the skill repo and used at runtime — no snapshot needed.
 """
+
 import argparse
 import re
 import subprocess
@@ -25,24 +26,21 @@ except ImportError:
 
 # Map file paths to logical section names
 SECTION_PATTERNS = [
-    (r"model.catalog|modelCatalog|ai.hub|aiHub",                   "catalog"),
-    (r"pipeline|Pipeline",                                          "pipelines"),
-    (r"model.serving|modelServing|inference|InferenceService",      "model-serving"),
-    (r"model.registry|modelRegistry",                               "model-registry"),
-    (r"notebook|Notebook|spawner|Spawner|workbench|Workbench",      "workbenches"),
-    (r"project|Project",                                            "projects"),
-    (r"connection|Connection",                                      "connections"),
-    (r"cluster.setting|ClusterSetting|settings|Settings",          "cluster-settings"),
-    (r"distributed.workload|DistributedWorkload",                   "distributed-workloads"),
-    (r"gen.ai|GenAI|chat|Chat|playground|Playground",               "gen-ai"),
-    (r"model.training|ModelTraining",                               "model-training"),
+    (r"model.catalog|modelCatalog|ai.hub|aiHub", "catalog"),
+    (r"pipeline|Pipeline", "pipelines"),
+    (r"model.serving|modelServing|inference|InferenceService", "model-serving"),
+    (r"model.registry|modelRegistry", "model-registry"),
+    (r"notebook|Notebook|spawner|Spawner|workbench|Workbench", "workbenches"),
+    (r"project|Project", "projects"),
+    (r"connection|Connection", "connections"),
+    (r"cluster.setting|ClusterSetting|settings|Settings", "cluster-settings"),
+    (r"distributed.workload|DistributedWorkload", "distributed-workloads"),
+    (r"gen.ai|GenAI|chat|Chat|playground|Playground", "gen-ai"),
+    (r"model.training|ModelTraining", "model-training"),
 ]
 
 # Patterns to skip (too generic or internal)
-SKIP_PATTERNS = re.compile(
-    r'^(app-|test-|mock-|story-|example-|placeholder|loading|spinner|skeleton)',
-    re.IGNORECASE
-)
+SKIP_PATTERNS = re.compile(r"^(app-|test-|mock-|story-|example-|placeholder|loading|spinner|skeleton)", re.IGNORECASE)
 
 
 def classify_file(filepath: str) -> str:
@@ -55,9 +53,9 @@ def classify_file(filepath: str) -> str:
 def extract_testids(source_dir: Path) -> dict:
     """Grep the source for data-testid attributes and return classified results."""
     result = subprocess.run(
-        ["grep", "-r", "--include=*.tsx", "--include=*.ts",
-         "-n", "data-testid", str(source_dir)],
-        capture_output=True, text=True
+        ["grep", "-r", "--include=*.tsx", "--include=*.ts", "-n", "data-testid", str(source_dir)],
+        capture_output=True,
+        text=True,
     )
 
     sections = defaultdict(dict)
@@ -93,12 +91,9 @@ def extract_testids(source_dir: Path) -> dict:
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--source", required=True,
-                        help="Path to odh-dashboard repo root (e.g. /path/to/odh-dashboard)")
-    parser.add_argument("--out", default=None,
-                        help="Output file path (default: element-map.yaml next to this script)")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--source", required=True, help="Path to odh-dashboard repo root (e.g. /path/to/odh-dashboard)")
+    parser.add_argument("--out", default=None, help="Output file path (default: element-map.yaml next to this script)")
     args = parser.parse_args()
 
     source = Path(args.source)
@@ -131,18 +126,15 @@ def main():
     out_path = Path(args.out) if args.out else Path(__file__).parent.parent / "element-map.yaml"
 
     # Sort sections and keys for stable output
-    sorted_map = {
-        section: dict(sorted(items.items()))
-        for section, items in sorted(all_sections.items())
-    }
+    sorted_map = {section: dict(sorted(items.items())) for section, items in sorted(all_sections.items())}
 
     # Stamp with dashboard git commit for staleness tracking
     commit_r = subprocess.run(
-        ["git", "-C", str(source), "rev-parse", "--short", "HEAD"],
-        capture_output=True, text=True
+        ["git", "-C", str(source), "rev-parse", "--short", "HEAD"], capture_output=True, text=True
     )
     commit = commit_r.stdout.strip() if commit_r.returncode == 0 else "unknown"
     from datetime import datetime
+
     generated_at = datetime.now().strftime("%Y-%m-%d")
 
     header = (

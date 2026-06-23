@@ -1,0 +1,27 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+      - id: end-of-file-fixer
+      - id: check-ast
+      - id: check-builtin-literals
+      - id: check-toml
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.18
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/PyCQA/flake8
+    rev: "7.3.0"
+    hooks:
+      - id: flake8
+        args: [--config=.flake8]
+        additional_dependencies:
+          - "git+https://github.com/RedHatQE/flake8-plugins.git@361be2c5b72dfd3a72a4e1babe5da84953e7bd84"  # v0.0.6

@@ -46,48 +46,46 @@ def parse_tc_file(tc_file_path: str, read_frontmatter_func) -> Dict:
     sections = _parse_sections(full_body)
 
     # Extract mandatory: Objective
-    objective = _extract_objective_text(sections.get('Objective', ''))
+    objective = _extract_objective_text(sections.get("Objective", ""))
     if not objective:
         raise ValueError(f"{tc_file_path}: Missing or empty **Objective**")
 
     # Extract mandatory: Preconditions (bullet list)
-    preconditions = _extract_bullet_list(sections.get('Preconditions', ''))
+    preconditions = _extract_bullet_list(sections.get("Preconditions", ""))
     if not preconditions:
         raise ValueError(f"{tc_file_path}: Missing or empty **Preconditions**")
 
     # Extract mandatory: Test Steps (numbered list)
-    test_steps = _extract_numbered_list(sections.get('Test Steps', ''))
+    test_steps = _extract_numbered_list(sections.get("Test Steps", ""))
     if not test_steps:
         raise ValueError(f"{tc_file_path}: Missing or empty **Test Steps**")
 
     # Extract mandatory: Expected Results (bullet list)
-    expected_results = _extract_bullet_list(sections.get('Expected Results', ''))
+    expected_results = _extract_bullet_list(sections.get("Expected Results", ""))
     if not expected_results:
         raise ValueError(f"{tc_file_path}: Missing or empty **Expected Results**")
 
     # Build body with only optional sections (not parsed, kept as-is)
-    optional_sections = ['Test Data', 'Expected Response', 'Validation', 'Notes']
+    optional_sections = ["Test Data", "Expected Response", "Validation", "Notes"]
     body_parts = []
     for section_name in optional_sections:
         if section_name in sections and sections[section_name].strip():
             # Keep section header + content as-is
             body_parts.append(f"**{section_name}**:\n{sections[section_name]}")
 
-    body = '\n\n'.join(body_parts)
+    body = "\n\n".join(body_parts)
 
     # Build result
     return {
         # All frontmatter fields
         **frontmatter,
-
         # Mandatory extracted sections
-        'objective': objective,
-        'preconditions': preconditions,
-        'test_steps': test_steps,
-        'expected_results': expected_results,
-
+        "objective": objective,
+        "preconditions": preconditions,
+        "test_steps": test_steps,
+        "expected_results": expected_results,
         # Unparsed remainder (optional sections only)
-        'body': body,
+        "body": body,
     }
 
 
@@ -112,7 +110,7 @@ def _parse_sections(body: str) -> Dict[str, str]:
 
     # Pattern: **SectionName**: (allows spaces in name)
     # Matches: **Objective**:, **Test Steps**:, **Expected Results**:
-    section_pattern = r'\*\*([A-Z][A-Za-z ]+)\*\*:\s*'
+    section_pattern = r"\*\*([A-Z][A-Za-z ]+)\*\*:\s*"
 
     # Find all section headers with their positions
     matches = list(re.finditer(section_pattern, body))
@@ -173,7 +171,7 @@ def _extract_bullet_list(section_content: str) -> List[str]:
     items = []
     current_item = None
 
-    for line in section_content.split('\n'):
+    for line in section_content.split("\n"):
         stripped = line.strip()
 
         # Empty line - end current item
@@ -184,7 +182,7 @@ def _extract_bullet_list(section_content: str) -> List[str]:
             continue
 
         # New bullet item
-        if stripped.startswith('- ') or stripped.startswith('* '):
+        if stripped.startswith("- ") or stripped.startswith("* "):
             # Save previous item
             if current_item:
                 items.append(current_item.strip())
@@ -193,7 +191,7 @@ def _extract_bullet_list(section_content: str) -> List[str]:
 
         # Continuation line (no bullet, part of current item)
         elif current_item is not None:
-            current_item += ' ' + stripped
+            current_item += " " + stripped
 
         # Text before first bullet (ignore - shouldn't happen in well-formed TC)
         else:
@@ -228,7 +226,7 @@ def _extract_numbered_list(section_content: str) -> List[str]:
     items = []
     current_item = None
 
-    for line in section_content.split('\n'):
+    for line in section_content.split("\n"):
         stripped = line.strip()
 
         # Empty line - end current item
@@ -239,16 +237,16 @@ def _extract_numbered_list(section_content: str) -> List[str]:
             continue
 
         # New numbered item (matches: '1. ', '2. ', '10. ', etc.)
-        if re.match(r'^\d+\.\s+', stripped):
+        if re.match(r"^\d+\.\s+", stripped):
             # Save previous item
             if current_item:
                 items.append(current_item.strip())
             # Start new item (remove number prefix)
-            current_item = re.sub(r'^\d+\.\s+', '', stripped)
+            current_item = re.sub(r"^\d+\.\s+", "", stripped)
 
         # Continuation line (no number, part of current item)
         elif current_item is not None:
-            current_item += ' ' + stripped
+            current_item += " " + stripped
 
         # Text before first number (ignore - shouldn't happen)
         else:
@@ -280,8 +278,8 @@ def extract_category_from_tc_id(tc_id: str) -> str:
         >>> extract_category_from_tc_id("INVALID")
         'other'
     """
-    parts = tc_id.split('-')
-    return parts[1].lower() if len(parts) >= 2 and parts[1] else 'other'
+    parts = tc_id.split("-")
+    return parts[1].lower() if len(parts) >= 2 and parts[1] else "other"
 
 
 def extract_title_from_tc_file(tc_file: str) -> str:
@@ -316,17 +314,13 @@ def extract_title_from_tc_file(tc_file: str) -> str:
     frontmatter, body = read_frontmatter(tc_file)
 
     # Try frontmatter title first
-    if 'title' in frontmatter:
-        return frontmatter['title']
+    if "title" in frontmatter:
+        return frontmatter["title"]
 
     # Try to find first ## Title section in body
-    title_match = re.search(
-        r'^##\s+Title\s*\n(.+?)(?:\n##|\Z)',
-        body,
-        re.MULTILINE | re.DOTALL
-    )
+    title_match = re.search(r"^##\s+Title\s*\n(.+?)(?:\n##|\Z)", body, re.MULTILINE | re.DOTALL)
     if title_match:
         return title_match.group(1).strip()
 
     # Fallback: use TC ID
-    return frontmatter.get('test_case_id', 'test')
+    return frontmatter.get("test_case_id", "test")

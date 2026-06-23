@@ -29,7 +29,7 @@ class TestReadFieldArgument:
         old_argv = sys.argv
         old_stdout = sys.stdout
         try:
-            sys.argv = ['frontmatter.py', 'read', test_plan_file, 'source_key']
+            sys.argv = ["frontmatter.py", "read", test_plan_file, "source_key"]
             sys.stdout = StringIO()
             frontmatter.main()
             output = sys.stdout.getvalue().strip()
@@ -42,7 +42,10 @@ class TestReadFieldArgument:
         old_argv = sys.argv
         try:
             sys.argv = [
-                'frontmatter.py', 'read', test_plan_file, 'no_such_field',
+                "frontmatter.py",
+                "read",
+                test_plan_file,
+                "no_such_field",
             ]
             with pytest.raises(SystemExit) as exc_info:
                 frontmatter.main()
@@ -54,7 +57,7 @@ class TestReadFieldArgument:
         old_argv = sys.argv
         old_stdout = sys.stdout
         try:
-            sys.argv = ['frontmatter.py', 'read', test_plan_file]
+            sys.argv = ["frontmatter.py", "read", test_plan_file]
             sys.stdout = StringIO()
             frontmatter.main()
             output = sys.stdout.getvalue()
@@ -90,7 +93,7 @@ class TestSkillFrontmatterReadCalls:
             with tempfile.TemporaryDirectory() as tmpdir:
                 path = Path(tmpdir) / filename
                 write_frontmatter(path, data, schema_type)
-                sys.argv = ['frontmatter.py', 'read', str(path), field]
+                sys.argv = ["frontmatter.py", "read", str(path), field]
                 sys.stdout = StringIO()
                 frontmatter.main()
                 output = sys.stdout.getvalue().strip()
@@ -107,7 +110,7 @@ def test_schema_command_output():
     old_stdout = sys.stdout
 
     try:
-        sys.argv = ['frontmatter.py', 'schema', 'test-plan']
+        sys.argv = ["frontmatter.py", "schema", "test-plan"]
         sys.stdout = StringIO()
 
         # This should not raise
@@ -120,7 +123,7 @@ def test_schema_command_output():
         output = sys.stdout.getvalue()
 
         # Should print YAML schema
-        assert 'required:' in output
+        assert "required:" in output
 
     finally:
         sys.argv = old_argv
@@ -133,7 +136,7 @@ def test_set_version_field_rejected():
     old_stdout = sys.stdout
 
     try:
-        sys.argv = ['frontmatter.py', 'set', 'TestPlan.md', 'version=2.0.0']
+        sys.argv = ["frontmatter.py", "set", "TestPlan.md", "version=2.0.0"]
         sys.stdout = StringIO()
 
         with pytest.raises(SystemExit) as exc_info:

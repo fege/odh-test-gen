@@ -16,6 +16,7 @@ def test_example():
 
     # Temporarily override the path
     import scripts.format_file_result
+
     original_path = scripts.format_file_result.Path
     scripts.format_file_result.Path = lambda p: tmp_path / p.replace("/tmp/", "")
 
@@ -25,7 +26,7 @@ def test_example():
             "file_path": "tests/test_api.py",
             "tc_ids": ["TC-API-001"],
             "functions": [{"tc_id": "TC-API-001", "name": "test_create", "score": 9, "verdict": "Ready"}],
-            "quality_summary": {"ready_count": 1, "good_count": 0, "avg_score": 9.0}
+            "quality_summary": {"ready_count": 1, "good_count": 0, "avg_score": 9.0},
         }
 
         result = format_file_result(metadata)
@@ -48,6 +49,7 @@ def test_includes_draft_files_and_errors(tmp_path):
     test_file.write_text("def test_example(): pass")
 
     import scripts.format_file_result
+
     original_path = scripts.format_file_result.Path
     scripts.format_file_result.Path = lambda p: tmp_path / p.replace("/tmp/", "")
 
@@ -59,7 +61,7 @@ def test_includes_draft_files_and_errors(tmp_path):
             "functions": [{"tc_id": "TC-API-001", "name": "test_create", "score": 8, "verdict": "Good"}],
             "quality_summary": {"ready_count": 0, "good_count": 1, "flagged_count": 1, "avg_score": 5.0},
             "draft_files": [{"tc_id": "TC-API-002", "reason": "Score 2/10", "score": 2}],
-            "errors": []
+            "errors": [],
         }
 
         result = format_file_result(metadata)

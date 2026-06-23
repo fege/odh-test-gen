@@ -129,7 +129,7 @@ Tiger Team pattern guides     odh-test-context         test-plan.create.test-fun
           ↓                           ↓                       ↓
    "Use Ginkgo BeforeSuite,    "Framework: pytest,      Generated test code
     mock with gofakeit,         file pattern: test_*.py" matching repo style
-    assert with Gomega"         
+    assert with Gomega"  
 ```
 
 **Component Roles**:

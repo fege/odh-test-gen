@@ -5,7 +5,6 @@ Tests filtering logic for test case implementation status.
 """
 
 import json
-from pathlib import Path
 
 import pytest
 
@@ -49,10 +48,10 @@ priority: P0
         result = filter_test_cases(str(tmp_path), ["TC-API-001", "TC-API-002"])
         data = json.loads(result)
 
-        assert len(data['to_implement']) == 2
-        assert "TC-API-001" in data['to_implement']
-        assert "TC-API-002" in data['to_implement']
-        assert len(data['already_implemented']) == 0
+        assert len(data["to_implement"]) == 2
+        assert "TC-API-001" in data["to_implement"]
+        assert "TC-API-002" in data["to_implement"]
+        assert len(data["already_implemented"]) == 0
 
     def test_filters_implemented_cases(self, tmp_path):
         """Should exclude test cases with automation_status='Implemented'."""
@@ -66,10 +65,10 @@ priority: P0
         result = filter_test_cases(str(tmp_path), ["TC-API-001", "TC-API-002"])
         data = json.loads(result)
 
-        assert len(data['to_implement']) == 1
-        assert "TC-API-002" in data['to_implement']
-        assert len(data['already_implemented']) == 1
-        assert "TC-API-001" in data['already_implemented']
+        assert len(data["to_implement"]) == 1
+        assert "TC-API-002" in data["to_implement"]
+        assert len(data["already_implemented"]) == 1
+        assert "TC-API-001" in data["already_implemented"]
 
     def test_handles_missing_automation_status(self, tmp_path):
         """Should include test cases without automation_status field."""
@@ -82,9 +81,9 @@ priority: P0
         result = filter_test_cases(str(tmp_path), ["TC-API-001"])
         data = json.loads(result)
 
-        assert len(data['to_implement']) == 1
-        assert "TC-API-001" in data['to_implement']
-        assert len(data['already_implemented']) == 0
+        assert len(data["to_implement"]) == 1
+        assert "TC-API-001" in data["to_implement"]
+        assert len(data["already_implemented"]) == 0
 
     def test_handles_mixed_statuses(self, tmp_path):
         """Should correctly separate different automation statuses."""
@@ -97,19 +96,18 @@ priority: P0
         self._create_tc_file(tc_dir, "TC-API-003")  # No status
         self._create_tc_file(tc_dir, "TC-API-004", automation_status="In Progress")
 
-        result = filter_test_cases(str(tmp_path),
-                                   ["TC-API-001", "TC-API-002", "TC-API-003", "TC-API-004"])
+        result = filter_test_cases(str(tmp_path), ["TC-API-001", "TC-API-002", "TC-API-003", "TC-API-004"])
         data = json.loads(result)
 
         # Only Implemented should be in already_implemented
-        assert len(data['already_implemented']) == 1
-        assert "TC-API-001" in data['already_implemented']
+        assert len(data["already_implemented"]) == 1
+        assert "TC-API-001" in data["already_implemented"]
 
         # Others should be in to_implement
-        assert len(data['to_implement']) == 3
-        assert "TC-API-002" in data['to_implement']
-        assert "TC-API-003" in data['to_implement']
-        assert "TC-API-004" in data['to_implement']
+        assert len(data["to_implement"]) == 3
+        assert "TC-API-002" in data["to_implement"]
+        assert "TC-API-003" in data["to_implement"]
+        assert "TC-API-004" in data["to_implement"]
 
     def test_handles_nonexistent_tc_file(self, tmp_path):
         """Should raise error if TC file doesn't exist."""
@@ -147,8 +145,7 @@ automation_status: IMPLEMENTED
         result = filter_test_cases(str(tmp_path), ["TC-API-001", "TC-API-002"])
         data = json.loads(result)
 
-        assert len(data['already_implemented']) == 2
-        assert "TC-API-001" in data['already_implemented']
-        assert "TC-API-002" in data['already_implemented']
-        assert len(data['to_implement']) == 0
-
+        assert len(data["already_implemented"]) == 2
+        assert "TC-API-001" in data["already_implemented"]
+        assert "TC-API-002" in data["already_implemented"]
+        assert len(data["to_implement"]) == 0

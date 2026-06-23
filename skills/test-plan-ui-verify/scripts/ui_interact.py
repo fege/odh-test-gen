@@ -19,10 +19,10 @@ Exit codes:
     1  element not found (click/fill) | unknown argument (scroll)
     2  wrong page / 404 / auth failed after relogin (goto only)
 """
+
 import argparse
 import os
 import sys
-from pathlib import Path
 
 os.environ.setdefault("NODE_NO_WARNINGS", "1")
 
@@ -33,7 +33,7 @@ except ImportError as e:
     print(f"ERROR: {e} — run: pip install playwright pyyaml && playwright install chromium")
     sys.exit(1)
 
-from paths import SKILL_DIR, TMP_DIR
+from paths import SKILL_DIR
 
 from browser_common import get_page, release, do_oauth_login  # shared CDP connection logic
 
@@ -50,8 +50,8 @@ def load_map() -> dict:
 
 def find_selector(description: str, section: str | None = None) -> str | None:
     element_map = load_map()
-    desc_lower  = description.lower()
-    sections    = ([section] if section else []) + [k for k in element_map if k != section] + ["general"]
+    desc_lower = description.lower()
+    sections = ([section] if section else []) + [k for k in element_map if k != section] + ["general"]
     for s in sections:
         m = element_map.get(s, {})
         if desc_lower in m:
@@ -64,6 +64,7 @@ def find_selector(description: str, section: str | None = None) -> str | None:
 
 # ── Auth recovery ─────────────────────────────────────────────────────────────
 
+
 def _is_auth_page(page) -> bool:
     """Return True if the browser is on any auth/login page.
 
@@ -72,17 +73,20 @@ def _is_auth_page(page) -> bool:
     so the URL alone is not enough to detect it).
     """
     url = page.url
-    if any(p in url for p in [
-        "/oauth/authorize", "/login?", "/login/",
-        "openshift-authentication", "/oauth2/callback",
-    ]) or url.rstrip("/").endswith("/login"):
+    if any(
+        p in url
+        for p in [
+            "/oauth/authorize",
+            "/login?",
+            "/login/",
+            "openshift-authentication",
+            "/oauth2/callback",
+        ]
+    ) or url.rstrip("/").endswith("/login"):
         return True
     # oauth-proxy (RHODS 2.x): shows "Log in with OpenShift" at the app URL
     try:
-        return page.locator(
-            'button:has-text("Log in with OpenShift"), '
-            'a:has-text("Log in with OpenShift")'
-        ).count() > 0
+        return page.locator('button:has-text("Log in with OpenShift"), a:has-text("Log in with OpenShift")').count() > 0
     except Exception:
         return False
 
@@ -94,11 +98,11 @@ def _relogin(page, ctx: dict) -> bool:
     (username, idp). Returns True on success, False if login fails.
     """
     username = ctx.get("username", "")
-    idp      = ctx.get("idp", "")
+    idp = ctx.get("idp", "")
 
     tv_path = SKILL_DIR / "test-variables.yml"
     tv = yaml.safe_load(tv_path.read_text()) if tv_path.exists() else {}
-    admin    = tv.get("admin_user", {}) or {}
+    admin = tv.get("admin_user", {}) or {}
     password = admin.get("password", "")
 
     print(f"  AUTH_REDIRECT detected — re-authenticating as {username}", flush=True)
@@ -111,6 +115,7 @@ def _relogin(page, ctx: dict) -> bool:
 
 
 # ── Actions ───────────────────────────────────────────────────────────────────
+
 
 def do_click(description: str, section: str | None, in_row: str | None = None) -> int:
     pw, browser, page, ctx = get_page()
@@ -318,7 +323,7 @@ def do_goto(url: str) -> int:
             _wait_for_spa(page)
 
         # Detect 404 / error pages
-        body  = page.inner_text("body") if page.query_selector("body") else ""
+        body = page.inner_text("body") if page.query_selector("body") else ""
         title = page.title()
         is_404 = (
             "404" in title
@@ -330,7 +335,7 @@ def do_goto(url: str) -> int:
             print(f"WRONG_PAGE: 404 or empty at {url}", flush=True)
             return 2
 
-        print(f"Exit: 0", flush=True)
+        print("Exit: 0", flush=True)
         return 0
     finally:
         release(pw)
@@ -490,24 +495,23 @@ def do_expand(selector: str) -> int:
 
 
 def main():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("action", choices=["click", "fill", "goto", "wait", "scroll", "expand"])
     parser.add_argument("args", nargs="*")
-    parser.add_argument("--section",     default=None)
-    parser.add_argument("--in-row",      default=None,
-                        help="Scope a click to the table row or list item that contains "
-                             "this text. Use when multiple rows have the same button "
-                             "(e.g. 'Stop') and you need to target a specific one.")
+    parser.add_argument("--section", default=None)
+    parser.add_argument(
+        "--in-row",
+        default=None,
+        help="Scope a click to the table row or list item that contains "
+        "this text. Use when multiple rows have the same button "
+        "(e.g. 'Stop') and you need to target a specific one.",
+    )
     parser.add_argument("--press-enter", action="store_true")
     opts = parser.parse_args()
 
     required = {"click": 1, "fill": 2, "goto": 1, "wait": 0, "scroll": 1, "expand": 0}
     if len(opts.args) < required[opts.action]:
-        parser.error(
-            f"'{opts.action}' requires {required[opts.action]} argument(s), "
-            f"got {len(opts.args)}"
-        )
+        parser.error(f"'{opts.action}' requires {required[opts.action]} argument(s), got {len(opts.args)}")
 
     if opts.action == "click":
         sys.exit(do_click(opts.args[0], opts.section, opts.in_row))

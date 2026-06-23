@@ -51,7 +51,7 @@ def update_tc_frontmatter(feature_dir: str, updates: List[Dict]) -> str:
     errors = []
 
     for update in updates:
-        tc_id = update['tc_id']
+        tc_id = update["tc_id"]
         tc_file = tc_dir / f"{tc_id}.md"
 
         if not tc_file.exists():
@@ -60,7 +60,7 @@ def update_tc_frontmatter(feature_dir: str, updates: List[Dict]) -> str:
 
         try:
             # Prepare updates (exclude tc_id)
-            field_updates = {k: v for k, v in update.items() if k != 'tc_id'}
+            field_updates = {k: v for k, v in update.items() if k != "tc_id"}
 
             # Use shared utility (validates against test-case schema and formats consistently)
             update_frontmatter(str(tc_file), field_updates, "test-case")
@@ -70,18 +70,20 @@ def update_tc_frontmatter(feature_dir: str, updates: List[Dict]) -> str:
         except Exception as e:
             errors.append(f"{tc_id}: {str(e)}")
 
-    return json.dumps({
-        'updated_count': len(updated_tcs),
-        'updated_tcs': updated_tcs,
-        'errors': errors,
-    }, indent=2)
+    return json.dumps(
+        {
+            "updated_count": len(updated_tcs),
+            "updated_tcs": updated_tcs,
+            "errors": errors,
+        },
+        indent=2,
+    )
 
 
 def main():
     """CLI entry point."""
     if len(sys.argv) != 3:
-        print("Usage: python scripts/update_tc_frontmatter.py <feature_dir> <updates.json>",
-              file=sys.stderr)
+        print("Usage: python scripts/update_tc_frontmatter.py <feature_dir> <updates.json>", file=sys.stderr)
         sys.exit(1)
 
     feature_dir = sys.argv[1]
@@ -89,10 +91,10 @@ def main():
 
     try:
         # Read updates from file or stdin
-        if updates_file == '-':
+        if updates_file == "-":
             updates = json.load(sys.stdin)
         else:
-            with open(updates_file, 'r') as f:
+            with open(updates_file, "r") as f:
                 updates = json.load(f)
 
         result = update_tc_frontmatter(feature_dir, updates)
@@ -106,5 +108,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

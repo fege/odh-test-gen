@@ -35,17 +35,10 @@ def main():
 Examples:
   %(prog)s RHAISTRAT-400 test-plan-auto-created
   %(prog)s RHOAIENG-123 label-one label-two label-three
-        """
+        """,
     )
-    parser.add_argument(
-        "issue_key",
-        help="Jira issue key (e.g., RHAISTRAT-400, RHOAIENG-123)"
-    )
-    parser.add_argument(
-        "labels",
-        nargs="+",
-        help="One or more labels to add"
-    )
+    parser.add_argument("issue_key", help="Jira issue key (e.g., RHAISTRAT-400, RHOAIENG-123)")
+    parser.add_argument("labels", nargs="+", help="One or more labels to add")
 
     args = parser.parse_args()
 

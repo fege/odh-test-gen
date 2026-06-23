@@ -31,48 +31,66 @@ def validate_feature_dir(feature_dir: str) -> str:
 
     testplan_path = feature_path / "TestPlan.md"
     if not testplan_path.exists():
-        return json.dumps({
-            "valid": False,
-            "error": f"TestPlan.md not found at {testplan_path}",
-        }, indent=2)
+        return json.dumps(
+            {
+                "valid": False,
+                "error": f"TestPlan.md not found at {testplan_path}",
+            },
+            indent=2,
+        )
 
     tc_dir = feature_path / "test_cases"
     if not tc_dir.exists() or not tc_dir.is_dir():
-        return json.dumps({
-            "valid": False,
-            "error": f"test_cases directory not found at {tc_dir}",
-        }, indent=2)
+        return json.dumps(
+            {
+                "valid": False,
+                "error": f"test_cases directory not found at {tc_dir}",
+            },
+            indent=2,
+        )
 
     index_path = tc_dir / "INDEX.md"
     if not index_path.exists():
-        return json.dumps({
-            "valid": False,
-            "error": f"INDEX.md not found at {index_path}",
-        }, indent=2)
+        return json.dumps(
+            {
+                "valid": False,
+                "error": f"INDEX.md not found at {index_path}",
+            },
+            indent=2,
+        )
 
     tc_files = list(tc_dir.glob("TC-*.md"))
     if not tc_files:
-        return json.dumps({
-            "valid": False,
-            "error": f"No TC-*.md files found in {tc_dir}",
-        }, indent=2)
+        return json.dumps(
+            {
+                "valid": False,
+                "error": f"No TC-*.md files found in {tc_dir}",
+            },
+            indent=2,
+        )
 
     try:
         testplan_frontmatter, _ = read_frontmatter(str(testplan_path))
     except (OSError, yaml.YAMLError, ValueError) as e:
-        return json.dumps({
-            "valid": False,
-            "error": f"Failed to read TestPlan.md frontmatter: {e}",
-        }, indent=2)
+        return json.dumps(
+            {
+                "valid": False,
+                "error": f"Failed to read TestPlan.md frontmatter: {e}",
+            },
+            indent=2,
+        )
     if "components" not in testplan_frontmatter:
         testplan_frontmatter["components"] = []
 
-    return json.dumps({
-        "valid": True,
-        "feature_dir": str(feature_path),
-        "testplan_frontmatter": testplan_frontmatter,
-        "tc_count": len(tc_files),
-    }, indent=2)
+    return json.dumps(
+        {
+            "valid": True,
+            "feature_dir": str(feature_path),
+            "testplan_frontmatter": testplan_frontmatter,
+            "tc_count": len(tc_files),
+        },
+        indent=2,
+    )
 
 
 def validate_gap_counts(feature_dir: str, resolved: int, unresolved: int, new: int) -> dict:
@@ -120,7 +138,12 @@ def validate_test_cases(feature_dir: str, schema_type: str = "test-case") -> dic
         return {"valid": True, "checked": 0, "failed": 0, "errors": []}
 
     if not (test_cases_dir / "INDEX.md").exists():
-        return {"valid": False, "checked": 0, "failed": 0, "errors": [{"file": "INDEX.md", "error": "INDEX.md not found in test_cases/"}]}
+        return {
+            "valid": False,
+            "checked": 0,
+            "failed": 0,
+            "errors": [{"file": "INDEX.md", "error": "INDEX.md not found in test_cases/"}],
+        }
 
     errors = []
     for f in tc_files:
@@ -162,10 +185,7 @@ def validate_all(feature_dir: str) -> dict:
 
     tc_result = validate_test_cases(feature_dir)
 
-    valid = (
-        all(f["valid"] for f in frontmatter_results)
-        and tc_result["valid"]
-    )
+    valid = all(f["valid"] for f in frontmatter_results) and tc_result["valid"]
 
     return {
         "valid": valid,
@@ -205,28 +225,23 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    p_feature = subparsers.add_parser("feature-dir",
-                                       help="Validate feature directory structure")
+    p_feature = subparsers.add_parser("feature-dir", help="Validate feature directory structure")
     p_feature.add_argument("feature_dir", help="Path to feature directory")
     p_feature.set_defaults(func=cmd_feature_dir)
 
-    p_gaps = subparsers.add_parser("gap-counts",
-                                    help="Validate gap count arithmetic")
+    p_gaps = subparsers.add_parser("gap-counts", help="Validate gap count arithmetic")
     p_gaps.add_argument("feature_dir", help="Path to feature directory")
     p_gaps.add_argument("resolved", type=int, help="Gaps resolved")
     p_gaps.add_argument("unresolved", type=int, help="Gaps still unresolved")
     p_gaps.add_argument("new", type=int, help="New gaps identified")
     p_gaps.set_defaults(func=cmd_gap_counts)
 
-    p_tc = subparsers.add_parser("test-cases",
-                                  help="Validate all TC-*.md frontmatter")
+    p_tc = subparsers.add_parser("test-cases", help="Validate all TC-*.md frontmatter")
     p_tc.add_argument("feature_dir", help="Path to feature directory")
-    p_tc.add_argument("schema_type", nargs="?", default="test-case",
-                      help="Schema type (default: test-case)")
+    p_tc.add_argument("schema_type", nargs="?", default="test-case", help="Schema type (default: test-case)")
     p_tc.set_defaults(func=cmd_test_cases)
 
-    p_all = subparsers.add_parser("all",
-                                   help="Run all validations on a feature directory")
+    p_all = subparsers.add_parser("all", help="Run all validations on a feature directory")
     p_all.add_argument("feature_dir", help="Path to feature directory")
     p_all.set_defaults(func=cmd_all)
 

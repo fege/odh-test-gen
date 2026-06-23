@@ -9,10 +9,11 @@ that the Claude skill reads to skip setup and jump straight to TC execution.
 Usage:
     python3 ui_prepare.py --test-plan-pr https://github.com/opendatahub-io/opendatahub-test-plans/pull/5
     python3 ui_prepare.py --test-plan-pr <url> --tc TC-FILTER --priority P0
-    python3 ui_prepare.py --test-plan opendatahub-io/opendatahub-test-plans/tool_calling_model_catalog   # reads from main
+    python3 ui_prepare.py --test-plan opendatahub-io/opendatahub-test-plans/tool_calling_model_catalog # reads from main
     python3 ui_prepare.py --target-url https://... --test-plan-pr <url>
     python3 ui_prepare.py --setup
 """
+
 import argparse
 import json
 import os
@@ -39,21 +40,24 @@ def _ensure_repo_on_path() -> None:
     """Add the repo's top-level scripts/ to sys.path (idempotent, no side effects at import time)."""
     _git = subprocess.run(
         ["git", "rev-parse", "--show-toplevel"],
-        capture_output=True, text=True, cwd=str(SKILL_DIR),
+        capture_output=True,
+        text=True,
+        cwd=str(SKILL_DIR),
     )
     if _git.returncode == 0 and _git.stdout.strip():
         _repo_scripts = os.path.join(_git.stdout.strip(), "scripts")
         if _repo_scripts not in sys.path:
             sys.path.insert(0, _repo_scripts)
 
-CONTEXT    = TMP_DIR / "ui_context.json"
-TV_FILE    = SKILL_DIR / "test-variables.yml"
-TV_EXAMPLE = SKILL_DIR / "test-variables.yml.example"
-REGISTRY   = SKILL_DIR / "component-registry.yaml"
 
+CONTEXT = TMP_DIR / "ui_context.json"
+TV_FILE = SKILL_DIR / "test-variables.yml"
+TV_EXAMPLE = SKILL_DIR / "test-variables.yml.example"
+REGISTRY = SKILL_DIR / "component-registry.yaml"
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
 
 def run(cmd, **kw):
     return subprocess.run(cmd, capture_output=True, text=True, **kw)
@@ -89,7 +93,7 @@ def fail(msg):
 
 
 def section(title):
-    print(f"\n{'─'*60}\n  {title}\n{'─'*60}")
+    print(f"\n{'─' * 60}\n  {title}\n{'─' * 60}")
 
 
 def _atexit_kill_browser(pid: int) -> None:
@@ -102,6 +106,7 @@ def _atexit_kill_browser(pid: int) -> None:
 
 # ── Phase 0: prerequisites ────────────────────────────────────────────────────
 
+
 def phase0_preflight():
     section("Phase 0: Prerequisites")
 
@@ -113,7 +118,9 @@ def phase0_preflight():
             old_ctx = json.loads(ctx_path.read_text())
             old_pid = old_ctx.get("browser_pid")
             if old_pid:
-                import os as _os, signal as _sig
+                import os as _os
+                import signal as _sig
+
                 try:
                     _os.kill(old_pid, _sig.SIGTERM)
                     print(f"  Stopped previous browser (pid={old_pid})")
@@ -128,6 +135,7 @@ def phase0_preflight():
 
     # Syntax-check all scripts before doing anything else
     import py_compile
+
     scripts_ok = True
     for script in sorted((SKILL_DIR / "scripts").glob("*.py")):
         try:
@@ -143,6 +151,7 @@ def phase0_preflight():
     # Check playwright Python package
     try:
         from playwright.sync_api import sync_playwright  # noqa: F401
+
         print(f"  ✅ {'playwright':<20} Python API")
     except ImportError:
         print(f"  ❌ {'playwright':<20} not found — run: pip install playwright && playwright install chromium")
@@ -167,29 +176,30 @@ def phase0_preflight():
                 print(f"  ❌ {name:<20} not found — install: {install_hints[name]}")
             missing.append(name)
 
-
     oc_r = run(["oc", "version", "--client"])
     if oc_r.returncode == 0:
-        print(f"  ✅ oc                   found")
+        print("  ✅ oc                   found")
     else:
-        print(f"  ⚠️  oc                   not found — URL must be provided manually, no cluster snapshot")
+        print("  ⚠️  oc                   not found — URL must be provided manually, no cluster snapshot")
 
     if missing:
         fail(f"Required tools missing: {', '.join(missing)}\n  See install hints above.")
 
     print(f"\n  SKILL_DIR: {SKILL_DIR}")
     return {
-        "skill_dir":        str(SKILL_DIR),
-        "oc_available":     oc_r.returncode == 0,
+        "skill_dir": str(SKILL_DIR),
+        "oc_available": oc_r.returncode == 0,
     }
 
 
 # ── Phase 1: TC loading ───────────────────────────────────────────────────────
 
+
 def phase1_load_tcs(args):
     section("Phase 1: Load Test Plan")
 
     import tempfile
+
     _ensure_repo_on_path()
     from utils.tc_parser import parse_tc_file
     from utils.frontmatter_utils import read_frontmatter
@@ -198,19 +208,26 @@ def phase1_load_tcs(args):
 
     # ── Determine source ──────────────────────────────────────────────────────
     if args.test_plan_pr:
-        m = re.search(r'/pull/(\d+)', args.test_plan_pr)
+        m = re.search(r"/pull/(\d+)", args.test_plan_pr)
         if not m:
             fail(f"Cannot parse PR number from: {args.test_plan_pr}")
         pr_number = int(m.group(1))
-        repo_m = re.search(r'github\.com/([^/]+/[^/]+)/pull', args.test_plan_pr)
+        repo_m = re.search(r"github\.com/([^/]+/[^/]+)/pull", args.test_plan_pr)
         if not repo_m:
             fail(f"Cannot parse GitHub repo from: {args.test_plan_pr}")
         repo = repo_m.group(1)
         # Get PR head SHA and feature directory from PR files
         ref_r = run(["gh", "api", f"repos/{repo}/pulls/{pr_number}", "--jq", ".head.sha"])
         ref = ref_r.stdout.strip() if ref_r.returncode == 0 and ref_r.stdout.strip() else "main"
-        feat_r = run(["gh", "api", f"repos/{repo}/pulls/{pr_number}/files",                                                                                                                                                
-                "--jq", '[.[].filename | select(contains("/test_cases/")) | split("/test_cases/")[0]] | unique | .[0]'])
+        feat_r = run(
+            [
+                "gh",
+                "api",
+                f"repos/{repo}/pulls/{pr_number}/files",
+                "--jq",
+                '[.[].filename | select(contains("/test_cases/")) | split("/test_cases/")[0]] | unique | .[0]',
+            ]
+        )
         feature = feat_r.stdout.strip() if feat_r.returncode == 0 else ""
         if not feature:
             fail("Could not detect feature directory from PR files.")
@@ -220,8 +237,10 @@ def phase1_load_tcs(args):
         feature = "/".join(parts[2:])
         ref = "main"
     elif args.jira:
-        fail("--jira mode is not yet implemented.\n"
-             "  Use --test-plan-pr or --test-plan to load TCs from opendatahub-io/opendatahub-test-plans.")
+        fail(
+            "--jira mode is not yet implemented.\n"
+            "  Use --test-plan-pr or --test-plan to load TCs from opendatahub-io/opendatahub-test-plans."
+        )
     else:
         fail("No input mode specified. Use --test-plan-pr, --test-plan, or --jira.")
 
@@ -239,7 +258,7 @@ def phase1_load_tcs(args):
             tmppath.write_text(content, encoding="utf-8")
 
             # Extract H1 title before sections are parsed (tc_parser drops it)
-            title_m = re.search(r'^# (.+)$', content, re.MULTILINE)
+            title_m = re.search(r"^# (.+)$", content, re.MULTILINE)
             title = title_m.group(1).strip() if title_m else filename.replace(".md", "")
 
             try:
@@ -267,25 +286,27 @@ def phase1_load_tcs(args):
             first = obj.split(".")[0].strip() if obj else ""
             obj_short = (first[:120].rsplit(" ", 1)[0] + "…") if len(first) > 120 else first
 
-            test_cases.append({
-                "id":               tc_id,
-                "title":            title,
-                "priority":         data.get("priority", "P0"),
-                "status":           data.get("status", "Draft"),
-                "strat_key":        data.get("strat_key", meta.get("strat_key", "")),
-                "objective":        obj,
-                "objective_short":  obj_short,
-                "preconditions":    data.get("preconditions", []),
-                "steps":            steps,
-                "expected_results": data.get("expected_results", []),
-                "notes":            data.get("body", ""),
-                "has_ui_steps":     _is_ui_test(steps),
-                "step_count":       len(steps),
-                "upgrade_phase":    data.get("upgrade_phase", ""),
-            })
+            test_cases.append(
+                {
+                    "id": tc_id,
+                    "title": title,
+                    "priority": data.get("priority", "P0"),
+                    "status": data.get("status", "Draft"),
+                    "strat_key": data.get("strat_key", meta.get("strat_key", "")),
+                    "objective": obj,
+                    "objective_short": obj_short,
+                    "preconditions": data.get("preconditions", []),
+                    "steps": steps,
+                    "expected_results": data.get("expected_results", []),
+                    "notes": data.get("body", ""),
+                    "has_ui_steps": _is_ui_test(steps),
+                    "step_count": len(steps),
+                    "upgrade_phase": data.get("upgrade_phase", ""),
+                }
+            )
 
     plan = {
-        "feature":   meta.get("feature", feature),
+        "feature": meta.get("feature", feature),
         "strat_key": meta.get("strat_key", ""),
         "test_cases": test_cases,
     }
@@ -299,9 +320,9 @@ def phase1_load_tcs(args):
         tcs = [tc for tc in tcs if tc.get("upgrade_phase", "") in (phase, "both", "")]
         plan["test_cases"] = tcs
         if phase == "pre":
-            print(f"\n  ⬆  Upgrade mode — PRE-UPGRADE baseline run (phase: pre)")
+            print("\n  ⬆  Upgrade mode — PRE-UPGRADE baseline run (phase: pre)")
         else:
-            print(f"\n  ⬆  Upgrade mode — POST-UPGRADE verification run (phase: post)")
+            print("\n  ⬆  Upgrade mode — POST-UPGRADE verification run (phase: post)")
 
     print(f"\n  Feature:  {plan.get('feature', '?')}")
     print(f"  Strategy: {plan.get('strat_key', '?')}")
@@ -311,7 +332,7 @@ def phase1_load_tcs(args):
     for tc in tcs:
         ui_flag = "" if tc.get("has_ui_steps", True) else "  ⚠️  no UI steps"
         steps = tc.get("step_count", 0)
-        obj   = tc.get("objective_short", "")
+        obj = tc.get("objective_short", "")
         print(f"    {tc['id']:<15} {tc['priority']}  {tc['title']}{ui_flag}")
         if obj:
             print(f"    {'':15}       └─ {obj}")
@@ -346,8 +367,8 @@ def phase1_load_tcs(args):
     if ans and ans.lower() not in ("y", "yes"):
         # Treat input as a subset of TC IDs
         requested = {x.strip() for x in ans.replace(",", " ").split() if x.strip()}
-        available  = {tc["id"] for tc in tcs}
-        not_found  = requested - available
+        available = {tc["id"] for tc in tcs}
+        not_found = requested - available
         if not_found:
             print(f"  ⚠️  Not in plan: {', '.join(sorted(not_found))} — ignored")
         tcs = [tc for tc in tcs if tc["id"] in requested]
@@ -360,6 +381,7 @@ def phase1_load_tcs(args):
 
 
 # ── Phase 2: component resolution ────────────────────────────────────────────
+
 
 def phase2_component(plan, args):
     section("Phase 2: Component Resolution")
@@ -376,7 +398,7 @@ def phase2_component(plan, args):
     all_text = ""
     if plan:
         for tc in plan.get("test_cases", []):
-            all_text += f" {tc.get('title','')} {' '.join(tc.get('steps',[]))}"
+            all_text += f" {tc.get('title', '')} {' '.join(tc.get('steps', []))}"
     all_text = all_text.lower()
 
     for key, cfg in registry["components"].items():
@@ -390,12 +412,12 @@ def phase2_component(plan, args):
         print(f"  Matched: {component} (score={scores[component]})")
     else:
         component = "odh-dashboard"
-        print(f"  No keyword match in TC text.")
-        ans = input(f"  Defaulting to odh-dashboard — is this correct? [Y/n]: ").strip().lower()
+        print("  No keyword match in TC text.")
+        ans = input("  Defaulting to odh-dashboard — is this correct? [Y/n]: ").strip().lower()
         if ans == "n":
             choices = list(registry["components"].keys())
             for i, k in enumerate(choices):
-                print(f"    {i+1}. {k}")
+                print(f"    {i + 1}. {k}")
             sel = input("  Enter number: ").strip()
             try:
                 component = choices[int(sel) - 1]
@@ -408,6 +430,7 @@ def phase2_component(plan, args):
 
 
 # ── Phase 3: URL resolution ───────────────────────────────────────────────────
+
 
 def phase3_url(component_cfg, args):
     section("Phase 3: Target URL Resolution")
@@ -441,13 +464,13 @@ def phase3_url(component_cfg, args):
         return url
 
     route_names = component_cfg.get("url_resolution", {}).get("route_names", ["data-science-gateway"])
-    namespaces  = component_cfg.get("url_resolution", {}).get("namespace_candidates",
-                                    ["openshift-ingress", "redhat-ods-applications", "opendatahub"])
+    namespaces = component_cfg.get("url_resolution", {}).get(
+        "namespace_candidates", ["openshift-ingress", "redhat-ods-applications", "opendatahub"]
+    )
 
     for route in route_names:
         for ns in namespaces:
-            r = run(["oc", "get", "route", route, "-n", ns,
-                     "-o", "jsonpath={.spec.host}"])
+            r = run(["oc", "get", "route", route, "-n", ns, "-o", "jsonpath={.spec.host}"])
             if r.returncode == 0 and r.stdout.strip():
                 url = f"https://{r.stdout.strip()}"
                 print(f"  Found route: {url}  (route={route} ns={ns})")
@@ -468,11 +491,10 @@ def phase3_url(component_cfg, args):
 
 # ── Phase 4: credentials ──────────────────────────────────────────────────────
 
+
 def _tv_field_error(field: str, hint: str = "") -> None:
     """Fail with a clear message pointing to the exact field in test-variables.yml."""
-    msg = (f"'{field}' is not set in test-variables.yml\n"
-           f"  Edit: {TV_FILE}\n"
-           f"  Template: {TV_EXAMPLE}")
+    msg = f"'{field}' is not set in test-variables.yml\n  Edit: {TV_FILE}\n  Template: {TV_EXAMPLE}"
     if hint:
         msg += f"\n  Hint: {hint}"
     fail(msg)
@@ -484,7 +506,7 @@ def phase4_credentials(cluster_api, args):
     # ── Priority 1: environment variables (CI) ────────────────────────────────
     username = os.environ.get("ODH_QA_USERNAME", "")
     password = os.environ.get("ODH_QA_PASSWORD", "")
-    idp      = os.environ.get("ODH_QA_IDP", "")
+    idp = os.environ.get("ODH_QA_IDP", "")
     oc_token = os.environ.get("ODH_QA_OC_TOKEN", "")
     if not cluster_api:
         cluster_api = os.environ.get("ODH_QA_CLUSTER_API", "")
@@ -497,16 +519,18 @@ def phase4_credentials(cluster_api, args):
     else:
         # Only fail here if env vars are also missing — CI may not need the file
         if not (username and password and idp):
-            fail(f"test-variables.yml not found.\n"
-                 f"  Copy the template and fill in your values:\n"
-                 f"    cp {TV_EXAMPLE} {TV_FILE}\n"
-                 f"  Then edit {TV_FILE} with your cluster credentials.")
+            fail(
+                f"test-variables.yml not found.\n"
+                f"  Copy the template and fill in your values:\n"
+                f"    cp {TV_EXAMPLE} {TV_FILE}\n"
+                f"  Then edit {TV_FILE} with your cluster credentials."
+            )
 
     admin = tv.get("admin_user", {}) or {}
-    username    = username    or admin.get("username", "")
-    password    = password    or admin.get("password", "")
-    idp         = idp         or tv.get("idp", "")
-    oc_token    = oc_token    or tv.get("oc_token", "")
+    username = username or admin.get("username", "")
+    password = password or admin.get("password", "")
+    idp = idp or tv.get("idp", "")
+    oc_token = oc_token or tv.get("oc_token", "")
     # cluster_api is optional — auto-detected from target_url or oc session if not provided
     cluster_api = cluster_api or tv.get("cluster_api", "")
 
@@ -515,15 +539,14 @@ def phase4_credentials(cluster_api, args):
     if not cluster_api:
         tv_url = tv.get("target_url", "")
         if tv_url:
-            m = re.search(r'https?://[^.]+\.apps\.(.+)', tv_url)
+            m = re.search(r"https?://[^.]+\.apps\.(.+)", tv_url)
             if m:
                 cluster_api = f"https://api.{m.group(1)}:6443"
                 print(f"  cluster_api derived from target_url: {cluster_api}")
 
     # ── Priority 4: fall back to active oc session ────────────────────────────
     if not cluster_api:
-        r = run(["oc", "config", "view", "--minify",
-                 "-o", "jsonpath={.clusters[0].cluster.server}"])
+        r = run(["oc", "config", "view", "--minify", "-o", "jsonpath={.clusters[0].cluster.server}"])
         cluster_api = r.stdout.strip()
         if cluster_api:
             print(f"  cluster_api from oc config: {cluster_api}")
@@ -542,18 +565,17 @@ def phase4_credentials(cluster_api, args):
         _tv_field_error("admin_user.username", "e.g. ldap-admin1")
 
     if not password or password == PLACEHOLDER:
-        _tv_field_error("admin_user.password",
-                        "replace 'your-password-here' with your actual password")
+        _tv_field_error("admin_user.password", "replace 'your-password-here' with your actual password")
 
     if not idp:
-        _tv_field_error("idp",
-                        "check the OpenShift login page — common values: "
-                        "ldap-provider-qe, htpasswd-cluster-admin")
+        _tv_field_error(
+            "idp", "check the OpenShift login page — common values: ldap-provider-qe, htpasswd-cluster-admin"
+        )
 
     print(f"  Cluster API: {cluster_api}")
     print(f"  IDP:         {idp}")
     print(f"  Username:    {username}")
-    print(f"  Password:    SET")
+    print("  Password:    SET")
 
     # ── Quick validation: oc login (pipe password via stdin, never as -p arg) ──
     if cluster_api and not oc_token:
@@ -565,20 +587,23 @@ def phase4_credentials(cluster_api, args):
         if val.returncode == 0:
             print("  ✅ Credentials validated (oc login succeeded)")
         else:
-            fail(f"oc login failed — password may be wrong or expired.\n"
-                 f"  Update admin_user.password in {TV_FILE} and re-run.")
+            fail(
+                f"oc login failed — password may be wrong or expired.\n"
+                f"  Update admin_user.password in {TV_FILE} and re-run."
+            )
 
     return {
         "cluster_api": cluster_api,
-        "oc_token":    oc_token,
-        "username":    username,
-        "idp":         idp,
+        "oc_token": oc_token,
+        "username": username,
+        "idp": idp,
         # password intentionally NOT written to context file
         # SKILL reads it directly from test-variables.yml at runtime
     }
 
 
 # ── Phase 5: cluster snapshot ─────────────────────────────────────────────────
+
 
 def phase5_snapshot(oc_available):
     section("Phase 5: Pre-Test Snapshot")
@@ -592,13 +617,10 @@ def phase5_snapshot(oc_available):
         user = user_r.stdout.strip() if user_r.returncode == 0 else "unknown"
         print(f"  Cluster: {server}  (user: {user})")
 
-        r = run(["oc", "get", "projects", "--no-headers",
-                 "-o", "custom-columns=NAME:.metadata.name"])
+        r = run(["oc", "get", "projects", "--no-headers", "-o", "custom-columns=NAME:.metadata.name"])
         if r.returncode == 0:
             pre_projects = set(r.stdout.strip().splitlines())
-            (TMP_DIR / "ui-existing-projects.txt").write_text(
-                "\n".join(sorted(pre_projects)) + "\n"
-            )
+            (TMP_DIR / "ui-existing-projects.txt").write_text("\n".join(sorted(pre_projects)) + "\n")
             print(f"  Recorded {len(pre_projects)} existing projects")
 
     (TMP_DIR / "ui-cleanup-manifest.txt").write_text("# ui-verify cleanup manifest\n")
@@ -606,6 +628,7 @@ def phase5_snapshot(oc_available):
 
 
 # ── Phase 6: prerequisite setup ───────────────────────────────────────────────
+
 
 def phase6_prerequisites(plan, oc_available, upgrade_phase=""):
     section("Phase 6: Prerequisite Setup")
@@ -674,6 +697,7 @@ def phase6_prerequisites(plan, oc_available, upgrade_phase=""):
 
 # ── Session setup ─────────────────────────────────────────────────────────────
 
+
 def setup_session(feature_name):
     session_name = f"uiv-{feature_name}-{int(time.time())}"
     session_dir = SKILL_DIR / "results" / session_name
@@ -689,6 +713,7 @@ def setup_session(feature_name):
 
 
 # ── Browser launch + login ────────────────────────────────────────────────────
+
 
 def launch_browser(target_url: str, tv: dict) -> dict:
     """Start a persistent Chromium browser via CDP, log in, and return connection info."""
@@ -706,20 +731,25 @@ def launch_browser(target_url: str, tv: dict) -> dict:
     # on 0.0.0.0 (all interfaces), which would allow anyone on the same network
     # to connect to the authenticated browser session.
     proc = _sp.Popen(
-        [chromium_path,
-         "--headless=new",
-         "--remote-debugging-port=0",          # OS picks free port
-         "--remote-debugging-address=127.0.0.1",  # localhost only — security
-         "--ignore-certificate-errors",
-         "--window-size=1920,1080",
-         "--no-first-run",
-         "--no-default-browser-check"],
-        stdout=_sp.DEVNULL, stderr=_sp.PIPE, text=True,
+        [
+            chromium_path,
+            "--headless=new",
+            "--remote-debugging-port=0",  # OS picks free port
+            "--remote-debugging-address=127.0.0.1",  # localhost only — security
+            "--ignore-certificate-errors",
+            "--window-size=1920,1080",
+            "--no-first-run",
+            "--no-default-browser-check",
+        ],
+        stdout=_sp.DEVNULL,
+        stderr=_sp.PIPE,
+        text=True,
         start_new_session=True,
     )
 
     # Read CDP endpoint from stderr (Chrome prints "DevTools listening on ws://...")
     import re as _re
+
     cdp_url = None
     deadline = time.time() + 10
     while time.time() < deadline:
@@ -727,11 +757,11 @@ def launch_browser(target_url: str, tv: dict) -> dict:
         if not line:
             time.sleep(0.1)
             continue
-        m = _re.search(r'DevTools listening on (ws://[^\s]+)', line)
+        m = _re.search(r"DevTools listening on (ws://[^\s]+)", line)
         if m:
             ws = m.group(1)
             # Convert ws://127.0.0.1:PORT/... → http://127.0.0.1:PORT
-            port_m = _re.search(r':(\d+)/', ws)
+            port_m = _re.search(r":(\d+)/", ws)
             if port_m:
                 cdp_url = f"http://127.0.0.1:{port_m.group(1)}"
             break
@@ -746,11 +776,11 @@ def launch_browser(target_url: str, tv: dict) -> dict:
     admin = tv.get("admin_user", {}) or {}
     username = admin.get("username", "")
     password = admin.get("password", "")
-    idp      = tv.get("idp", "")
+    idp = tv.get("idp", "")
 
     with sync_playwright() as p:
         browser = p.chromium.connect_over_cdp(cdp_url)
-        ctx_b   = browser.new_context(
+        ctx_b = browser.new_context(
             viewport={"width": 1920, "height": 1080},
             ignore_https_errors=True,
         )
@@ -773,6 +803,7 @@ def launch_browser(target_url: str, tv: dict) -> dict:
 
 # ── Write context ─────────────────────────────────────────────────────────────
 
+
 def write_context(ctx):
     CONTEXT.write_text(json.dumps(ctx, indent=2))
     print(f"\n  Context written: {CONTEXT}")
@@ -780,9 +811,9 @@ def write_context(ctx):
 
 # ── --setup mode ──────────────────────────────────────────────────────────────
 
+
 def setup_mode():
-    r = run(["oc", "config", "view", "--minify",
-             "-o", "jsonpath={.clusters[0].cluster.server}"])
+    r = run(["oc", "config", "view", "--minify", "-o", "jsonpath={.clusters[0].cluster.server}"])
     cluster_api = r.stdout.strip()
     oc_user_r = run(["oc", "whoami"])
     username = oc_user_r.stdout.strip()
@@ -797,10 +828,10 @@ To configure credentials, copy the template and edit it:
 
 Then fill in these fields in test-variables.yml:
 
-  cluster_api:  {cluster_api or 'https://api.my-cluster.example.com:6443'}
+  cluster_api:  {cluster_api or "https://api.my-cluster.example.com:6443"}
   idp:          <identity provider shown on the OpenShift login page>
   admin_user:
-    username:   {username or 'ldap-admin1'}
+    username:   {username or "ldap-admin1"}
     password:   <your password>
 
 test-variables.yml is gitignored — it will never be committed.
@@ -810,31 +841,44 @@ test-variables.yml is gitignored — it will never be committed.
 
 # ── main ──────────────────────────────────────────────────────────────────────
 
+
 def main():
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--test-plan-pr",   metavar="URL")
-    parser.add_argument("--test-plan",      metavar="PATH")
-    parser.add_argument("--jira",           metavar="KEY")
-    parser.add_argument("--pr",             metavar="URL",  help="Component PR URL")
-    parser.add_argument("--target-url",     metavar="URL")
-    parser.add_argument("--tc",       default="",
-                        help="Comma-separated TC filter: exact IDs (TC-E2E-001) or "
-                             "category prefixes (TC-E2E, TC-FILTER). Default: all UI-capable TCs.")
-    parser.add_argument("--priority", default="",
-                        help="Filter by priority: P0, P1, P2. Default: all priorities.")
-    parser.add_argument("--setup",          action="store_true")
-    parser.add_argument("--upgrade-phase",  choices=["pre", "post"], default="",
-                        help="Upgrade testing mode. 'pre': run pre-upgrade TCs and save baseline. "
-                             "'post': run post-upgrade TCs and generate comparison report against baseline.")
-    parser.add_argument("--baseline",        metavar="SESSION_DIR", default="",
-                        help="Explicit baseline session directory for --upgrade-phase post. "
-                             "Overrides the auto-detected upgrade-baseline.json pointer. "
-                             "Use to compare a post run against any prior session (e.g. the original "
-                             "2.x PASS state when verifying a fix after a broken intermediate state).")
-    parser.add_argument("--refresh-map",    metavar="PATH",
-                        help="Regenerate element-map.yaml from the given odh-dashboard source path, then exit. "
-                             "Example: --refresh-map /path/to/odh-dashboard")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--test-plan-pr", metavar="URL")
+    parser.add_argument("--test-plan", metavar="PATH")
+    parser.add_argument("--jira", metavar="KEY")
+    parser.add_argument("--pr", metavar="URL", help="Component PR URL")
+    parser.add_argument("--target-url", metavar="URL")
+    parser.add_argument(
+        "--tc",
+        default="",
+        help="Comma-separated TC filter: exact IDs (TC-E2E-001) or "
+        "category prefixes (TC-E2E, TC-FILTER). Default: all UI-capable TCs.",
+    )
+    parser.add_argument("--priority", default="", help="Filter by priority: P0, P1, P2. Default: all priorities.")
+    parser.add_argument("--setup", action="store_true")
+    parser.add_argument(
+        "--upgrade-phase",
+        choices=["pre", "post"],
+        default="",
+        help="Upgrade testing mode. 'pre': run pre-upgrade TCs and save baseline. "
+        "'post': run post-upgrade TCs and generate comparison report against baseline.",
+    )
+    parser.add_argument(
+        "--baseline",
+        metavar="SESSION_DIR",
+        default="",
+        help="Explicit baseline session directory for --upgrade-phase post. "
+        "Overrides the auto-detected upgrade-baseline.json pointer. "
+        "Use to compare a post run against any prior session (e.g. the original "
+        "2.x PASS state when verifying a fix after a broken intermediate state).",
+    )
+    parser.add_argument(
+        "--refresh-map",
+        metavar="PATH",
+        help="Regenerate element-map.yaml from the given odh-dashboard source path, then exit. "
+        "Example: --refresh-map /path/to/odh-dashboard",
+    )
     args = parser.parse_args()
 
     if args.setup:
@@ -843,10 +887,14 @@ def main():
     if args.refresh_map:
         section("Refreshing element map")
         r = subprocess.run(
-            [sys.executable,
-             str(SKILL_DIR / "scripts" / "build_element_map.py"),
-             "--source", args.refresh_map,
-             "--out", str(SKILL_DIR / "element-map.yaml")],
+            [
+                sys.executable,
+                str(SKILL_DIR / "scripts" / "build_element_map.py"),
+                "--source",
+                args.refresh_map,
+                "--out",
+                str(SKILL_DIR / "element-map.yaml"),
+            ],
         )
         sys.exit(r.returncode)
 
@@ -862,45 +910,46 @@ def main():
                 args.tc = ",".join(_bl_ids)
                 print(f"  ℹ️  Auto-selected TCs from baseline: {args.tc}")
 
-    info        = phase0_preflight()
-    plan        = phase1_load_tcs(args)
+    info = phase0_preflight()
+    plan = phase1_load_tcs(args)
     component, cfg = phase2_component(plan, args)
-    target_url  = phase3_url(cfg, args)
+    target_url = phase3_url(cfg, args)
     cluster_api = os.environ.get("ODH_QA_CLUSTER_API", "")
-    creds       = phase4_credentials(cluster_api, args)
+    creds = phase4_credentials(cluster_api, args)
     pre_projects = phase5_snapshot(info["oc_available"])
     phase6_prerequisites(plan, info["oc_available"], args.upgrade_phase)
 
     feature_name = (plan or {}).get("feature", "session")
-    session_dir  = setup_session(feature_name)
+    session_dir = setup_session(feature_name)
 
     # Phase 7: Launch persistent browser and log in
     tv = _load_tv(getattr(args, "upgrade_phase", "")) if TV_FILE.exists() else {}
     browser_info = launch_browser(target_url, tv)
 
     ctx = {
-        "skill_dir":     info["skill_dir"],
-        "session_dir":   session_dir,
-        "target_url":    target_url,
-        "cluster_api":   creds["cluster_api"],
-        "oc_token":      creds["oc_token"],
-        "username":      creds["username"],
-        "idp":           creds["idp"],
-        "component":     component,
-        "feature":       feature_name,
-        "strat_key":     (plan or {}).get("strat_key", ""),
-        "jira_key":      args.jira or "",
-        "source":        (
-            f"PR #{args.test_plan_pr.split('/')[-1]} ({args.test_plan_pr})" if args.test_plan_pr
+        "skill_dir": info["skill_dir"],
+        "session_dir": session_dir,
+        "target_url": target_url,
+        "cluster_api": creds["cluster_api"],
+        "oc_token": creds["oc_token"],
+        "username": creds["username"],
+        "idp": creds["idp"],
+        "component": component,
+        "feature": feature_name,
+        "strat_key": (plan or {}).get("strat_key", ""),
+        "jira_key": args.jira or "",
+        "source": (
+            f"PR #{args.test_plan_pr.split('/')[-1]} ({args.test_plan_pr})"
+            if args.test_plan_pr
             else args.test_plan or args.jira or "local"
         ),
-        "test_cases":    (plan or {}).get("test_cases", []),
-        "known_routes":  cfg.get("known_routes", {}),   # from component-registry.yaml — use these first!
-        "oc_available":     info["oc_available"],
-        "pre_projects":  pre_projects,
-        "browser_cdp":   browser_info["browser_cdp"],
-        "browser_pid":   browser_info["browser_pid"],
-        "prepared_at":   time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "test_cases": (plan or {}).get("test_cases", []),
+        "known_routes": cfg.get("known_routes", {}),  # from component-registry.yaml — use these first!
+        "oc_available": info["oc_available"],
+        "pre_projects": pre_projects,
+        "browser_cdp": browser_info["browser_cdp"],
+        "browser_pid": browser_info["browser_pid"],
+        "prepared_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         "upgrade_phase": args.upgrade_phase or "",
         "upgrade_baseline_dir": "",  # filled below for post runs
     }
@@ -910,11 +959,16 @@ def main():
 
     if args.upgrade_phase == "pre":
         _baseline_file.parent.mkdir(parents=True, exist_ok=True)
-        _baseline_file.write_text(json.dumps({
-            "session_dir": session_dir,
-            "feature":     feature_name,
-            "prepared_at": ctx["prepared_at"],
-        }, indent=2))
+        _baseline_file.write_text(
+            json.dumps(
+                {
+                    "session_dir": session_dir,
+                    "feature": feature_name,
+                    "prepared_at": ctx["prepared_at"],
+                },
+                indent=2,
+            )
+        )
         print(f"\n  📌 Baseline saved → {_baseline_file}")
 
     elif args.upgrade_phase == "post":
@@ -934,26 +988,37 @@ def main():
 
     write_context(ctx)
 
+    def _upgrade_hint(a):
+        if a.upgrade_phase != "pre":
+            return ""
+        return (
+            "\n  ⬆  After running /test-plan.ui-verify,"
+            " upgrade the cluster then run:\n"
+            "     python3 ui_prepare.py --test-plan-pr"
+            " <same-url> --upgrade-phase post\n"
+        )
+
     print(f"""
-{'='*60}
+{"=" * 60}
 ✅ Preparation complete!
 
    Feature:    {feature_name}
    Target:     {target_url}
-   TCs queued: {len(ctx['test_cases'])}
+   TCs queued: {len(ctx["test_cases"])}
    Session:    {session_dir}
 
 Now run in Claude Code:
 
    /test-plan.ui-verify
-{'='*60}
-{(chr(10) + '  ⬆  After running /test-plan.ui-verify, upgrade the cluster then run:' + chr(10) + '     python3 ui_prepare.py --test-plan-pr <same-url> --upgrade-phase post' + chr(10)) if args.upgrade_phase == 'pre' else ''}""")
+{"=" * 60}
+{_upgrade_hint(args)}""")
 
     # Launch Claude Code interactively. The user types /test-plan.ui-verify to start.
     # subprocess.run (not os.execlp) keeps this process alive so atexit can
     # kill the browser if Claude crashes before reaching its Phase 3 cleanup.
     import atexit
     import shutil
+
     browser_pid = browser_info.get("browser_pid")
     if browser_pid:
         atexit.register(lambda pid=browser_pid: _atexit_kill_browser(pid))

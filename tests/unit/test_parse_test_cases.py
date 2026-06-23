@@ -13,11 +13,11 @@ def test_parses_single_tc(tmp_path):
     tc_dir.mkdir()
 
     (tc_dir / "TC-API-001.md").write_text(f"""---
-test_case_id: {VALID_TEST_CASE_DATA['test_case_id']}
-source_key: {VALID_TEST_CASE_DATA['source_key']}
-priority: {VALID_TEST_CASE_DATA['priority']}
-status: {VALID_TEST_CASE_DATA['status']}
-last_updated: "{VALID_TEST_CASE_DATA['last_updated']}"
+test_case_id: {VALID_TEST_CASE_DATA["test_case_id"]}
+source_key: {VALID_TEST_CASE_DATA["source_key"]}
+priority: {VALID_TEST_CASE_DATA["priority"]}
+status: {VALID_TEST_CASE_DATA["status"]}
+last_updated: "{VALID_TEST_CASE_DATA["last_updated"]}"
 automation_status: Not Started
 placement_location: component
 level: integration

@@ -139,8 +139,7 @@ class TestValidateAll:
 
     def test_all_valid(self, tmp_path):
         write_frontmatter(str(tmp_path / "TestPlan.md"), VALID_TEST_PLAN_DATA, "test-plan")
-        write_frontmatter(str(tmp_path / "TestPlanGaps.md"),
-                          {**VALID_TEST_GAPS_DATA, "gap_count": 3}, "test-gaps")
+        write_frontmatter(str(tmp_path / "TestPlanGaps.md"), {**VALID_TEST_GAPS_DATA, "gap_count": 3}, "test-gaps")
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
         (tc_dir / "INDEX.md").write_text("# Index")

@@ -5,10 +5,10 @@ browser_common.py — Shared browser connection helpers for test-plan.ui-verify.
 Provides get_page() and release() used by ui_interact.py and ui_assert.py.
 Centralised here so CDP connection logic is maintained in one place.
 """
+
 import json
 import os
 import sys
-from pathlib import Path
 
 os.environ.setdefault("NODE_NO_WARNINGS", "1")
 
@@ -18,7 +18,8 @@ except ImportError:
     print("ERROR: playwright not installed — run: pip install playwright && playwright install chromium")
     sys.exit(1)
 
-from paths import SKILL_DIR, TMP_DIR
+from paths import TMP_DIR
+
 
 def get_page():
     """Connect to the persistent browser and return (playwright, browser, page, ctx).
@@ -38,7 +39,7 @@ def get_page():
         sys.exit(1)
 
     try:
-        pw      = sync_playwright().start()
+        pw = sync_playwright().start()
         browser = pw.chromium.connect_over_cdp(cdp)
     except Exception as e:
         print(f"ERROR: Cannot connect to browser ({e}) — run ui_prepare.py first", file=sys.stderr)
@@ -77,8 +78,7 @@ def release(pw) -> None:
     pw.stop()
 
 
-def do_oauth_login(page, username: str, password: str, idp: str,
-                   timeout: int = 20000) -> bool:
+def do_oauth_login(page, username: str, password: str, idp: str, timeout: int = 20000) -> bool:
     """Perform the OpenShift OAuth login flow: click IDP → fill credentials → wait.
 
     Shared by ui_prepare.py (initial login) and ui_interact.py (_relogin).
@@ -126,8 +126,7 @@ def do_oauth_login(page, username: str, password: str, idp: str,
             continue
 
     if not idp_clicked:
-        print(f"  IDP '{idp}' not found at {page.url} — assuming cluster skips IDP selection",
-              flush=True)
+        print(f"  IDP '{idp}' not found at {page.url} — assuming cluster skips IDP selection", flush=True)
 
     # Fill username — wait_for with no timeout uses Playwright's page default (30 s)
     try:
@@ -172,8 +171,7 @@ def do_oauth_login(page, username: str, password: str, idp: str,
         pass
 
     final = page.url
-    failed = any(p in final.lower() for p in
-                 ("login", "oauth/authorize", "access_denied"))
+    failed = any(p in final.lower() for p in ("login", "oauth/authorize", "access_denied"))
     if failed:
         print(f"  ❌ Login: ended at {final}", flush=True)
         try:

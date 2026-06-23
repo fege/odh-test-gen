@@ -16,17 +16,16 @@ from typing import Dict, List, Optional, Tuple
 
 # Known repository configurations
 KNOWN_REPOS = {
-    'odh-test-context': {
-        'name': 'odh-test-context',
-        'url': 'https://github.com/opendatahub-io/odh-test-context',
-        'verify': lambda p: os.path.isdir(os.path.join(p, "tests")) and
-                           len(list(Path(p).glob("tests/*.json"))) > 0
+    "odh-test-context": {
+        "name": "odh-test-context",
+        "url": "https://github.com/opendatahub-io/odh-test-context",
+        "verify": lambda p: os.path.isdir(os.path.join(p, "tests")) and len(list(Path(p).glob("tests/*.json"))) > 0,
     },
-    'tiger-team': {
-        'name': 'Red-Hat-Quality-Tiger-Team',
-        'url': 'https://github.com/RedHatQE/Red-Hat-Quality-Tiger-Team',
-        'verify': lambda p: os.path.isdir(os.path.join(p, ".claude", "skills"))
-    }
+    "tiger-team": {
+        "name": "Red-Hat-Quality-Tiger-Team",
+        "url": "https://github.com/RedHatQE/Red-Hat-Quality-Tiger-Team",
+        "verify": lambda p: os.path.isdir(os.path.join(p, ".claude", "skills")),
+    },
 }
 
 
@@ -77,9 +76,9 @@ def find_known_repo(repo_type: str) -> Tuple[Optional[str], str]:
         raise ValueError(f"Unknown repo type: {repo_type}. Valid: {list(KNOWN_REPOS.keys())}")
 
     config = KNOWN_REPOS[repo_type]
-    path = find_repo_in_common_locations(config['name'], config['verify'])
+    path = find_repo_in_common_locations(config["name"], config["verify"])
 
-    return (path, config['url'])
+    return (path, config["url"])
 
 
 def find_target_repo(repo_name: str) -> Optional[str]:
@@ -99,8 +98,8 @@ def find_target_repo(repo_name: str) -> Optional[str]:
         Absolute path or None
     """
     # Parse org/repo if present
-    if '/' in repo_name:
-        org, repo = repo_name.split('/', 1)
+    if "/" in repo_name:
+        org, repo = repo_name.split("/", 1)
         # Try with org prefix too
         path = find_repo_in_common_locations(f"{org}-{repo}")
         if path:
@@ -127,22 +126,14 @@ def clone_repo(repo_url: str, target_path: str) -> Optional[str]:
     os.makedirs(os.path.dirname(target), exist_ok=True)
 
     try:
-        subprocess.run(
-            ["git", "clone", repo_url, target],
-            capture_output=True,
-            text=True,
-            check=True
-        )
+        subprocess.run(["git", "clone", repo_url, target], capture_output=True, text=True, check=True)
         return target
     except subprocess.CalledProcessError as e:
         print(f"Clone failed ({repo_url}): {e.stderr}")
         return None
 
 
-def map_components_to_repos(
-    components: List[str],
-    odh_test_context_path: Optional[str] = None
-) -> Dict[str, str]:
+def map_components_to_repos(components: List[str], odh_test_context_path: Optional[str] = None) -> Dict[str, str]:
     """
     Map component names to GitHub repos.
 
@@ -164,36 +155,36 @@ def map_components_to_repos(
             for json_file in Path(tests_dir).glob("*.json"):
                 repo_name = json_file.stem
                 try:
-                    with open(json_file, 'r') as f:
+                    with open(json_file, "r") as f:
                         context = json.load(f)
-                    org = context.get('org', 'opendatahub-io')
+                    org = context.get("org", "opendatahub-io")
                     repo_full = f"{org}/{repo_name}"
 
                     component_repo_map[repo_name.lower()] = repo_full
 
                     # Alias: "odh-dashboard" → "dashboard"
-                    if repo_name.startswith('odh-'):
+                    if repo_name.startswith("odh-"):
                         component_repo_map[repo_name[4:].lower()] = repo_full
                 except (json.JSONDecodeError, IOError):
                     continue
 
     # Fallback map
     fallback = {
-        'notebooks': 'opendatahub-io/notebooks',
-        'notebook': 'opendatahub-io/notebooks',
-        'dashboard': 'opendatahub-io/odh-dashboard',
-        'odh-dashboard': 'opendatahub-io/odh-dashboard',
-        'model-serving': 'kserve/kserve',
-        'model serving': 'kserve/kserve',
-        'model-registry': 'opendatahub-io/model-registry',
-        'model registry': 'opendatahub-io/model-registry',
-        'pipelines': 'opendatahub-io/data-science-pipelines',
-        'data-science-pipelines': 'opendatahub-io/data-science-pipelines',
-        'workbenches': 'opendatahub-io/notebooks',
-        'workbench': 'opendatahub-io/notebooks',
-        'kserve': 'kserve/kserve',
-        'modelmesh': 'opendatahub-io/modelmesh-serving',
-        'model-mesh': 'opendatahub-io/modelmesh-serving',
+        "notebooks": "opendatahub-io/notebooks",
+        "notebook": "opendatahub-io/notebooks",
+        "dashboard": "opendatahub-io/odh-dashboard",
+        "odh-dashboard": "opendatahub-io/odh-dashboard",
+        "model-serving": "kserve/kserve",
+        "model serving": "kserve/kserve",
+        "model-registry": "opendatahub-io/model-registry",
+        "model registry": "opendatahub-io/model-registry",
+        "pipelines": "opendatahub-io/data-science-pipelines",
+        "data-science-pipelines": "opendatahub-io/data-science-pipelines",
+        "workbenches": "opendatahub-io/notebooks",
+        "workbench": "opendatahub-io/notebooks",
+        "kserve": "kserve/kserve",
+        "modelmesh": "opendatahub-io/modelmesh-serving",
+        "model-mesh": "opendatahub-io/modelmesh-serving",
     }
 
     # Merge (odh-test-context wins)
@@ -203,7 +194,7 @@ def map_components_to_repos(
     # Match components
     matched = {}
     for component in components:
-        key = component.lower().replace(' ', '-')
+        key = component.lower().replace(" ", "-")
         if key in component_repo_map:
             matched[component] = component_repo_map[key]
 
@@ -227,7 +218,7 @@ def load_repo_test_context(repo_name: str, odh_test_context_path: str) -> Option
         return None
 
     try:
-        with open(context_file, 'r') as f:
+        with open(context_file, "r") as f:
             return json.load(f)
     except (json.JSONDecodeError, IOError) as e:
         print(f"Error loading {context_file}: {e}")
@@ -237,15 +228,15 @@ def load_repo_test_context(repo_name: str, odh_test_context_path: str) -> Option
 def extract_conventions_from_context(test_context: Dict) -> Dict:
     """Extract test conventions from odh-test-context."""
     return {
-        'framework': test_context.get('testing', {}).get('framework', 'unknown'),
-        'test_file_pattern': test_context.get('conventions', {}).get('test_file_pattern', 'test_*.py'),
-        'test_function_pattern': test_context.get('conventions', {}).get('test_function_pattern', 'test_*'),
-        'import_style': test_context.get('conventions', {}).get('import_style', 'absolute'),
-        'markers': test_context.get('conventions', {}).get('markers', []),
-        'linting_tools': [t.get('tool') for t in test_context.get('linting', {}).get('tools', [])],
-        'linting_commands': [c.get('command') for c in test_context.get('linting', {}).get('commands', [])],
-        'test_directories': test_context.get('testing', {}).get('directories', []),
-        'test_commands': test_context.get('testing', {}).get('commands', []),
+        "framework": test_context.get("testing", {}).get("framework", "unknown"),
+        "test_file_pattern": test_context.get("conventions", {}).get("test_file_pattern", "test_*.py"),
+        "test_function_pattern": test_context.get("conventions", {}).get("test_function_pattern", "test_*"),
+        "import_style": test_context.get("conventions", {}).get("import_style", "absolute"),
+        "markers": test_context.get("conventions", {}).get("markers", []),
+        "linting_tools": [t.get("tool") for t in test_context.get("linting", {}).get("tools", [])],
+        "linting_commands": [c.get("command") for c in test_context.get("linting", {}).get("commands", [])],
+        "test_directories": test_context.get("testing", {}).get("directories", []),
+        "test_commands": test_context.get("testing", {}).get("commands", []),
     }
 
 
@@ -262,8 +253,8 @@ def get_framework(test_context: Optional[Dict] = None) -> Optional[str]:
         Framework name or None
     """
     if test_context:
-        fw = test_context.get('testing', {}).get('framework')
-        if fw and fw != 'unknown':
+        fw = test_context.get("testing", {}).get("framework")
+        if fw and fw != "unknown":
             return fw
 
     return None
@@ -281,11 +272,7 @@ def get_git_root(path: str) -> Optional[str]:
     """
     try:
         result = subprocess.run(
-            ["git", "rev-parse", "--show-toplevel"],
-            cwd=path,
-            capture_output=True,
-            text=True,
-            check=True
+            ["git", "rev-parse", "--show-toplevel"], cwd=path, capture_output=True, text=True, check=True
         )
         return result.stdout.strip()
     except (subprocess.CalledProcessError, FileNotFoundError):
@@ -304,19 +291,15 @@ def get_git_remote(path: str) -> Optional[str]:
     """
     try:
         result = subprocess.run(
-            ["git", "config", "--get", "remote.origin.url"],
-            cwd=path,
-            capture_output=True,
-            text=True,
-            check=True
+            ["git", "config", "--get", "remote.origin.url"], cwd=path, capture_output=True, text=True, check=True
         )
         url = result.stdout.strip()
 
         # Extract owner/repo from URL
         # Handles: https://github.com/owner/repo.git, git@github.com:owner/repo.git
-        match = re.search(r'github\.com[:/]([^/]+/[^/.]+)', url)
+        match = re.search(r"github\.com[:/]([^/]+/[^/.]+)", url)
         if match:
-            return match.group(1).replace('.git', '')
+            return match.group(1).replace(".git", "")
 
         return None
     except (subprocess.CalledProcessError, FileNotFoundError):

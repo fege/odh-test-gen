@@ -32,23 +32,23 @@ class TestParseTcFile:
         result = parse_tc_file(str(tc_file), read_frontmatter)
 
         # Frontmatter
-        assert result['test_case_id'] == 'TC-API-001'
-        assert result['priority'] == 'P0'
+        assert result["test_case_id"] == "TC-API-001"
+        assert result["priority"] == "P0"
 
         # Mandatory sections
-        assert result['objective'] == 'Verify that the API returns correct metadata'
-        assert len(result['preconditions']) == 2
-        assert result['preconditions'][0] == 'RHOAI cluster deployed'
-        assert len(result['test_steps']) == 3
-        assert result['test_steps'][0] == 'Send GET request to API endpoint'
-        assert len(result['expected_results']) == 2
-        assert result['expected_results'][0] == 'Response status is 200'
+        assert result["objective"] == "Verify that the API returns correct metadata"
+        assert len(result["preconditions"]) == 2
+        assert result["preconditions"][0] == "RHOAI cluster deployed"
+        assert len(result["test_steps"]) == 3
+        assert result["test_steps"][0] == "Send GET request to API endpoint"
+        assert len(result["expected_results"]) == 2
+        assert result["expected_results"][0] == "Response status is 200"
 
         # Body has only optional sections
-        assert 'Test Data' in result['body']
-        assert 'Notes' in result['body']
+        assert "Test Data" in result["body"]
+        assert "Notes" in result["body"]
         # Should NOT duplicate mandatory sections
-        assert 'Preconditions' not in result['body']
+        assert "Preconditions" not in result["body"]
 
     def test_multiline_items_joined_correctly(self, tmp_path):
         """Should join multi-line bullet and numbered items."""
@@ -58,9 +58,9 @@ class TestParseTcFile:
         result = parse_tc_file(str(tc_file), read_frontmatter)
 
         # Multi-line items should be joined with spaces
-        assert result['preconditions'][0] == 'Requirement that spans multiple lines with indentation'
-        assert result['test_steps'][0] == 'Step one that also spans multiple lines'
-        assert result['expected_results'][0] == 'Expected result spanning multiple lines'
+        assert result["preconditions"][0] == "Requirement that spans multiple lines with indentation"
+        assert result["test_steps"][0] == "Step one that also spans multiple lines"
+        assert result["expected_results"][0] == "Expected result spanning multiple lines"
 
     def test_empty_lines_between_items_handled(self, tmp_path):
         """Should handle empty lines between list items."""
@@ -69,8 +69,8 @@ class TestParseTcFile:
 
         result = parse_tc_file(str(tc_file), read_frontmatter)
 
-        assert len(result['preconditions']) == 3
-        assert len(result['test_steps']) == 2
+        assert len(result["preconditions"]) == 3
+        assert len(result["test_steps"]) == 2
 
     def test_missing_objective_raises_error(self, tmp_path):
         """Should raise ValueError if Objective is missing."""
@@ -112,15 +112,15 @@ class TestParseTcFile:
         result = parse_tc_file(str(tc_file), read_frontmatter)
 
         # Optional sections should be in body
-        assert 'Test Data' in result['body']
-        assert '{"key": "value"}' in result['body']
-        assert 'Expected Response' in result['body']
-        assert 'Validation' in result['body']
-        assert 'Notes' in result['body']
+        assert "Test Data" in result["body"]
+        assert '{"key": "value"}' in result["body"]
+        assert "Expected Response" in result["body"]
+        assert "Validation" in result["body"]
+        assert "Notes" in result["body"]
 
         # Mandatory sections should NOT be in body
-        assert 'Preconditions' not in result['body']
-        assert 'Test Steps' not in result['body']
+        assert "Preconditions" not in result["body"]
+        assert "Test Steps" not in result["body"]
 
     def test_test_steps_as_bullet_list_raises_error(self, tmp_path):
         """Should raise error if Test Steps uses bullets instead of numbers."""

@@ -25,7 +25,7 @@ class TestMapComponentsToRepos:
 
         # Create context with custom org
         context_data = {"org": "custom-org", "testing": {"framework": "pytest"}}
-        with open(tests_dir / "notebooks.json", 'w') as f:
+        with open(tests_dir / "notebooks.json", "w") as f:
             json.dump(context_data, f)
 
         result = map_components_to_repos(["notebooks"], odh_test_context_path=str(tmp_path))
@@ -37,7 +37,7 @@ class TestMapComponentsToRepos:
         tests_dir.mkdir()
 
         context_data = {"org": "opendatahub-io"}
-        with open(tests_dir / "odh-special.json", 'w') as f:
+        with open(tests_dir / "odh-special.json", "w") as f:
             json.dump(context_data, f)
 
         # Map using alias (without 'odh-' prefix)
@@ -53,7 +53,7 @@ class TestLoadRepoTestContext:
         tests_dir = tmp_path / "tests"
         tests_dir.mkdir()
 
-        with open(tests_dir / "bad.json", 'w') as f:
+        with open(tests_dir / "bad.json", "w") as f:
             f.write("{ invalid json }")
 
         result = load_repo_test_context("bad", str(tmp_path))

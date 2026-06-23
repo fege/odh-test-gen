@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Extract conventions from odh-test-context and format as markdown."""
+
 import json
 import sys
 from pathlib import Path
@@ -8,11 +9,7 @@ from scripts.utils.repo_utils import load_repo_test_context, extract_conventions
 from scripts.format_conventions import format_conventions
 
 
-def extract_and_format_conventions(
-    feature_dir: str,
-    repo_name: str,
-    odh_test_context_path: str
-) -> str:
+def extract_and_format_conventions(feature_dir: str, repo_name: str, odh_test_context_path: str) -> str:
     """
     Extract conventions and format as markdown.
 
@@ -35,12 +32,12 @@ def extract_and_format_conventions(
 
     # Save full context to JSON
     context_file = Path(feature_dir) / "test_implementation_context.json"
-    with open(context_file, 'w') as f:
+    with open(context_file, "w") as f:
         json.dump(test_context, f, indent=2)
 
     # Extract and format conventions
     conventions = extract_conventions_from_context(test_context)
-    conventions['repo_name'] = repo_name
+    conventions["repo_name"] = repo_name
 
     markdown = format_conventions(conventions)
     return markdown
@@ -49,8 +46,10 @@ def extract_and_format_conventions(
 def main():
     """CLI entry point."""
     if len(sys.argv) != 4:
-        print("Usage: python scripts/extract_and_format_conventions.py <feature_dir> <repo_name> <odh_test_context_path>",
-              file=sys.stderr)
+        print(
+            "Usage: python scripts/extract_and_format_conventions.py <feature_dir> <repo_name> <odh_test_context_path>",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
     feature_dir = sys.argv[1]

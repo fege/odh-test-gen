@@ -5,7 +5,6 @@ import sys
 import tempfile
 from io import StringIO
 from pathlib import Path
-from unittest.mock import patch
 
 from scripts import tc_regeneration
 
@@ -22,7 +21,7 @@ class TestTCRegenerationCheck:
             old_stdout = sys.stdout
 
             try:
-                sys.argv = ['tc_regeneration.py', 'check', str(feature_dir)]
+                sys.argv = ["tc_regeneration.py", "check", str(feature_dir)]
                 sys.stdout = StringIO()
 
                 exit_code = tc_regeneration.main()
@@ -31,9 +30,9 @@ class TestTCRegenerationCheck:
                 output = sys.stdout.getvalue().strip()
                 result = json.loads(output)
 
-                assert result['mode'] == 'create'
-                assert result['existing_count'] == 0
-                assert result['files'] == []
+                assert result["mode"] == "create"
+                assert result["existing_count"] == 0
+                assert result["files"] == []
 
             finally:
                 sys.argv = old_argv
@@ -55,7 +54,7 @@ class TestTCRegenerationCheck:
             old_stdout = sys.stdout
 
             try:
-                sys.argv = ['tc_regeneration.py', 'check', str(feature_dir)]
+                sys.argv = ["tc_regeneration.py", "check", str(feature_dir)]
                 sys.stdout = StringIO()
 
                 exit_code = tc_regeneration.main()
@@ -64,10 +63,10 @@ class TestTCRegenerationCheck:
                 output = sys.stdout.getvalue().strip()
                 result = json.loads(output)
 
-                assert result['mode'] == 'regenerate'
-                assert result['existing_count'] == 3
-                assert len(result['files']) == 3
-                assert all('TC-' in f for f in result['files'])
+                assert result["mode"] == "regenerate"
+                assert result["existing_count"] == 3
+                assert len(result["files"]) == 3
+                assert all("TC-" in f for f in result["files"])
 
             finally:
                 sys.argv = old_argv

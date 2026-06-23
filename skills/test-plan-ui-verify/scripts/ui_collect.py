@@ -11,13 +11,14 @@ Prints SESSION_DIR=<path> for Claude to record for Phase 6 report writing.
 Usage:
     python3 ui_collect.py
 """
+
 import shutil
 import sys
-from pathlib import Path
 
-from paths import SKILL_DIR, TMP_DIR
-session   = TMP_DIR / ".ui-session"
-tc_log    = TMP_DIR / "ui_tc_log.json"
+from paths import TMP_DIR
+
+session = TMP_DIR / ".ui-session"
+tc_log = TMP_DIR / "ui_tc_log.json"
 
 if not session.exists():
     print("ERROR: .ui-session symlink not found", file=sys.stderr)
@@ -34,8 +35,7 @@ if ctx_file.exists():
 for f in session.iterdir():
     if f.is_dir():
         shutil.rmtree(f)
-    elif (f.name not in {"tc_log.json", "report.md", "report.html", "ui_context.json"}
-          and "verify" not in f.name):
+    elif f.name not in {"tc_log.json", "report.md", "report.html", "ui_context.json"} and "verify" not in f.name:
         f.unlink(missing_ok=True)
 
 session_resolved = session.resolve()

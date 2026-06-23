@@ -80,12 +80,12 @@ The new version uses hyphenated names automatically.
   - Extracted deterministic logic to tested Python scripts
   - Improved maintainability and testability
 
-- **Sub-agent orchestration standardized**: 
+- **Sub-agent orchestration standardized**:
   - 9 internal skills for modular workflows
   - Clean isolation with `context: fork` pattern
   - Enables parallel execution where possible
 
-- **Script-based workflow**: 
+- **Script-based workflow**:
   - Scripts output JSON (no shell parsing needed)
   - Deterministic operations use Python (not bash + LLM)
   - All scripts have unit tests
@@ -99,7 +99,7 @@ The new version uses hyphenated names automatically.
 
 ## [0.x] - Pre-v1.0.0
 
-Previous versions used dot notation (`test-plan.create`) and lived in `.claude/skills/`. 
+Previous versions used dot notation (`test-plan.create`) and lived in `.claude/skills/`.
 
 See git history before tag `pre-v1-migration` for details.
 

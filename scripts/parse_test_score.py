@@ -40,33 +40,32 @@ def parse_test_score(score_file: str) -> str:
     if not score_path.exists():
         raise FileNotFoundError(f"Score file not found: {score_file}")
 
-    content = score_path.read_text(encoding='utf-8')
+    content = score_path.read_text(encoding="utf-8")
 
     # Extract verdict
-    verdict_match = re.search(r'\*\*Verdict\*\*:\s*(\w+)', content)
-    verdict = verdict_match.group(1) if verdict_match else 'Unknown'
+    verdict_match = re.search(r"\*\*Verdict\*\*:\s*(\w+)", content)
+    verdict = verdict_match.group(1) if verdict_match else "Unknown"
 
     # Extract total score
-    score_match = re.search(r'\*\*Total Score\*\*:\s*(\d+)/10', content)
+    score_match = re.search(r"\*\*Total Score\*\*:\s*(\d+)/10", content)
     total_score = int(score_match.group(1)) if score_match else 0
 
     # Extract issues (everything from ### Issues Found to end or next major section)
-    issues_match = re.search(
-        r'(### Issues Found.*?)(?=\n---|\Z)',
-        content,
-        re.DOTALL
-    )
+    issues_match = re.search(r"(### Issues Found.*?)(?=\n---|\Z)", content, re.DOTALL)
     issues = issues_match.group(1).strip() if issues_match else None
 
     # Determine if revision needed
-    needs_revision = verdict == 'Revise'
+    needs_revision = verdict == "Revise"
 
-    return json.dumps({
-        'verdict': verdict,
-        'total_score': total_score,
-        'needs_revision': needs_revision,
-        'issues': issues,
-    }, indent=2)
+    return json.dumps(
+        {
+            "verdict": verdict,
+            "total_score": total_score,
+            "needs_revision": needs_revision,
+            "issues": issues,
+        },
+        indent=2,
+    )
 
 
 def main():
@@ -88,5 +87,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

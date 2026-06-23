@@ -89,7 +89,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    if [ "$source_type" = "local" ]; then
        # Check for --output-dir flag (contributor override)
        FORCE_OUTPUT_DIR="${FORCE_OUTPUT_DIR:-false}"
-       
+
        # Validate against skill repository
        export CLAUDE_SKILL_DIR
        force_flag=$([ "$FORCE_OUTPUT_DIR" = "true" ] && echo "--force" || echo "")
@@ -135,14 +135,14 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    ```
 
 2. **If `mode = "regenerate"`** (existing test cases found):
-   
+
    a. **Read all existing TC files** using Read tool (satisfies Write tool requirement):
       ```bash
       echo "$regen_check" | jq -r '.files[]' | while read file; do
           # Read each existing TC file
       done
       ```
-   
+
    b. **Ask for confirmation** via AskUserQuestion:
       > **Regeneration Mode**
       >
@@ -152,9 +152,9 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
       > You can review changes via `git diff` before publishing.
       >
       > Proceed with regeneration? [yes/no]
-   
+
    c. If **no**: Exit without changes
-   
+
    d. If **yes**: Continue to Step 3 with `REGENERATION_MODE=true`
 
 3. **If `mode = "create"`** (no existing test cases):
@@ -173,10 +173,10 @@ Process **one category at a time** from Section 5.2. For each category:
    - Check against previously generated categories to avoid duplicating coverage
 
 2. **Write or Edit** the `TC-<CATEGORY>-<NUMBER>.md` files for that category immediately before moving to the next:
-   
+
    - **If `REGENERATION_MODE=true`**: Use Edit tool for files that already exist (preserves git history), Write tool for new files
    - **If `REGENERATION_MODE=false`**: Use Write tool for all files
-   
+
    Include YAML frontmatter at the top of each file:
 
    ```yaml

@@ -91,16 +91,14 @@ class TestApiCall:
         result = api_call("/rest/api/2/issue/TEST-123")
 
         assert result == {"key": "TEST-123", "fields": {}}
-        mock_make_request.assert_called_once_with(
-            "GET", "/rest/api/2/issue/TEST-123", None, None
-        )
+        mock_make_request.assert_called_once_with("GET", "/rest/api/2/issue/TEST-123", None, None)
 
     @patch("scripts.jira_utils.make_request")
     def test_api_call_handles_204_no_content(self, mock_make_request):
         """Test that api_call handles 204 No Content responses."""
         mock_response = Mock()
         mock_response.status_code = 204
-        mock_response.content = b''
+        mock_response.content = b""
         mock_make_request.return_value = mock_response
 
         result = api_call("/rest/api/2/issue/TEST-123", method="PUT")
@@ -112,7 +110,7 @@ class TestApiCall:
         """Test that api_call handles empty response content."""
         mock_response = Mock()
         mock_response.status_code = 200
-        mock_response.content = b''
+        mock_response.content = b""
         mock_make_request.return_value = mock_response
 
         result = api_call("/rest/api/2/issue/TEST-123")
@@ -141,10 +139,7 @@ class TestApiCallWithRetry:
         mock_response.status_code = 500
 
         # First call fails, second succeeds
-        mock_api_call.side_effect = [
-            requests.HTTPError(response=mock_response),
-            {"key": "TEST-123"}
-        ]
+        mock_api_call.side_effect = [requests.HTTPError(response=mock_response), {"key": "TEST-123"}]
 
         result = api_call_with_retry("/rest/api/2/issue/TEST-123", max_retries=3)
 
@@ -185,8 +180,7 @@ class TestApiCallWithRetry:
             assert mock_api_call.call_count == 1
 
             # Should print helpful message to stderr
-            stderr_calls = [call for call in mock_print.call_args_list
-                           if call.kwargs.get('file') == sys.stderr]
+            stderr_calls = [call for call in mock_print.call_args_list if call.kwargs.get("file") == sys.stderr]
             assert stderr_calls
             error_msg = stderr_calls[0].args[0]
             assert "Authentication error" in error_msg or f"({status_code})" in error_msg
@@ -220,10 +214,7 @@ class TestGetIssue:
         result = get_issue("TEST-123")
 
         assert result == expected
-        mock_api_call.assert_called_once_with(
-            "/rest/api/2/issue/TEST-123",
-            params={}
-        )
+        mock_api_call.assert_called_once_with("/rest/api/2/issue/TEST-123", params={})
 
     @patch("scripts.jira_utils.api_call_with_retry")
     def test_get_issue_with_fields(self, mock_api_call):
@@ -234,10 +225,7 @@ class TestGetIssue:
         result = get_issue("TEST-123", fields="summary,labels")
 
         assert result == expected
-        mock_api_call.assert_called_once_with(
-            "/rest/api/2/issue/TEST-123",
-            params={"fields": "summary,labels"}
-        )
+        mock_api_call.assert_called_once_with("/rest/api/2/issue/TEST-123", params={"fields": "summary,labels"})
 
 
 class TestAddLabels:
@@ -247,10 +235,7 @@ class TestAddLabels:
     @patch("scripts.jira_utils.get_issue")
     def test_add_labels_to_empty(self, mock_get_issue, mock_api_call):
         """Test adding labels to issue with no existing labels."""
-        mock_get_issue.return_value = {
-            "key": "TEST-123",
-            "fields": {"labels": []}
-        }
+        mock_get_issue.return_value = {"key": "TEST-123", "fields": {"labels": []}}
         mock_api_call.return_value = None  # 204 No Content
 
         result = add_labels("TEST-123", ["new-label"])
@@ -260,19 +245,14 @@ class TestAddLabels:
 
         # Verify the update call
         mock_api_call.assert_called_once_with(
-            "/rest/api/2/issue/TEST-123",
-            method="PUT",
-            json_data={"fields": {"labels": ["new-label"]}}
+            "/rest/api/2/issue/TEST-123", method="PUT", json_data={"fields": {"labels": ["new-label"]}}
         )
 
     @patch("scripts.jira_utils.api_call_with_retry")
     @patch("scripts.jira_utils.get_issue")
     def test_add_labels_merge_existing(self, mock_get_issue, mock_api_call):
         """Test that new labels are merged with existing labels."""
-        mock_get_issue.return_value = {
-            "key": "TEST-123",
-            "fields": {"labels": ["existing-label"]}
-        }
+        mock_get_issue.return_value = {"key": "TEST-123", "fields": {"labels": ["existing-label"]}}
         mock_api_call.return_value = None  # 204 No Content
 
         add_labels("TEST-123", ["new-label"])
@@ -286,10 +266,7 @@ class TestAddLabels:
     @patch("scripts.jira_utils.get_issue")
     def test_add_labels_no_duplicates(self, mock_get_issue, mock_api_call):
         """Test that duplicate labels are not added."""
-        mock_get_issue.return_value = {
-            "key": "TEST-123",
-            "fields": {"labels": ["existing-label"]}
-        }
+        mock_get_issue.return_value = {"key": "TEST-123", "fields": {"labels": ["existing-label"]}}
         mock_api_call.return_value = None  # 204 No Content
 
         add_labels("TEST-123", ["existing-label", "new-label"])
@@ -304,10 +281,7 @@ class TestAddLabels:
     @patch("scripts.jira_utils.get_issue")
     def test_add_labels_preserves_order(self, mock_get_issue, mock_api_call):
         """Test that label order is deterministic (existing first, new appended)."""
-        mock_get_issue.return_value = {
-            "key": "TEST-123",
-            "fields": {"labels": ["label-a", "label-b", "label-c"]}
-        }
+        mock_get_issue.return_value = {"key": "TEST-123", "fields": {"labels": ["label-a", "label-b", "label-c"]}}
         mock_api_call.return_value = None  # 204 No Content
 
         add_labels("TEST-123", ["label-d", "label-e"])
@@ -321,10 +295,7 @@ class TestAddLabels:
     @patch("scripts.jira_utils.get_issue")
     def test_add_labels_skips_api_call_when_no_change(self, mock_get_issue, mock_api_call):
         """Test that no API call is made when all labels already exist."""
-        mock_get_issue.return_value = {
-            "key": "TEST-123",
-            "fields": {"labels": ["existing-label", "another-label"]}
-        }
+        mock_get_issue.return_value = {"key": "TEST-123", "fields": {"labels": ["existing-label", "another-label"]}}
 
         add_labels("TEST-123", ["existing-label"])
 
@@ -335,10 +306,7 @@ class TestAddLabels:
     @patch("scripts.jira_utils.get_issue")
     def test_add_labels_deterministic_order(self, mock_get_issue, mock_api_call):
         """Test that label order is deterministic (no set() randomness)."""
-        mock_get_issue.return_value = {
-            "key": "TEST-123",
-            "fields": {"labels": ["z", "a", "m"]}
-        }
+        mock_get_issue.return_value = {"key": "TEST-123", "fields": {"labels": ["z", "a", "m"]}}
         mock_api_call.return_value = None
 
         # Add labels

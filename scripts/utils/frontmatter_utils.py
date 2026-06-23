@@ -12,8 +12,7 @@ try:
     import yaml
 except ImportError:
     print(
-        "Error: PyYAML is required but not installed.\n"
-        "Install it with: uv sync",
+        "Error: PyYAML is required but not installed.\nInstall it with: uv sync",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -25,8 +24,7 @@ from .schemas import ValidationError, validate, apply_defaults
 
 # ─── Frontmatter Read/Write ────────────────────────────────────────────────────
 
-_FRONTMATTER_RE = re.compile(
-    r'^---\s*\n(.*?\n)---\s*\n', re.DOTALL)
+_FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?\n)---\s*\n", re.DOTALL)
 
 
 def read_frontmatter(path):
@@ -44,7 +42,7 @@ def read_frontmatter(path):
         return {}, content
 
     yaml_str = match.group(1)
-    body = content[match.end():]
+    body = content[match.end() :]
 
     data = yaml.safe_load(yaml_str)
     if not isinstance(data, dict):
@@ -69,9 +67,7 @@ def read_frontmatter_validated(path, schema_type):
 
     errors = validate(data, schema_type)
     if errors:
-        raise ValidationError(
-            f"Frontmatter validation failed in {path}:\n"
-            + "\n".join(f"  - {e}" for e in errors))
+        raise ValidationError(f"Frontmatter validation failed in {path}:\n" + "\n".join(f"  - {e}" for e in errors))
 
     return data, body
 
@@ -92,9 +88,7 @@ def write_frontmatter(path, data, schema_type):
     apply_defaults(data, schema_type)
     errors = validate(data, schema_type)
     if errors:
-        raise ValidationError(
-            f"Frontmatter validation failed:\n"
-            + "\n".join(f"  - {e}" for e in errors))
+        raise ValidationError("Frontmatter validation failed:\n" + "\n".join(f"  - {e}" for e in errors))
 
     # Try to preserve existing body
     try:
@@ -102,8 +96,7 @@ def write_frontmatter(path, data, schema_type):
     except FileNotFoundError:
         body = ""
 
-    yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False,
-                         allow_unicode=True)
+    yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
     content = f"---\n{yaml_str}---\n{body}"
 
     with open(path, "w", encoding="utf-8") as f:
@@ -136,11 +129,10 @@ def update_frontmatter(path, updates, schema_type):
     errors = validate(data, schema_type)
     if errors:
         raise ValidationError(
-            f"Frontmatter validation failed after update in {path}:\n"
-            + "\n".join(f"  - {e}" for e in errors))
+            f"Frontmatter validation failed after update in {path}:\n" + "\n".join(f"  - {e}" for e in errors)
+        )
 
-    yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False,
-                         allow_unicode=True)
+    yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
     content = f"---\n{yaml_str}---\n{body}"
 
     with open(path, "w", encoding="utf-8") as f:
@@ -148,6 +140,7 @@ def update_frontmatter(path, updates, schema_type):
 
 
 # ─── Markdown Linting ─────────────────────────────────────────────────────────
+
 
 def load_markdownlint_config(config_path):
     """Load rules from a .markdownlint.yaml config file."""

@@ -79,8 +79,7 @@ def _read_current_version(filepath):
 
     schema_type = detect_schema_type(filepath)
     if not schema_type:
-        print(f"Error: cannot detect schema type from '{filepath}'",
-              file=sys.stderr)
+        print(f"Error: cannot detect schema type from '{filepath}'", file=sys.stderr)
         sys.exit(1)
 
     data, _ = read_frontmatter(filepath)
@@ -90,8 +89,7 @@ def _read_current_version(filepath):
 
     old_version = data.get("version")
     if old_version is None:
-        print(f"Error: no 'version' field in frontmatter of {filepath}",
-              file=sys.stderr)
+        print(f"Error: no 'version' field in frontmatter of {filepath}", file=sys.stderr)
         sys.exit(1)
 
     return str(old_version), schema_type
@@ -123,8 +121,7 @@ def cmd_bump(args):
 
     _write_version(args.file, schema_type, new_version)
 
-    json.dump({"old_version": old_version, "new_version": new_version},
-              sys.stdout, indent=2)
+    json.dump({"old_version": old_version, "new_version": new_version}, sys.stdout, indent=2)
     print()
 
 
@@ -137,19 +134,15 @@ def cmd_set(args):
     old_version, schema_type = _read_current_version(args.file)
 
     if old_version == args.version:
-        print(f"Warning: version already set to {args.version}",
-              file=sys.stderr)
-        json.dump({"old_version": old_version, "new_version": args.version,
-                    "no_change": True}, sys.stdout, indent=2)
+        print(f"Warning: version already set to {args.version}", file=sys.stderr)
+        json.dump({"old_version": old_version, "new_version": args.version, "no_change": True}, sys.stdout, indent=2)
         print()
         sys.exit(0)
 
     _write_version(args.file, schema_type, args.version)
 
-    json.dump({"old_version": old_version, "new_version": args.version},
-              sys.stdout, indent=2)
+    json.dump({"old_version": old_version, "new_version": args.version}, sys.stdout, indent=2)
     print()
-
 
 
 def main():
@@ -160,16 +153,13 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # bump
-    p_bump = subparsers.add_parser("bump",
-                                   help="Bump version in file frontmatter")
+    p_bump = subparsers.add_parser("bump", help="Bump version in file frontmatter")
     p_bump.add_argument("file", help="Path to the markdown file")
-    p_bump.add_argument("bump_type", choices=["major", "minor", "patch"],
-                        help="Version part to bump")
+    p_bump.add_argument("bump_type", choices=["major", "minor", "patch"], help="Version part to bump")
     p_bump.set_defaults(func=cmd_bump)
 
     # set
-    p_set = subparsers.add_parser("set",
-                                  help="Set version to a specific value")
+    p_set = subparsers.add_parser("set", help="Set version to a specific value")
     p_set.add_argument("file", help="Path to the markdown file")
     p_set.add_argument("version", help="Version string (e.g. 2.0.0)")
     p_set.set_defaults(func=cmd_set)

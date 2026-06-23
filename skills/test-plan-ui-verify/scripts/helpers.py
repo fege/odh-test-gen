@@ -6,9 +6,25 @@ scripts that use subprocess calls and external connections.
 
 # Keywords that indicate a TC step exercises the browser UI.
 UI_KEYWORDS = [
-    "navigate", "click", "filter", "catalog", "dashboard", "UI", "page",
-    "model card", "sidebar", "browser", "display", "render", "visible",
-    "button", "checkbox", "tag", "label", "search", "scroll",
+    "navigate",
+    "click",
+    "filter",
+    "catalog",
+    "dashboard",
+    "UI",
+    "page",
+    "model card",
+    "sidebar",
+    "browser",
+    "display",
+    "render",
+    "visible",
+    "button",
+    "checkbox",
+    "tag",
+    "label",
+    "search",
+    "scroll",
 ]
 
 

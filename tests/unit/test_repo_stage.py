@@ -12,7 +12,10 @@ def _staged_files(repo_path):
     """Return list of staged file paths relative to repo root."""
     result = subprocess.run(
         ["git", "diff", "--cached", "--name-only"],
-        cwd=repo_path, capture_output=True, text=True, check=True,
+        cwd=repo_path,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     return [f for f in result.stdout.strip().split("\n") if f]
 
@@ -36,7 +39,8 @@ def test_stages_required_and_skips_optional(git_repo):
 def test_stages_optional_files_when_exist(git_repo):
     """TestPlanGaps.md and TestPlanReview.md are staged when present."""
     add_feature(
-        git_repo, "feat",
+        git_repo,
+        "feat",
         ["TestPlan.md", "README.md", "TestPlanGaps.md", "TestPlanReview.md"],
     )
 
@@ -53,7 +57,8 @@ def test_stages_optional_files_when_exist(git_repo):
 def test_stages_test_cases_when_dir_exists(git_repo):
     """test_cases/*.md files are staged when directory exists."""
     add_feature(
-        git_repo, "feat",
+        git_repo,
+        "feat",
         ["TestPlan.md", "README.md", "test_cases/INDEX.md", "test_cases/TC-API-001.md"],
     )
 
@@ -65,10 +70,13 @@ def test_stages_test_cases_when_dir_exists(git_repo):
     assert "feat/test_cases/TC-API-001.md" in staged
 
 
-@pytest.mark.parametrize("missing,present", [
-    ("TestPlan.md", ["README.md"]),
-    ("README.md", ["TestPlan.md"]),
-])
+@pytest.mark.parametrize(
+    "missing,present",
+    [
+        ("TestPlan.md", ["README.md"]),
+        ("README.md", ["TestPlan.md"]),
+    ],
+)
 def test_fails_when_required_file_missing(git_repo, missing, present):
     """Returns exit 1 with error naming the missing required file."""
     add_feature(git_repo, "feat", present)

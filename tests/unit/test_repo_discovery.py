@@ -24,9 +24,9 @@ class TestExtractRepoIndicators:
 
         result = extract_repo_indicators(str(testplan), [])
 
-        assert '/api/v1/notebooks' in result['endpoints']
-        assert '/api/v1/models' in result['endpoints']
-        assert 'notebooks' in result['components']
+        assert "/api/v1/notebooks" in result["endpoints"]
+        assert "/api/v1/models" in result["endpoints"]
+        assert "notebooks" in result["components"]
 
     def test_extract_components_from_scope(self, tmp_path):
         """Should extract components from Section 1.2 Scope."""
@@ -35,8 +35,8 @@ class TestExtractRepoIndicators:
 
         result = extract_repo_indicators(str(testplan), [])
 
-        assert 'dashboard' in result['components']
-        assert 'model-registry' in result['components']
+        assert "dashboard" in result["components"]
+        assert "model-registry" in result["components"]
 
     def test_extract_from_tc_preconditions(self, tmp_path):
         """Should extract components from TC preconditions."""
@@ -48,8 +48,8 @@ class TestExtractRepoIndicators:
 
         result = extract_repo_indicators(str(testplan), [str(tc_file)])
 
-        assert 'notebooks' in result['components']
-        assert 'model-registry' in result['components']
+        assert "notebooks" in result["components"]
+        assert "model-registry" in result["components"]
 
     def test_deduplicates_components(self, tmp_path):
         """Should deduplicate component mentions."""
@@ -58,6 +58,5 @@ class TestExtractRepoIndicators:
 
         result = extract_repo_indicators(str(testplan), [])
 
-        assert result['components'].count('notebooks') == 1
-        assert result['components'].count('dashboard') == 1
-
+        assert result["components"].count("notebooks") == 1
+        assert result["components"].count("dashboard") == 1

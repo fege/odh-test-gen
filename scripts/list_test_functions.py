@@ -46,34 +46,33 @@ def list_test_functions(file_path: str) -> str:
         raise FileNotFoundError(f"File not found: {file_path}")
 
     # Read and parse file
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, "r", encoding="utf-8") as f:
         source = f.read()
 
     try:
         tree = ast.parse(source, filename=str(file_path_obj))
     except SyntaxError:
         # If file has syntax errors, return empty list with error flag
-        return json.dumps({
-            'file': str(file_path_obj),
-            'functions': [],
-            'parse_error': True
-        }, indent=2)
+        return json.dumps({"file": str(file_path_obj), "functions": [], "parse_error": True}, indent=2)
 
     # Extract test functions (only top-level, starting with 'test_')
     functions = [
         {
-            'name': node.name,
-            'line': node.lineno,
-            'docstring': ast.get_docstring(node),
+            "name": node.name,
+            "line": node.lineno,
+            "docstring": ast.get_docstring(node),
         }
         for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name.startswith('test_')
+        if isinstance(node, ast.FunctionDef) and node.name.startswith("test_")
     ]
 
-    return json.dumps({
-        'file': str(file_path_obj),
-        'functions': functions,
-    }, indent=2)
+    return json.dumps(
+        {
+            "file": str(file_path_obj),
+            "functions": functions,
+        },
+        indent=2,
+    )
 
 
 def main():
@@ -95,5 +94,5 @@ def main():
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -19,8 +19,7 @@ try:
     import yaml
 except ImportError:
     print(
-        "Error: PyYAML is required but not installed.\n"
-        "Install it with: uv sync",
+        "Error: PyYAML is required but not installed.\nInstall it with: uv sync",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -286,6 +285,7 @@ SCHEMAS = {
 
 # ─── Auto-detection ─────────────────────────────────────────────────────────────
 
+
 def detect_schema_type(path):
     """Detect schema type from file path."""
     basename = os.path.basename(path)
@@ -302,8 +302,10 @@ def detect_schema_type(path):
 
 # ─── Validation ─────────────────────────────────────────────────────────────────
 
+
 class ValidationError(Exception):
     """Raised when frontmatter fails schema validation."""
+
     pass
 
 
@@ -321,49 +323,39 @@ def _validate_field(name, value, spec):
     if expected_type == "string":
         # Convert date/datetime objects to ISO format strings (YAML auto-parsing compatibility)
         if isinstance(value, (datetime.date, datetime.datetime)):
-            value = value.isoformat().split('T')[0]  # Get YYYY-MM-DD
+            value = value.isoformat().split("T")[0]  # Get YYYY-MM-DD
 
         if not isinstance(value, str):
-            errors.append(
-                f"{name}: expected string, got {type(value).__name__}")
+            errors.append(f"{name}: expected string, got {type(value).__name__}")
             return errors
         if "enum" in spec and value not in spec["enum"]:
-            errors.append(
-                f"{name}: '{value}' not in {spec['enum']}")
+            errors.append(f"{name}: '{value}' not in {spec['enum']}")
         if "pattern" in spec and not re.match(spec["pattern"], value):
-            errors.append(
-                f"{name}: '{value}' does not match {spec['pattern']}")
+            errors.append(f"{name}: '{value}' does not match {spec['pattern']}")
 
     elif expected_type == "int":
         if not isinstance(value, int) or isinstance(value, bool):
-            errors.append(
-                f"{name}: expected int, got {type(value).__name__}")
+            errors.append(f"{name}: expected int, got {type(value).__name__}")
         else:
             if "min" in spec and value < spec["min"]:
-                errors.append(
-                    f"{name}: {value} is less than minimum {spec['min']}")
+                errors.append(f"{name}: {value} is less than minimum {spec['min']}")
             if "max" in spec and value > spec["max"]:
-                errors.append(
-                    f"{name}: {value} is greater than maximum {spec['max']}")
+                errors.append(f"{name}: {value} is greater than maximum {spec['max']}")
 
     elif expected_type == "bool":
         if not isinstance(value, bool):
-            errors.append(
-                f"{name}: expected bool, got {type(value).__name__}")
+            errors.append(f"{name}: expected bool, got {type(value).__name__}")
 
     elif expected_type == "list":
         if not isinstance(value, list):
-            errors.append(
-                f"{name}: expected list, got {type(value).__name__}")
+            errors.append(f"{name}: expected list, got {type(value).__name__}")
 
     elif expected_type == "dict":
         if not isinstance(value, dict):
-            errors.append(
-                f"{name}: expected dict, got {type(value).__name__}")
+            errors.append(f"{name}: expected dict, got {type(value).__name__}")
         elif "fields" in spec:
             for sub_name, sub_spec in spec["fields"].items():
-                errors.extend(_validate_field(
-                    f"{name}.{sub_name}", value.get(sub_name), sub_spec))
+                errors.extend(_validate_field(f"{name}.{sub_name}", value.get(sub_name), sub_spec))
             for sub_key in value:
                 if sub_key not in spec["fields"]:
                     errors.append(f"{name}: unknown sub-field '{sub_key}'")
@@ -385,9 +377,7 @@ def validate(data, schema_type):
         ValueError: if schema_type is unknown
     """
     if schema_type not in SCHEMAS:
-        raise ValueError(
-            f"Unknown schema type: {schema_type}. "
-            f"Valid types: {list(SCHEMAS.keys())}")
+        raise ValueError(f"Unknown schema type: {schema_type}. Valid types: {list(SCHEMAS.keys())}")
 
     schema = SCHEMAS[schema_type]
     errors = []
@@ -397,8 +387,7 @@ def validate(data, schema_type):
             errors.append(f"Unknown field: {key}")
 
     for field_name, field_spec in schema.items():
-        errors.extend(_validate_field(
-            field_name, data.get(field_name), field_spec))
+        errors.extend(_validate_field(field_name, data.get(field_name), field_spec))
 
     if schema_type == "test-plan-review":
         criteria = (
@@ -414,24 +403,17 @@ def validate(data, schema_type):
             if all(isinstance(scores.get(k), int) for k in criteria):
                 expected = sum(scores[k] for k in criteria)
                 if score != expected:
-                    errors.append(
-                        f"score: expected {expected} from scores.*, got {score}"
-                    )
+                    errors.append(f"score: expected {expected} from scores.*, got {score}")
 
         before_scores = data.get("before_scores")
         before_score = data.get("before_score")
         if (before_score is None) != (before_scores is None):
-            errors.append(
-                "before_score and before_scores must both be set or both be null"
-            )
+            errors.append("before_score and before_scores must both be set or both be null")
         if isinstance(before_scores, dict) and isinstance(before_score, int):
             if all(isinstance(before_scores.get(k), int) for k in criteria):
                 expected_before = sum(before_scores[k] for k in criteria)
                 if before_score != expected_before:
-                    errors.append(
-                        "before_score: expected "
-                        f"{expected_before} from before_scores.*, got {before_score}"
-                    )
+                    errors.append(f"before_score: expected {expected_before} from before_scores.*, got {before_score}")
 
     return errors
 
@@ -451,9 +433,7 @@ def apply_defaults(data, schema_type):
 def get_schema_yaml(schema_type):
     """Return the schema definition as a YAML string for display."""
     if schema_type not in SCHEMAS:
-        raise ValueError(
-            f"Unknown schema type: {schema_type}. "
-            f"Valid types: {list(SCHEMAS.keys())}")
+        raise ValueError(f"Unknown schema type: {schema_type}. Valid types: {list(SCHEMAS.keys())}")
 
     schema = SCHEMAS[schema_type]
     output = {"required": {}, "optional": {}}
@@ -486,5 +466,3 @@ def get_schema_yaml(schema_type):
             output["optional"][name] = entry
 
     return yaml.dump(output, default_flow_style=False, sort_keys=False)
-
-

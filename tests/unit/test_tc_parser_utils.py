@@ -5,8 +5,6 @@ Tests helper functions in scripts/utils/tc_parser.py for extracting
 category and title from test case files.
 """
 
-import pytest
-
 from scripts.utils.tc_parser import extract_category_from_tc_id, extract_title_from_tc_file
 from tests.constants import (
     TC_WITH_FRONTMATTER_TITLE,

@@ -141,7 +141,10 @@ def api_call_with_retry(
 
             # Don't retry auth errors (401, 403) - credentials won't fix themselves
             if e.response.status_code in (401, 403):
-                print(f"Authentication error ({e.response.status_code}): Check JIRA_URL, JIRA_USER, JIRA_TOKEN", file=sys.stderr)
+                print(
+                    f"Authentication error ({e.response.status_code}): Check JIRA_URL, JIRA_USER, JIRA_TOKEN",
+                    file=sys.stderr,
+                )
                 raise
 
             # Don't retry other 4xx errors (client errors like 404, 400)
@@ -150,7 +153,7 @@ def api_call_with_retry(
 
             # Retry 5xx server errors (transient issues)
             if attempt < max_retries - 1:
-                delay = retry_delay * (2 ** attempt)
+                delay = retry_delay * (2**attempt)
                 print(f"Request failed (attempt {attempt + 1}/{max_retries}), retrying in {delay}s...", file=sys.stderr)
                 time.sleep(delay)
 

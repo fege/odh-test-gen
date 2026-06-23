@@ -4,7 +4,6 @@ Unit tests for scripts/fetch_issue.py
 Tests Jira issue markdown formatting logic.
 """
 
-import pytest
 from scripts.fetch_issue import format_issue_as_markdown
 
 
@@ -22,7 +21,7 @@ class TestFormatIssueAsMarkdown:
                 "status": {"name": "In Progress"},
                 "labels": [],
                 "components": [],
-            }
+            },
         }
 
         result = format_issue_as_markdown(issue_data)
@@ -44,7 +43,7 @@ class TestFormatIssueAsMarkdown:
                 "status": {"name": "Done"},
                 "labels": ["bug", "frontend"],
                 "components": [],
-            }
+            },
         }
 
         result = format_issue_as_markdown(issue_data)
@@ -61,11 +60,8 @@ class TestFormatIssueAsMarkdown:
                 "issuetype": {"name": "Bug"},
                 "status": {"name": "Open"},
                 "labels": [],
-                "components": [
-                    {"name": "Backend"},
-                    {"name": "API"}
-                ],
-            }
+                "components": [{"name": "Backend"}, {"name": "API"}],
+            },
         }
 
         result = format_issue_as_markdown(issue_data)
@@ -74,10 +70,7 @@ class TestFormatIssueAsMarkdown:
 
     def test_issue_with_missing_fields(self):
         """Test formatting issue with missing optional fields."""
-        issue_data = {
-            "key": "TEST-123",
-            "fields": {}
-        }
+        issue_data = {"key": "TEST-123", "fields": {}}
 
         result = format_issue_as_markdown(issue_data)
 

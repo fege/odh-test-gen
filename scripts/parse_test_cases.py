@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Parse test case files into structured data."""
+
 import json
 import sys
 from pathlib import Path
@@ -36,8 +37,7 @@ def parse_test_cases(feature_dir: str, tc_ids: list[str]) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) < 3:
-        print("Usage: python scripts/parse_test_cases.py <feature_dir> <tc_id_1> [tc_id_2 ...]",
-              file=sys.stderr)
+        print("Usage: python scripts/parse_test_cases.py <feature_dir> <tc_id_1> [tc_id_2 ...]", file=sys.stderr)
         sys.exit(1)
 
     feature_dir = sys.argv[1]

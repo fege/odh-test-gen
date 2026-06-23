@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Identify common setup requirements across test cases."""
+
 import json
 import sys
 from pathlib import Path
@@ -43,8 +44,7 @@ def analyze_common_setup(feature_dir: str) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python scripts/analyze_common_setup.py <feature_dir>",
-              file=sys.stderr)
+        print("Usage: python scripts/analyze_common_setup.py <feature_dir>", file=sys.stderr)
         sys.exit(1)
 
     try:

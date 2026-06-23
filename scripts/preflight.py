@@ -47,7 +47,7 @@ def run_preflight(feature_dir: str) -> str:
     validation_data = json.loads(validation_result)
 
     # If validation failed, return early
-    if not validation_data.get('valid'):
+    if not validation_data.get("valid"):
         return validation_result
 
     # Step 2: Detect components and map to repos
@@ -56,7 +56,7 @@ def run_preflight(feature_dir: str) -> str:
 
     # Step 3: Locate odh-test-context
     try:
-        odh_path, _ = find_known_repo('odh-test-context')
+        odh_path, _ = find_known_repo("odh-test-context")
     except (ValueError, FileNotFoundError):
         odh_path = None
 
@@ -64,7 +64,7 @@ def run_preflight(feature_dir: str) -> str:
     combined = {
         **validation_data,
         **detection_data,
-        'odh_test_context_path': odh_path,
+        "odh_test_context_path": odh_path,
     }
 
     return json.dumps(combined, indent=2)
@@ -84,15 +84,12 @@ def main():
 
         # Exit with appropriate code
         data = json.loads(result)
-        sys.exit(0 if data.get('valid') else 1)
+        sys.exit(0 if data.get("valid") else 1)
 
     except Exception as e:
-        print(json.dumps({
-            'valid': False,
-            'error': f'Unexpected error: {e}'
-        }, indent=2), file=sys.stderr)
+        print(json.dumps({"valid": False, "error": f"Unexpected error: {e}"}, indent=2), file=sys.stderr)
         sys.exit(1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

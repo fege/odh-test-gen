@@ -10,23 +10,25 @@ Usage:
     python3 ui_report.py <session_dir>   # explicit path (recommended)
     python3 ui_report.py                 # finds most recent session in results/
 """
+
 import json
+import re as _re
 import sys
 from datetime import datetime
 from pathlib import Path
 
-from paths import SKILL_DIR, TMP_DIR
+from paths import SKILL_DIR
 
 # ── Verdict metadata ──────────────────────────────────────────────────────────
 
-_VERDICT_RANK  = {"FAIL": 0, "INCOMPLETE": 1, "BLOCKED": 2, "PASS": 3}
+_VERDICT_RANK = {"FAIL": 0, "INCOMPLETE": 1, "BLOCKED": 2, "PASS": 3}
 _VERDICT_EMOJI = {"PASS": "✅", "FAIL": "❌", "BLOCKED": "⚠️", "INCOMPLETE": "🔴"}
 
 # (foreground, light-background) per verdict
 _VERDICT_COLOR = {
-    "PASS":       ("#1a7f37", "#dafbe1"),
-    "FAIL":       ("#cf222e", "#ffebe9"),
-    "BLOCKED":    ("#bc4c00", "#fff1e5"),
+    "PASS": ("#1a7f37", "#dafbe1"),
+    "FAIL": ("#cf222e", "#ffebe9"),
+    "BLOCKED": ("#bc4c00", "#fff1e5"),
     "INCOMPLETE": ("#6639ba", "#fbefff"),
 }
 
@@ -37,20 +39,17 @@ _PRIORITY_COLOR = {
 }
 
 
-import re as _re
-
-
 def _strip_tc_prefix(title: str, tc_id: str) -> str:
     """Remove 'TC-XXX: ' or 'TC-XXX — ' prefix from a title when TC ID is already shown separately."""
     for sep in (f"{tc_id}: ", f"{tc_id} \u2014 ", f"{tc_id} - ", f"{tc_id}:"):
         if title.startswith(sep):
-            return title[len(sep):].strip()
+            return title[len(sep) :].strip()
     return title
 
 
 def _format_source_html(source: str) -> str:
     """Format the source field as HTML. 'PR #3 (https://…)' → clickable link."""
-    m = _re.match(r'^(PR #\d+)\s*\(?(https?://[^)]+?)\)?$', source.strip())
+    m = _re.match(r"^(PR #\d+)\s*\(?(https?://[^)]+?)\)?$", source.strip())
     if m:
         return f'<a href="{_esc(m.group(2))}" target="_blank">{_esc(m.group(1))}</a>'
     if source.startswith("http"):
@@ -69,11 +68,7 @@ def _overall_verdict(tc_log: dict) -> str:
 
 def _esc(s: str) -> str:
     """Minimal HTML-escape for user-supplied strings."""
-    return (str(s)
-            .replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-            .replace('"', "&quot;"))
+    return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 def _badge(verdict: str, small: bool = False) -> str:
@@ -82,7 +77,7 @@ def _badge(verdict: str, small: bool = False) -> str:
     size = "0.72em" if small else "0.82em"
     return (
         f'<span style="display:inline-block;padding:2px 9px;border-radius:20px;'
-        f'font-size:{size};font-weight:700;background:{bg};color:{fg};'
+        f"font-size:{size};font-weight:700;background:{bg};color:{fg};"
         f'border:1px solid {fg}33;white-space:nowrap;">{em}&nbsp;{verdict}</span>'
     )
 
@@ -289,12 +284,12 @@ def _format_date(prepared: str) -> str:
 
 
 def generate_html(tc_log: dict, ctx: dict, session_dir: Path) -> str:
-    feature  = _esc(ctx.get("feature", "unknown"))
-    source   = ctx.get("source", "")
-    target   = ctx.get("target_url", "")
-    cluster  = _esc(ctx.get("cluster_api", ""))
-    user     = _esc(ctx.get("username", ""))
-    strat    = _esc(ctx.get("strat_key", ""))
+    feature = _esc(ctx.get("feature", "unknown"))
+    source = ctx.get("source", "")
+    target = ctx.get("target_url", "")
+    cluster = _esc(ctx.get("cluster_api", ""))
+    user = _esc(ctx.get("username", ""))
+    strat = _esc(ctx.get("strat_key", ""))
     date_str = _format_date(ctx.get("prepared_at", ""))
 
     tc_meta = {tc["id"]: tc for tc in ctx.get("test_cases", [])}
@@ -311,75 +306,80 @@ def generate_html(tc_log: dict, ctx: dict, session_dir: Path) -> str:
         f'<div class="stat {stat_cls[v]}" data-value="{v}" title="Filter to {v}">'
         f'<span class="n">{counts[v]}</span>'
         f'<span class="l">{_VERDICT_EMOJI[v]} {v}</span>'
-        f'</div>'
+        f"</div>"
         for v in ("PASS", "FAIL", "BLOCKED", "INCOMPLETE")
     )
 
     # ── meta line ─────────────────────────────────────────────────────────────
-    meta_parts = [f'<strong>{date_str}</strong>']
+    meta_parts = [f"<strong>{date_str}</strong>"]
     if source:
         meta_parts.append(_format_source_html(source))
     if user:
-        meta_parts.append(f'{user}')
+        meta_parts.append(f"{user}")
     if cluster:
-        meta_parts.append(f'Cluster: <code>{cluster}</code>')
+        meta_parts.append(f"Cluster: <code>{cluster}</code>")
     if strat:
-        meta_parts.append(f'Strategy: {strat}')
+        meta_parts.append(f"Strategy: {strat}")
     if target:
         meta_parts.append(f'Target: <a href="{_esc(target)}" target="_blank">{_esc(target)}</a>')
-    meta_html = ' &nbsp;·&nbsp; '.join(meta_parts)
+    meta_html = " &nbsp;·&nbsp; ".join(meta_parts)
 
     # ── overview table ────────────────────────────────────────────────────────
     ov_rows = []
     for tc_id, entry in tc_log.items():
-        verdict  = entry.get("verdict", "PASS")
-        meta     = tc_meta.get(tc_id, {})
-        title    = entry.get("title", tc_id)
+        verdict = entry.get("verdict", "PASS")
+        meta = tc_meta.get(tc_id, {})
+        title = entry.get("title", tc_id)
         if title == tc_id:
             title = meta.get("title", tc_id)
         title = _strip_tc_prefix(title, tc_id)
         priority = meta.get("priority", "")
-        n_pass   = sum(1 for a in entry.get("assertions", []) if a.get("result") == "PASS")
-        n_fail   = sum(1 for a in entry.get("assertions", []) if a.get("result") == "FAIL")
-        n_blk    = sum(1 for a in entry.get("assertions", []) if a.get("result") == "BLOCKED")
+        n_pass = sum(1 for a in entry.get("assertions", []) if a.get("result") == "PASS")
+        n_fail = sum(1 for a in entry.get("assertions", []) if a.get("result") == "FAIL")
+        n_blk = sum(1 for a in entry.get("assertions", []) if a.get("result") == "BLOCKED")
         parts = []
-        if n_pass: parts.append(f'{n_pass} ✅')
-        if n_fail: parts.append(f'{n_fail} ❌')
-        if n_blk:  parts.append(f'{n_blk} ⚠️')
-        checks = ' &nbsp; '.join(parts) if parts else '—'
+        if n_pass:
+            parts.append(f"{n_pass} ✅")
+        if n_fail:
+            parts.append(f"{n_fail} ❌")
+        if n_blk:
+            parts.append(f"{n_blk} ⚠️")
+        checks = " &nbsp; ".join(parts) if parts else "—"
         ov_rows.append(
-            f'<tr data-verdict="{verdict}" data-priority="{priority}" data-tc="{_esc(tc_id)}" style="cursor:pointer;" title="Jump to {_esc(tc_id)}">'
+            f'<tr data-verdict="{verdict}" data-priority="{priority}"'
+            f' data-tc="{_esc(tc_id)}" style="cursor:pointer;"'
+            f' title="Jump to {_esc(tc_id)}">'
             f'<td><span class="mono">{_esc(tc_id)}</span></td>'
-            f'<td>{_esc(title)}</td>'
-            f'<td>{_priority_badge(priority) if priority else ""}</td>'
+            f"<td>{_esc(title)}</td>"
+            f"<td>{_priority_badge(priority) if priority else ''}</td>"
             f'<td style="white-space:nowrap;">{checks}</td>'
-            f'<td>{_badge(verdict)}</td>'
-            f'</tr>'
+            f"<td>{_badge(verdict)}</td>"
+            f"</tr>"
         )
 
     overview_html = (
         '<div class="card">'
         '<div class="card-title">Overview</div>'
         '<table class="ov"><thead><tr>'
-        '<th>TC</th><th>Title</th><th>Priority</th><th>Checks</th><th>Verdict</th>'
-        '</tr></thead>'
-        f'<tbody>{"".join(ov_rows)}</tbody>'
-        '</table></div>'
+        "<th>TC</th><th>Title</th><th>Priority</th><th>Checks</th><th>Verdict</th>"
+        "</tr></thead>"
+        f"<tbody>{''.join(ov_rows)}</tbody>"
+        "</table></div>"
     )
 
     # ── TC detail sections ────────────────────────────────────────────────────
     tc_sections = []
     for tc_id, entry in tc_log.items():
-        verdict  = entry.get("verdict", "PASS")
-        meta     = tc_meta.get(tc_id, {})
-        title    = entry.get("title", tc_id)
+        verdict = entry.get("verdict", "PASS")
+        meta = tc_meta.get(tc_id, {})
+        title = entry.get("title", tc_id)
         if title == tc_id:
             title = meta.get("title", tc_id)
         title = _strip_tc_prefix(title, tc_id)
-        priority    = meta.get("priority", "")
-        objective   = meta.get("objective", "")
+        priority = meta.get("priority", "")
+        objective = meta.get("objective", "")
         blocked_rsn = _esc(entry.get("blocked_reason", ""))
-        assertions  = entry.get("assertions", [])
+        assertions = entry.get("assertions", [])
 
         # FAIL and INCOMPLETE expand by default; PASS/BLOCKED collapse
         open_attr = " open" if verdict in ("FAIL", "INCOMPLETE") else ""
@@ -387,48 +387,44 @@ def generate_html(tc_log: dict, ctx: dict, session_dir: Path) -> str:
         # Assertion rows
         arows = []
         for a in assertions:
-            r        = a.get("result", "")
-            row_cls  = f"row-{r.lower()}"
-            shot     = a.get("screenshot", "")
+            r = a.get("result", "")
+            row_cls = f"row-{r.lower()}"
+            shot = a.get("screenshot", "")
             if shot and (session_dir / shot).exists():
                 shot_html = (
                     f'<div class="shot-wrap">'
                     f'<img class="shot" src="./{_esc(shot)}"'
-                    f' alt="{_esc(a.get("checked","")[:80])}"'
+                    f' alt="{_esc(a.get("checked", "")[:80])}"'
                     f' data-src="./{_esc(shot)}">'
-                    f'</div>'
+                    f"</div>"
                 )
             else:
                 shot_html = '<span style="color:#8c959f;font-size:0.8em;">—</span>'
 
             expected_full = a.get("expected", "")
-            checked_title = (f' title="{_esc(expected_full)}"' if expected_full else "")
+            checked_title = f' title="{_esc(expected_full)}"' if expected_full else ""
 
             cursor = ' style="cursor:help;"' if expected_full else ""
             arows.append(
                 f'<tr class="{row_cls}">'
-                f'<td{checked_title}{cursor}>{_esc(a.get("checked",""))}</td>'
+                f"<td{checked_title}{cursor}>{_esc(a.get('checked', ''))}</td>"
                 f'<td class="col-tight">{_badge(r, small=True)}</td>'
-                f'<td>{_esc(a.get("detail",""))}</td>'
+                f"<td>{_esc(a.get('detail', ''))}</td>"
                 f'<td class="col-tight">{shot_html}</td>'
-                f'</tr>'
+                f"</tr>"
             )
 
-        objective_html = (
-            f'<div class="objective">📋 {_esc(objective)}</div>'
-            if objective else ""
-        )
+        objective_html = f'<div class="objective">📋 {_esc(objective)}</div>' if objective else ""
         blocked_html = (
-            f'<div class="blocked-note">⚠️ <strong>Blocked:</strong> {blocked_rsn}</div>'
-            if blocked_rsn else ""
+            f'<div class="blocked-note">⚠️ <strong>Blocked:</strong> {blocked_rsn}</div>' if blocked_rsn else ""
         )
         asr_table = (
             '<table class="asr"><thead><tr>'
             '<th>Checked <span style="font-weight:400;opacity:0.6;">(hover for expected)</span></th>'
             '<th class="col-tight">Result</th>'
-            '<th>Detail</th>'
+            "<th>Detail</th>"
             '<th class="col-tight">Screenshot</th>'
-            f'</tr></thead><tbody>{"".join(arows)}</tbody></table>'
+            f"</tr></thead><tbody>{''.join(arows)}</tbody></table>"
             if arows
             else '<p style="color:#8c959f;font-style:italic;padding:4px 0;">No assertions recorded.</p>'
         )
@@ -436,80 +432,75 @@ def generate_html(tc_log: dict, ctx: dict, session_dir: Path) -> str:
         p_badge = _priority_badge(priority) if priority else ""
         tc_sections.append(
             f'<details class="tc"{open_attr} data-verdict="{verdict}" data-priority="{priority}" id="tc-{_esc(tc_id)}">'
-            f'<summary>'
+            f"<summary>"
             f'<span class="chevron">▶</span>'
-            f'{_badge(verdict)}'
+            f"{_badge(verdict)}"
             f'&nbsp;<span class="tc-name">{_esc(tc_id)}</span>'
-            f'&nbsp;{p_badge}'
+            f"&nbsp;{p_badge}"
             f'&nbsp;<span class="tc-desc">— {_esc(title)}</span>'
-            f'</summary>'
+            f"</summary>"
             f'<div class="tc-body">'
-            f'{objective_html}'
-            f'{asr_table}'
-            f'{blocked_html}'
-            f'</div>'
-            f'</details>'
+            f"{objective_html}"
+            f"{asr_table}"
+            f"{blocked_html}"
+            f"</div>"
+            f"</details>"
         )
 
     # ── failure analysis ──────────────────────────────────────────────────────
-    failures = [
-        (tc_id, e) for tc_id, e in tc_log.items()
-        if e.get("verdict") in ("FAIL", "INCOMPLETE")
-    ]
+    failures = [(tc_id, e) for tc_id, e in tc_log.items() if e.get("verdict") in ("FAIL", "INCOMPLETE")]
     failure_html = ""
     if failures:
         fa_rows = []
         for tc_id, entry in failures:
-            meta  = tc_meta.get(tc_id, {})
+            meta = tc_meta.get(tc_id, {})
             title = entry.get("title", tc_id)
             if title == tc_id:
                 title = meta.get("title", tc_id)
-            failed_details = [
-                _esc(a["detail"])
-                for a in entry.get("assertions", [])
-                if a.get("result") == "FAIL"
-            ]
+            failed_details = [_esc(a["detail"]) for a in entry.get("assertions", []) if a.get("result") == "FAIL"]
             cause = "<br>".join(failed_details) or _esc(entry.get("blocked_reason", "—"))
             fa_rows.append(
-                f'<tr>'
+                f"<tr>"
                 f'<td><span class="mono">{_esc(tc_id)}</span><br>'
                 f'<span style="color:#656d76;font-size:0.85em;">{_esc(_strip_tc_prefix(title, tc_id))}</span></td>'
-                f'<td>{_badge(entry["verdict"], small=True)}</td>'
-                f'<td>{cause}</td>'
-                f'</tr>'
+                f"<td>{_badge(entry['verdict'], small=True)}</td>"
+                f"<td>{cause}</td>"
+                f"</tr>"
             )
         failure_html = (
             '<div class="card failure-card">'
             '<div class="card-title">❌ Failure Analysis</div>'
             '<table class="fa"><thead><tr>'
-            '<th>TC</th><th>Verdict</th><th>Root Cause</th>'
-            f'</tr></thead><tbody>{"".join(fa_rows)}</tbody></table>'
-            '</div>'
+            "<th>TC</th><th>Verdict</th><th>Root Cause</th>"
+            f"</tr></thead><tbody>{''.join(fa_rows)}</tbody></table>"
+            "</div>"
         )
 
     # ── filter bar ───────────────────────────────────────────────────────────
-    present_verdicts   = [v for v in ("PASS", "FAIL", "BLOCKED", "INCOMPLETE") if counts[v] > 0]
+    present_verdicts = [v for v in ("PASS", "FAIL", "BLOCKED", "INCOMPLETE") if counts[v] > 0]
     present_priorities = sorted({tc_meta.get(tid, {}).get("priority", "") for tid in tc_log} - {""})
 
     verdict_btns = "".join(
-        f'<button class="fbtn" data-filter="verdict" data-value="{v}">'
-        f'{_VERDICT_EMOJI[v]} {v}</button>'
+        f'<button class="fbtn" data-filter="verdict" data-value="{v}">{_VERDICT_EMOJI[v]} {v}</button>'
         for v in present_verdicts
     )
     priority_btns = "".join(
-        f'<button class="fbtn" data-filter="priority" data-value="{p}">{p}</button>'
-        for p in present_priorities
+        f'<button class="fbtn" data-filter="priority" data-value="{p}">{p}</button>' for p in present_priorities
     )
     filter_bar = (
         '<div class="filter-bar">'
         '<span class="filter-label">Verdict</span>'
         f'<div class="filter-group">{verdict_btns}</div>'
-        + ('<div class="filter-sep"></div>'
-           '<span class="filter-label">Priority</span>'
-           f'<div class="filter-group">{priority_btns}</div>'
-           if priority_btns else "")
-        + '<span id="filter-count" style="margin-left:auto;font-size:0.8em;color:#8c959f;white-space:nowrap;display:none;"></span>'
-        + '</div>'
+        + (
+            '<div class="filter-sep"></div>'
+            '<span class="filter-label">Priority</span>'
+            f'<div class="filter-group">{priority_btns}</div>'
+            if priority_btns
+            else ""
+        )
+        + '<span id="filter-count" style="margin-left:auto;font-size:0.8em;'
+        'color:#8c959f;white-space:nowrap;display:none;"></span>'
+        + "</div>"
         + '<p class="no-results" id="no-results">No test cases match the current filter.</p>'
     )
 
@@ -653,18 +644,19 @@ def generate_html(tc_log: dict, ctx: dict, session_dir: Path) -> str:
 
 # ── Markdown generation ───────────────────────────────────────────────────────
 
+
 def generate_md(tc_log: dict, ctx: dict) -> str:
-    feature  = ctx.get("feature", "unknown")
-    source   = ctx.get("source", "")
-    target   = ctx.get("target_url", "")
-    cluster  = ctx.get("cluster_api", "")
-    user     = ctx.get("username", "")
-    strat    = ctx.get("strat_key", "")
+    feature = ctx.get("feature", "unknown")
+    source = ctx.get("source", "")
+    target = ctx.get("target_url", "")
+    cluster = ctx.get("cluster_api", "")
+    user = ctx.get("username", "")
+    strat = ctx.get("strat_key", "")
     date_str = _format_date(ctx.get("prepared_at", ""))
 
     tc_meta = {tc["id"]: tc for tc in ctx.get("test_cases", [])}
 
-    counts  = {v: 0 for v in ("PASS", "FAIL", "BLOCKED", "INCOMPLETE")}
+    counts = {v: 0 for v in ("PASS", "FAIL", "BLOCKED", "INCOMPLETE")}
     for e in tc_log.values():
         counts[e.get("verdict", "PASS")] = counts.get(e.get("verdict", "PASS"), 0) + 1
     overall = _overall_verdict(tc_log)
@@ -675,8 +667,8 @@ def generate_md(tc_log: dict, ctx: dict) -> str:
         "",
         f"**Overall: {_VERDICT_EMOJI.get(overall, '')} {overall}**",
         "",
-        f"| | |",
-        f"|---|---|",
+        "| | |",
+        "|---|---|",
         f"| **Date** | {date_str} |",
     ]
     if source:
@@ -703,18 +695,18 @@ def generate_md(tc_log: dict, ctx: dict) -> str:
     lines += ["", "## Results", ""]
 
     for tc_id, entry in tc_log.items():
-        verdict    = entry.get("verdict", "PASS")
-        meta       = tc_meta.get(tc_id, {})
-        title      = entry.get("title", tc_id)
+        verdict = entry.get("verdict", "PASS")
+        meta = tc_meta.get(tc_id, {})
+        title = entry.get("title", tc_id)
         if title == tc_id:
             title = meta.get("title", tc_id)
         title = _strip_tc_prefix(title, tc_id)
-        priority    = meta.get("priority", "")
-        objective   = meta.get("objective", "")
+        priority = meta.get("priority", "")
+        objective = meta.get("objective", "")
         blocked_rsn = entry.get("blocked_reason", "")
-        assertions  = entry.get("assertions", [])
+        assertions = entry.get("assertions", [])
 
-        em   = _VERDICT_EMOJI.get(verdict, verdict)
+        em = _VERDICT_EMOJI.get(verdict, verdict)
         p_str = f" `{priority}`" if priority else ""
         lines.append(f"### {em} {verdict} &nbsp; `{tc_id}`{p_str} — {title}")
         lines.append("")
@@ -728,17 +720,16 @@ def generate_md(tc_log: dict, ctx: dict) -> str:
                 "|---------|----------|--------|--------|",
             ]
             for a in assertions:
-                r   = a.get("result", "")
+                r = a.get("result", "")
                 em_r = _VERDICT_EMOJI.get(r, r)
                 lines.append(
-                    f"| {a.get('checked','')} | {a.get('expected','')} "
-                    f"| {em_r} {r} | {a.get('detail','')} |"
+                    f"| {a.get('checked', '')} | {a.get('expected', '')} | {em_r} {r} | {a.get('detail', '')} |"
                 )
             lines.append("")
 
             # screenshots — relative paths render in VS Code preview and GitHub
             shots = [a["screenshot"] for a in assertions if a.get("screenshot")]
-            seen  = set()
+            seen = set()
             for shot in shots:
                 if shot not in seen:
                     seen.add(shot)
@@ -753,17 +744,14 @@ def generate_md(tc_log: dict, ctx: dict) -> str:
         lines.append("")
 
     # Failure analysis
-    failures = [
-        (tc_id, e) for tc_id, e in tc_log.items()
-        if e.get("verdict") in ("FAIL", "INCOMPLETE")
-    ]
+    failures = [(tc_id, e) for tc_id, e in tc_log.items() if e.get("verdict") in ("FAIL", "INCOMPLETE")]
     if failures:
         lines += ["## Failure Analysis", "", "| TC | Verdict | Root Cause |", "|----|---------|------------|"]
         for tc_id, entry in failures:
             verdict = entry.get("verdict", "")
-            causes  = [a["detail"] for a in entry.get("assertions", []) if a.get("result") == "FAIL"]
-            cause   = "; ".join(causes) or entry.get("blocked_reason", "")
-            lines.append(f"| `{tc_id}` | {_VERDICT_EMOJI.get(verdict,'')} {verdict} | {cause} |")
+            causes = [a["detail"] for a in entry.get("assertions", []) if a.get("result") == "FAIL"]
+            cause = "; ".join(causes) or entry.get("blocked_reason", "")
+            lines.append(f"| `{tc_id}` | {_VERDICT_EMOJI.get(verdict, '')} {verdict} | {cause} |")
         lines.append("")
 
     return "\n".join(lines)
@@ -772,20 +760,20 @@ def generate_md(tc_log: dict, ctx: dict) -> str:
 # ── Upgrade comparison report ─────────────────────────────────────────────────
 
 _OUTCOME_COLOR = {
-    "FIXED":        ("#1a7f37", "#dafbe1"),   # green
-    "REGRESSION":   ("#cf222e", "#ffebe9"),   # red
-    "STABLE-PASS":  ("#656d76", "#f6f8fa"),   # grey
-    "STABLE-BLOCK": ("#bc4c00", "#fff1e5"),   # orange
-    "CHANGED":      ("#6639ba", "#fbefff"),   # purple
-    "POST-ONLY":    ("#0550ae", "#dbeafe"),   # blue — ran in post but had no pre baseline
+    "FIXED": ("#1a7f37", "#dafbe1"),  # green
+    "REGRESSION": ("#cf222e", "#ffebe9"),  # red
+    "STABLE-PASS": ("#656d76", "#f6f8fa"),  # grey
+    "STABLE-BLOCK": ("#bc4c00", "#fff1e5"),  # orange
+    "CHANGED": ("#6639ba", "#fbefff"),  # purple
+    "POST-ONLY": ("#0550ae", "#dbeafe"),  # blue — ran in post but had no pre baseline
 }
 _OUTCOME_LABEL = {
-    "FIXED":        "✅ FIXED",
-    "REGRESSION":   "❌ REGRESSION",
-    "STABLE-PASS":  "➡ STABLE",
+    "FIXED": "✅ FIXED",
+    "REGRESSION": "❌ REGRESSION",
+    "STABLE-PASS": "➡ STABLE",
     "STABLE-BLOCK": "⚠️ STILL FAILING",
-    "CHANGED":      "↕ CHANGED",
-    "POST-ONLY":    "🆕 POST-ONLY",
+    "CHANGED": "↕ CHANGED",
+    "POST-ONLY": "🆕 POST-ONLY",
 }
 
 
@@ -796,7 +784,7 @@ def _upgrade_outcome(pre_v: str, post_v: str) -> str:
     in that run (e.g. a post-only TC with upgrade_phase: post has no pre entry).
     """
     if pre_v == "—":
-        return "POST-ONLY"   # TC not in baseline — no comparison possible
+        return "POST-ONLY"  # TC not in baseline — no comparison possible
     if pre_v in ("FAIL", "BLOCKED", "INCOMPLETE") and post_v == "PASS":
         return "FIXED"
     if pre_v == "PASS" and post_v in ("FAIL", "INCOMPLETE"):
@@ -830,15 +818,15 @@ def _upgrade_cleanup_html(pre_ctx: dict, post_ctx: dict) -> str:
         '<div style="background:#fff;border:1px solid #d0d7de;border-radius:10px;'
         'margin-top:16px;overflow:hidden;">'
         '<div style="padding:11px 16px;font-size:0.82em;font-weight:600;color:#656d76;'
-        'background:#fffbf0;border-bottom:1px solid #d0d7de;text-transform:uppercase;'
+        "background:#fffbf0;border-bottom:1px solid #d0d7de;text-transform:uppercase;"
         'letter-spacing:0.06em;">🧹 Cleanup reminder</div>'
         '<div style="padding:14px 18px;font-size:0.88em;">'
         '<p style="margin:0 0 10px;color:#57606a;">Upgrade verification is complete. '
-        'The following resources were provisioned manually for this test and '
-        '<strong>were not cleaned up automatically</strong>. '
-        'Delete them when you no longer need the upgrade test environment:</p>'
+        "The following resources were provisioned manually for this test and "
+        "<strong>were not cleaned up automatically</strong>. "
+        "Delete them when you no longer need the upgrade test environment:</p>"
         f'<ul style="margin:0;padding-left:20px;color:#1f2328;">{items}</ul>'
-        '</div></div>'
+        "</div></div>"
     )
 
 
@@ -861,16 +849,14 @@ def _upgrade_cleanup_md(pre_ctx: dict, post_ctx: dict) -> list[str]:
     return lines
 
 
-def generate_upgrade_html(pre_log: dict, post_log: dict,
-                          pre_ctx: dict, post_ctx: dict,
-                          session_dir: Path) -> str:
+def generate_upgrade_html(pre_log: dict, post_log: dict, pre_ctx: dict, post_ctx: dict, session_dir: Path) -> str:
     """Generate a side-by-side upgrade comparison report."""
-    feature    = post_ctx.get("feature", pre_ctx.get("feature", "unknown"))
-    pre_date   = _format_date(pre_ctx.get("prepared_at", ""))
-    post_date  = _format_date(post_ctx.get("prepared_at", ""))
+    feature = post_ctx.get("feature", pre_ctx.get("feature", "unknown"))
+    pre_date = _format_date(pre_ctx.get("prepared_at", ""))
+    post_date = _format_date(post_ctx.get("prepared_at", ""))
     pre_target = pre_ctx.get("target_url", "")
-    post_target= post_ctx.get("target_url", "")
-    source     = post_ctx.get("source", "")
+    post_target = post_ctx.get("target_url", "")
+    source = post_ctx.get("source", "")
 
     # Build tc_meta from both contexts
     tc_meta = {tc["id"]: tc for tc in pre_ctx.get("test_cases", [])}
@@ -882,80 +868,93 @@ def generate_upgrade_html(pre_log: dict, post_log: dict,
     counts = {k: 0 for k in ("FIXED", "REGRESSION", "STABLE-PASS", "STABLE-BLOCK", "CHANGED", "POST-ONLY")}
     rows = []
     for tc_id in all_ids:
-        pre_e  = pre_log.get(tc_id, {})
+        pre_e = pre_log.get(tc_id, {})
         post_e = post_log.get(tc_id, {})
-        pre_v  = pre_e.get("verdict", "—")
+        pre_v = pre_e.get("verdict", "—")
         post_v = post_e.get("verdict", "—")
         outcome = _upgrade_outcome(pre_v, post_v)
         counts[outcome] = counts.get(outcome, 0) + 1
 
-        meta    = tc_meta.get(tc_id, {})
-        title   = _strip_tc_prefix(post_e.get("title", pre_e.get("title", tc_id)), tc_id)
+        meta = tc_meta.get(tc_id, {})
+        title = _strip_tc_prefix(post_e.get("title", pre_e.get("title", tc_id)), tc_id)
         if title == tc_id:
             title = _strip_tc_prefix(meta.get("title", tc_id), tc_id)
         priority = meta.get("priority", "")
         up_phase = meta.get("upgrade_phase", "")
 
         fg, bg = _OUTCOME_COLOR.get(outcome, ("#333", "#eee"))
-        label  = _OUTCOME_LABEL.get(outcome, outcome)
-        badge  = (f'<span style="display:inline-block;padding:2px 9px;border-radius:20px;'
-                  f'font-size:0.8em;font-weight:700;background:{bg};color:{fg};">{label}</span>')
+        label = _OUTCOME_LABEL.get(outcome, outcome)
+        badge = (
+            f'<span style="display:inline-block;padding:2px 9px;border-radius:20px;'
+            f'font-size:0.8em;font-weight:700;background:{bg};color:{fg};">{label}</span>'
+        )
 
-        open_attr = ' open' if outcome == "REGRESSION" else ""
-        phase_tag = (f'&nbsp;<span style="font-size:0.72em;background:#e8f4ff;'
-                     f'color:#0550ae;padding:1px 6px;border-radius:10px;">{up_phase}</span>'
-                     if up_phase else "")
+        open_attr = " open" if outcome == "REGRESSION" else ""
+        phase_tag = (
+            f'&nbsp;<span style="font-size:0.72em;background:#e8f4ff;'
+            f'color:#0550ae;padding:1px 6px;border-radius:10px;">{up_phase}</span>'
+            if up_phase
+            else ""
+        )
 
         rows.append(
             f'<details{open_attr} style="background:#fff;border:1px solid #d0d7de;'
             f'border-radius:8px;margin-bottom:8px;overflow:hidden;">'
             f'<summary style="padding:11px 14px;cursor:pointer;display:flex;align-items:center;gap:8px;">'
-            f'{badge}'
+            f"{badge}"
             f'&nbsp;<span style="font-family:monospace;font-weight:700;">{_esc(tc_id)}</span>'
-            f'{_priority_badge(priority) if priority else ""}'
-            f'{phase_tag}'
+            f"{_priority_badge(priority) if priority else ''}"
+            f"{phase_tag}"
             f'&nbsp;<span style="font-weight:500;">{_esc(title)}</span>'
-            f'</summary>'
+            f"</summary>"
             f'<div style="padding:12px 16px;border-top:1px solid #d0d7de;">'
             f'<table style="width:100%;border-collapse:collapse;font-size:0.88em;">'
             f'<thead><tr style="background:#f6f8fa;">'
             f'<th style="padding:6px 10px;text-align:left;border-bottom:1px solid #d0d7de;">Phase</th>'
             f'<th style="padding:6px 10px;text-align:left;border-bottom:1px solid #d0d7de;">Verdict</th>'
             f'<th style="padding:6px 10px;text-align:left;border-bottom:1px solid #d0d7de;">Detail</th>'
-            f'</tr></thead><tbody>'
+            f"</tr></thead><tbody>"
             f'<tr><td style="padding:8px 10px;border-bottom:1px solid #eaecef;">Pre-upgrade</td>'
             f'<td style="padding:8px 10px;border-bottom:1px solid #eaecef;">{_badge(pre_v)}</td>'
             f'<td style="padding:8px 10px;border-bottom:1px solid #eaecef;">'
-            f'{_esc(pre_e.get("blocked_reason","") or "")}' + "".join(
-                f'{_esc(a.get("detail",""))}<br>' for a in pre_e.get("assertions",[])
-                if a.get("result") in ("FAIL","BLOCKED")
-            ) + f'</td></tr>'
+            f"{_esc(pre_e.get('blocked_reason', '') or '')}"
+            + "".join(
+                f"{_esc(a.get('detail', ''))}<br>"
+                for a in pre_e.get("assertions", [])
+                if a.get("result") in ("FAIL", "BLOCKED")
+            )
+            + f"</td></tr>"
             f'<tr><td style="padding:8px 10px;">Post-upgrade</td>'
             f'<td style="padding:8px 10px;">{_badge(post_v)}</td>'
             f'<td style="padding:8px 10px;">'
-            f'{_esc(post_e.get("blocked_reason","") or "")}' + "".join(
-                f'{_esc(a.get("detail",""))}<br>' for a in post_e.get("assertions",[])
-                if a.get("result") in ("FAIL","BLOCKED")
-            ) + f'</td></tr>'
-            f'</tbody></table>'
-            f'</div></details>'
+            f"{_esc(post_e.get('blocked_reason', '') or '')}"
+            + "".join(
+                f"{_esc(a.get('detail', ''))}<br>"
+                for a in post_e.get("assertions", [])
+                if a.get("result") in ("FAIL", "BLOCKED")
+            )
+            + "</td></tr>"
+            "</tbody></table>"
+            "</div></details>"
         )
 
     # Summary bar
     def _stat(label, key, bg, fg):
-        return (f'<div style="display:flex;flex-direction:column;align-items:center;'
-                f'padding:10px 18px;border-radius:8px;background:{bg};color:{fg};min-width:90px;">'
-                f'<span style="font-size:1.8em;font-weight:700;">{counts[key]}</span>'
-                f'<span style="font-size:0.72em;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">'
-                f'{label}</span></div>')
+        return (
+            f'<div style="display:flex;flex-direction:column;align-items:center;'
+            f'padding:10px 18px;border-radius:8px;background:{bg};color:{fg};min-width:90px;">'
+            f'<span style="font-size:1.8em;font-weight:700;">{counts[key]}</span>'
+            f'<span style="font-size:0.72em;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;">'
+            f"{label}</span></div>"
+        )
 
     stats = (
-        _stat("✅ Fixed",       "FIXED",        "#dafbe1", "#1a7f37") +
-        _stat("❌ Regression",  "REGRESSION",   "#ffebe9", "#cf222e") +
-        _stat("➡ Stable",      "STABLE-PASS",  "#f6f8fa", "#656d76") +
-        _stat("⚠ Still failing","STABLE-BLOCK","#fff1e5", "#bc4c00") +
-        _stat("↕ Changed",     "CHANGED",      "#fbefff", "#6639ba") +
-        _stat("🆕 Post-only",  "POST-ONLY",    "#dbeafe", "#0550ae")
+        _stat("✅ Fixed", "FIXED", "#dafbe1", "#1a7f37")
+        + _stat("❌ Regression", "REGRESSION", "#ffebe9", "#cf222e")
+        + _stat("➡ Stable", "STABLE-PASS", "#f6f8fa", "#656d76")
+        + _stat("⚠ Still failing", "STABLE-BLOCK", "#fff1e5", "#bc4c00")
+        + _stat("↕ Changed", "CHANGED", "#fbefff", "#6639ba")
+        + _stat("🆕 Post-only", "POST-ONLY", "#dbeafe", "#0550ae")
     )
 
     source_html = _format_source_html(source) if source else ""
@@ -1013,35 +1012,36 @@ def generate_upgrade_html(pre_log: dict, post_log: dict,
 </div></body></html>"""
 
 
-def generate_upgrade_md(pre_log: dict, post_log: dict,
-                        pre_ctx: dict, post_ctx: dict) -> str:
+def generate_upgrade_md(pre_log: dict, post_log: dict, pre_ctx: dict, post_ctx: dict) -> str:
     """Plain-text upgrade comparison summary."""
-    feature   = post_ctx.get("feature", pre_ctx.get("feature", "unknown"))
-    pre_date  = _format_date(pre_ctx.get("prepared_at", ""))
+    feature = post_ctx.get("feature", pre_ctx.get("feature", "unknown"))
+    pre_date = _format_date(pre_ctx.get("prepared_at", ""))
     post_date = _format_date(post_ctx.get("prepared_at", ""))
-    tc_meta   = {tc["id"]: tc for tc in pre_ctx.get("test_cases", [])}
+    tc_meta = {tc["id"]: tc for tc in pre_ctx.get("test_cases", [])}
     tc_meta.update({tc["id"]: tc for tc in post_ctx.get("test_cases", [])})
 
     all_ids = list(dict.fromkeys(list(pre_log.keys()) + list(post_log.keys())))
-    counts  = {k: 0 for k in ("FIXED", "REGRESSION", "STABLE-PASS", "STABLE-BLOCK", "CHANGED", "POST-ONLY")}
+    counts = {k: 0 for k in ("FIXED", "REGRESSION", "STABLE-PASS", "STABLE-BLOCK", "CHANGED", "POST-ONLY")}
     tc_rows = []
 
     for tc_id in all_ids:
-        pre_v  = pre_log.get(tc_id, {}).get("verdict", "—")
+        pre_v = pre_log.get(tc_id, {}).get("verdict", "—")
         post_v = post_log.get(tc_id, {}).get("verdict", "—")
         outcome = _upgrade_outcome(pre_v, post_v)
         counts[outcome] = counts.get(outcome, 0) + 1
         label = _OUTCOME_LABEL.get(outcome, outcome)
         title = _strip_tc_prefix(tc_meta.get(tc_id, {}).get("title", tc_id), tc_id)
-        tc_rows.append(f"| `{tc_id}` | {label} | {_VERDICT_EMOJI.get(pre_v, pre_v)} {pre_v} | {_VERDICT_EMOJI.get(post_v, post_v)} {post_v} | {title} |")
+        pre_em = _VERDICT_EMOJI.get(pre_v, pre_v)
+        post_em = _VERDICT_EMOJI.get(post_v, post_v)
+        tc_rows.append(f"| `{tc_id}` | {label} | {pre_em} {pre_v} | {post_em} {post_v} | {title} |")
 
     lines = [
         f"# Upgrade Verification — {feature}",
         "",
-        f"[📋 Pre-upgrade report](./pre-session/report.md) &nbsp;·&nbsp; [📋 Post-upgrade report](./report.md)",
+        "[📋 Pre-upgrade report](./pre-session/report.md) &nbsp;·&nbsp; [📋 Post-upgrade report](./report.md)",
         "",
-        f"| | |",
-        f"|---|---|",
+        "| | |",
+        "|---|---|",
         f"| **Pre-upgrade** | {pre_date} |",
         f"| **Post-upgrade** | {post_date} |",
         "",
@@ -1052,18 +1052,24 @@ def generate_upgrade_md(pre_log: dict, post_log: dict,
     ]
     for k, lbl in _OUTCOME_LABEL.items():
         lines.append(f"| {lbl} | {counts[k]} |")
-    lines += [
-        "",
-        "## Results",
-        "",
-        "| TC | Outcome | Pre | Post | Title |",
-        "|----|---------|-----|------|-------|",
-    ] + tc_rows + [""] + _upgrade_cleanup_md(pre_ctx, post_ctx)
+    lines += (
+        [
+            "",
+            "## Results",
+            "",
+            "| TC | Outcome | Pre | Post | Title |",
+            "|----|---------|-----|------|-------|",
+        ]
+        + tc_rows
+        + [""]
+        + _upgrade_cleanup_md(pre_ctx, post_ctx)
+    )
 
     return "\n".join(lines)
 
 
 # ── main ──────────────────────────────────────────────────────────────────────
+
 
 def main() -> None:
     if len(sys.argv) > 1:
@@ -1079,23 +1085,23 @@ def main() -> None:
         print(f"  Using most recent session: {session}")
 
     tc_log_path = session / "tc_log.json"
-    ctx_path    = session / "ui_context.json"
+    ctx_path = session / "ui_context.json"
 
     if not tc_log_path.exists():
         print(f"ERROR: tc_log.json not found in {session}", file=sys.stderr)
         sys.exit(1)
 
     tc_log = json.loads(tc_log_path.read_text(encoding="utf-8"))
-    ctx    = json.loads(ctx_path.read_text(encoding="utf-8")) if ctx_path.exists() else {}
+    ctx = json.loads(ctx_path.read_text(encoding="utf-8")) if ctx_path.exists() else {}
 
     html = generate_html(tc_log, ctx, session)
-    md   = generate_md(tc_log, ctx)
+    md = generate_md(tc_log, ctx)
 
     html_path = session / "report.html"
-    md_path   = session / "report.md"
+    md_path = session / "report.md"
 
     html_path.write_text(html, encoding="utf-8")
-    md_path.write_text(md,   encoding="utf-8")
+    md_path.write_text(md, encoding="utf-8")
 
     print(f"  HTML report : {html_path}")
     print(f"  MD report   : {md_path}")
@@ -1104,18 +1110,18 @@ def main() -> None:
     # ── Upgrade comparison report (post runs only) ────────────────────────────
     baseline_dir = ctx.get("upgrade_baseline_dir", "")
     if baseline_dir:
-        pre_session   = Path(baseline_dir)
-        pre_log_path  = pre_session / "tc_log.json"
-        pre_ctx_path  = pre_session / "ui_context.json"
+        pre_session = Path(baseline_dir)
+        pre_log_path = pre_session / "tc_log.json"
+        pre_ctx_path = pre_session / "ui_context.json"
         if pre_log_path.exists():
             pre_log = json.loads(pre_log_path.read_text(encoding="utf-8"))
             pre_ctx = json.loads(pre_ctx_path.read_text(encoding="utf-8")) if pre_ctx_path.exists() else {}
             ug_html = generate_upgrade_html(pre_log, tc_log, pre_ctx, ctx, session)
-            ug_md   = generate_upgrade_md(pre_log, tc_log, pre_ctx, ctx)
+            ug_md = generate_upgrade_md(pre_log, tc_log, pre_ctx, ctx)
             ug_html_path = session / "upgrade-report.html"
-            ug_md_path   = session / "upgrade-report.md"
+            ug_md_path = session / "upgrade-report.md"
             ug_html_path.write_text(ug_html, encoding="utf-8")
-            ug_md_path.write_text(ug_md,   encoding="utf-8")
+            ug_md_path.write_text(ug_md, encoding="utf-8")
 
             # Symlink pre-session inside post session so both are navigable together
             symlink = session / "pre-session"

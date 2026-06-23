@@ -393,6 +393,24 @@ This installs:
 - `pytest` - Test framework
 - `pytest-cov` - Coverage reporting
 
+### Linting
+
+Activate hooks (pre-commit is installed via `uv sync --extra dev`):
+
+```bash
+uv run pre-commit install
+```
+
+Hooks run automatically on `git commit`. To run manually on all files:
+
+```bash
+uv run pre-commit run --all-files
+```
+
+Hooks include:
+- **ruff** — lint and format (auto-fixes on commit)
+- **flake8** + [RedHatQE flake8-plugins](https://github.com/RedHatQE/flake8-plugins) — unused code (`UUC`), unique fixture names (`UFN`)
+
 ### Running Tests
 
 Run all tests:

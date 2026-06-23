@@ -30,18 +30,18 @@ def sanitize_to_snake_case(text: str) -> str:
         'test_api_special'
     """
     # Convert common separators to underscores first
-    text = re.sub(r'[/\s-]+', '_', text)
+    text = re.sub(r"[/\s-]+", "_", text)
 
     # Remove remaining special characters (keep alphanumeric and underscore)
-    text = re.sub(r'[^\w]', '', text)
+    text = re.sub(r"[^\w]", "", text)
 
     # Convert to lowercase
     text = text.lower()
 
     # Collapse multiple underscores
-    text = re.sub(r'_+', '_', text)
+    text = re.sub(r"_+", "_", text)
 
     # Remove leading/trailing underscores
-    text = text.strip('_')
+    text = text.strip("_")
 
     return text

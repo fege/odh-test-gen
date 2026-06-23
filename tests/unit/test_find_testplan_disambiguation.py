@@ -39,8 +39,7 @@ source_key: RHAISTRAT-1525
         # Call with branch hint matching feature 1
         result = _find_testplan_in_repo(str(repo_path), branch_hint="test-plan/RHAISTRAT-1507")
 
-        assert result == str(feature1), \
-            f"Should find evalhub_metrics, got {result}"
+        assert result == str(feature1), f"Should find evalhub_metrics, got {result}"
 
 
 def test_find_testplan_with_single_feature_ignores_branch_hint():

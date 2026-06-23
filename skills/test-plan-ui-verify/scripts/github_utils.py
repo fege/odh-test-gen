@@ -3,6 +3,7 @@
 
 Functions for fetching TC files and metadata from GitHub via the gh CLI.
 """
+
 import base64
 import json
 import re
@@ -41,13 +42,12 @@ def fetch_meta(repo: str, feature: str, ref: str) -> dict:
     return {"feature": fm.get("feature", feature), "strat_key": fm.get("strat_key", "")}
 
 
-def fetch_tc_files(repo: str, feature: str, ref: str,
-                   tc_patterns: list) -> list[tuple[str, str]]:
+def fetch_tc_files(repo: str, feature: str, ref: str, tc_patterns: list) -> list[tuple[str, str]]:
     """Fetch matching TC-*.md files. Returns [(filename, content)].
 
     Raises RuntimeError if the GitHub API call fails.
     """
-    exact_id = re.compile(r'^TC-[A-Z0-9]+-\d+$')
+    exact_id = re.compile(r"^TC-[A-Z0-9]+-\d+$")
 
     def matches(tc_id: str) -> bool:
         return _matches_tc_filter(tc_id, tc_patterns)
@@ -68,8 +68,15 @@ def fetch_tc_files(repo: str, feature: str, ref: str,
 
     # General path: list then filter then fetch
     print(f"  Fetching file list from {repo}/{feature}...", flush=True)
-    r = _run(["gh", "api", f"repos/{repo}/contents/{feature}/test_cases?ref={ref}",
-              "--jq", '[.[] | select(.name | test("TC-.*[.]md")) | .name]'])
+    r = _run(
+        [
+            "gh",
+            "api",
+            f"repos/{repo}/contents/{feature}/test_cases?ref={ref}",
+            "--jq",
+            '[.[] | select(.name | test("TC-.*[.]md")) | .name]',
+        ]
+    )
     if r.returncode != 0:
         raise RuntimeError(f"Failed to fetch TC file list: {r.stderr.strip()}")
     all_names = json.loads(r.stdout)

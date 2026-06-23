@@ -26,11 +26,7 @@ def cmd_check(args):
 
     # Check if test_cases directory exists
     if not test_cases_dir.exists():
-        result = {
-            "mode": "create",
-            "existing_count": 0,
-            "files": []
-        }
+        result = {"mode": "create", "existing_count": 0, "files": []}
         print(json.dumps(result, indent=2))
         return 0
 
@@ -38,20 +34,12 @@ def cmd_check(args):
     tc_files = sorted(test_cases_dir.glob("TC-*.md"))
 
     if not tc_files:
-        result = {
-            "mode": "create",
-            "existing_count": 0,
-            "files": []
-        }
+        result = {"mode": "create", "existing_count": 0, "files": []}
         print(json.dumps(result, indent=2))
         return 0
 
     # Regeneration mode - return file list
-    result = {
-        "mode": "regenerate",
-        "existing_count": len(tc_files),
-        "files": [str(f) for f in tc_files]
-    }
+    result = {"mode": "regenerate", "existing_count": len(tc_files), "files": [str(f) for f in tc_files]}
     print(json.dumps(result, indent=2))
     return 0
 
@@ -66,8 +54,7 @@ def main():
 
     # check command
     parser_check = subparsers.add_parser(
-        "check",
-        help="Check if test cases exist and determine create vs regenerate mode"
+        "check", help="Check if test cases exist and determine create vs regenerate mode"
     )
     parser_check.add_argument("feature_dir", help="Feature directory containing test_cases/")
     parser_check.set_defaults(func=cmd_check)

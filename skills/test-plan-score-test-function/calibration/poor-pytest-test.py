@@ -32,4 +32,4 @@ def test_retrieve_tool_calling_metadata(api_client):
 
 def get_model_metadata(client, model_id):
     """Fabricated helper function that doesn't exist in repository."""
-    return client.get(f'/models/{model_id}')
+    return client.get(f"/models/{model_id}")

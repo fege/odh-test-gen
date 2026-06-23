@@ -18,7 +18,10 @@ def test_publishes_successfully(git_repo):
     assert "feat/TestPlan.md" in result["staged_files"]
     log = subprocess.run(
         ["git", "log", "--oneline", "-1"],
-        cwd=git_repo, capture_output=True, text=True, check=True,
+        cwd=git_repo,
+        capture_output=True,
+        text=True,
+        check=True,
     )
     assert "test commit" in log.stdout
 
@@ -34,5 +37,3 @@ def test_no_changes_returns_committed_false(git_repo):
     assert exit_code == 0
     assert result["committed"] is False
     assert "message" not in result
-
-

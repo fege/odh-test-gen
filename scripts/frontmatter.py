@@ -106,8 +106,7 @@ def cmd_read(args):
 
     schema_type = args.schema_type or detect_schema_type(args.file)
     if not schema_type:
-        print(f"Error: cannot detect schema type from '{args.file}'. "
-              f"Use --schema-type.", file=sys.stderr)
+        print(f"Error: cannot detect schema type from '{args.file}'. Use --schema-type.", file=sys.stderr)
         sys.exit(1)
 
     try:
@@ -118,8 +117,7 @@ def cmd_read(args):
 
     if args.field:
         if args.field not in data:
-            print(f"Error: field '{args.field}' not found in "
-                  f"frontmatter", file=sys.stderr)
+            print(f"Error: field '{args.field}' not found in frontmatter", file=sys.stderr)
             sys.exit(1)
         print(data[args.field])
     else:
@@ -131,8 +129,7 @@ def cmd_set(args):
     """Set/update frontmatter fields on a file."""
     schema_type = args.schema_type or detect_schema_type(args.file)
     if not schema_type:
-        print(f"Error: cannot detect schema type from '{args.file}'. "
-              f"Use --schema-type.", file=sys.stderr)
+        print(f"Error: cannot detect schema type from '{args.file}'. Use --schema-type.", file=sys.stderr)
         sys.exit(1)
 
     schema = SCHEMAS[schema_type]
@@ -140,40 +137,33 @@ def cmd_set(args):
     data = {}
     for field_value in args.fields:
         if "=" not in field_value:
-            print(f"Error: expected field=value, got '{field_value}'",
-                  file=sys.stderr)
+            print(f"Error: expected field=value, got '{field_value}'", file=sys.stderr)
             sys.exit(1)
 
         field_name, value_str = field_value.split("=", 1)
 
         if field_name == "version":
-            print("Error: use scripts/version.py to manage versions",
-                  file=sys.stderr)
+            print("Error: use scripts/version.py to manage versions", file=sys.stderr)
             sys.exit(1)
 
         if "." in field_name:
             parent, child = field_name.split(".", 1)
             if parent not in schema:
-                print(f"Error: unknown field '{parent}' for schema "
-                      f"'{schema_type}'", file=sys.stderr)
+                print(f"Error: unknown field '{parent}' for schema '{schema_type}'", file=sys.stderr)
                 sys.exit(1)
             parent_spec = schema[parent]
             if parent_spec.get("type") != "dict" or "fields" not in parent_spec:
-                print(f"Error: field '{parent}' does not support "
-                      f"sub-fields", file=sys.stderr)
+                print(f"Error: field '{parent}' does not support sub-fields", file=sys.stderr)
                 sys.exit(1)
             if child not in parent_spec["fields"]:
-                print(f"Error: unknown sub-field '{child}' for "
-                      f"'{parent}'", file=sys.stderr)
+                print(f"Error: unknown sub-field '{child}' for '{parent}'", file=sys.stderr)
                 sys.exit(1)
             if parent not in data:
                 data[parent] = {}
-            data[parent][child] = _coerce_value(
-                value_str, parent_spec["fields"][child])
+            data[parent][child] = _coerce_value(value_str, parent_spec["fields"][child])
         else:
             if field_name not in schema:
-                print(f"Error: unknown field '{field_name}' for schema "
-                      f"'{schema_type}'", file=sys.stderr)
+                print(f"Error: unknown field '{field_name}' for schema '{schema_type}'", file=sys.stderr)
                 sys.exit(1)
             data[field_name] = _coerce_value(value_str, schema[field_name])
 
@@ -211,13 +201,14 @@ def _resolve_config_path(config_file):
 def _print_violations(filepath, failures):
     """Print lint violations to stderr."""
     for violation in failures:
-        extra = (f" [{violation['extra_info']}]"
-                 if violation["extra_info"] else "")
-        print(f"{filepath}:{violation['line']}:{violation['column']} "
-              f"{violation['rule_id']}/{violation['rule_name']} "
-              f"{violation['description']}{extra}", file=sys.stderr)
-    print(f"FAIL: {filepath} ({len(failures)} violation(s))",
-          file=sys.stderr)
+        extra = f" [{violation['extra_info']}]" if violation["extra_info"] else ""
+        print(
+            f"{filepath}:{violation['line']}:{violation['column']} "
+            f"{violation['rule_id']}/{violation['rule_name']} "
+            f"{violation['description']}{extra}",
+            file=sys.stderr,
+        )
+    print(f"FAIL: {filepath} ({len(failures)} violation(s))", file=sys.stderr)
 
 
 def _load_body_for_lint(args):
@@ -292,8 +283,7 @@ def cmd_validate(args):
 
     schema_type = args.schema_type or detect_schema_type(args.file)
     if not schema_type:
-        print(f"Error: cannot detect schema type from '{args.file}'. "
-              f"Use --schema-type.", file=sys.stderr)
+        print(f"Error: cannot detect schema type from '{args.file}'. Use --schema-type.", file=sys.stderr)
         sys.exit(1)
 
     try:
@@ -312,60 +302,65 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # schema
-    p_schema = subparsers.add_parser("schema",
-                                     help="Show schema for a file type")
-    p_schema.add_argument("schema_type",
-                          choices=list(SCHEMAS.keys()),
-                          help="Schema type to display")
+    p_schema = subparsers.add_parser("schema", help="Show schema for a file type")
+    p_schema.add_argument("schema_type", choices=list(SCHEMAS.keys()), help="Schema type to display")
     p_schema.set_defaults(func=cmd_schema)
 
     # read
-    p_read = subparsers.add_parser("read",
-                                   help="Read frontmatter from a file")
+    p_read = subparsers.add_parser("read", help="Read frontmatter from a file")
     p_read.add_argument("file", help="Path to the markdown file")
-    p_read.add_argument("field", nargs="?", default=None,
-                        help="Single field name to extract (omit for all)")
-    p_read.add_argument("--schema-type", dest="schema_type",
-                        choices=list(SCHEMAS.keys()),
-                        help="Schema type (auto-detected from filename)")
+    p_read.add_argument("field", nargs="?", default=None, help="Single field name to extract (omit for all)")
+    p_read.add_argument(
+        "--schema-type",
+        dest="schema_type",
+        choices=list(SCHEMAS.keys()),
+        help="Schema type (auto-detected from filename)",
+    )
     p_read.set_defaults(func=cmd_read)
 
     # set
-    p_set = subparsers.add_parser(
-        "set", help="Set/update frontmatter fields")
+    p_set = subparsers.add_parser("set", help="Set/update frontmatter fields")
     p_set.add_argument("file", help="Path to the markdown file")
-    p_set.add_argument("fields", nargs="+",
-                       help="Fields as field=value pairs")
-    p_set.add_argument("--schema-type", dest="schema_type",
-                       choices=list(SCHEMAS.keys()),
-                       help="Schema type (auto-detected from filename)")
+    p_set.add_argument("fields", nargs="+", help="Fields as field=value pairs")
+    p_set.add_argument(
+        "--schema-type",
+        dest="schema_type",
+        choices=list(SCHEMAS.keys()),
+        help="Schema type (auto-detected from filename)",
+    )
     p_set.set_defaults(func=cmd_set)
 
     # lint
-    p_lint = subparsers.add_parser("lint",
-                                   help="Lint markdown body")
+    p_lint = subparsers.add_parser("lint", help="Lint markdown body")
     p_lint.add_argument("file", help="Path to the markdown file")
-    p_lint.add_argument("--config", dest="config_file", default=None,
-                        help="Path to .markdownlint.yaml config "
-                             "(default: auto-detect in repo root)")
+    p_lint.add_argument(
+        "--config",
+        dest="config_file",
+        default=None,
+        help="Path to .markdownlint.yaml config (default: auto-detect in repo root)",
+    )
     p_lint.set_defaults(func=cmd_lint)
 
     # fix
-    p_fix = subparsers.add_parser("fix",
-                                  help="Auto-fix markdown lint violations")
+    p_fix = subparsers.add_parser("fix", help="Auto-fix markdown lint violations")
     p_fix.add_argument("file", help="Path to the markdown file")
-    p_fix.add_argument("--config", dest="config_file", default=None,
-                       help="Path to .markdownlint.yaml config "
-                            "(default: auto-detect in repo root)")
+    p_fix.add_argument(
+        "--config",
+        dest="config_file",
+        default=None,
+        help="Path to .markdownlint.yaml config (default: auto-detect in repo root)",
+    )
     p_fix.set_defaults(func=cmd_fix)
 
     # validate
-    p_validate = subparsers.add_parser("validate",
-                                       help="Validate frontmatter")
+    p_validate = subparsers.add_parser("validate", help="Validate frontmatter")
     p_validate.add_argument("file", help="Path to the markdown file")
-    p_validate.add_argument("--schema-type", dest="schema_type",
-                            choices=list(SCHEMAS.keys()),
-                            help="Schema type (auto-detected from filename)")
+    p_validate.add_argument(
+        "--schema-type",
+        dest="schema_type",
+        choices=list(SCHEMAS.keys()),
+        help="Schema type (auto-detected from filename)",
+    )
     p_validate.set_defaults(func=cmd_validate)
 
     args = parser.parse_args()

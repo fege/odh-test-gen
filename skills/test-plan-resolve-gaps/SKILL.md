@@ -64,7 +64,7 @@ For each old gap, check if new analyzer findings or documents address it:
 - Gap: "Exact endpoint paths not specified"
   - Check if endpoints analyzer now has specific paths (e.g., `POST /api/v2/catalog/items`)
   - If yes → mark as resolved by endpoints analyzer findings
-  
+
 - Gap: "Expected response format unclear"
   - Check if new documents include API spec with response schemas
   - If yes → mark as resolved by specific document
@@ -73,7 +73,7 @@ For each old gap, check if new analyzer findings or documents address it:
 - Gap: "Priority criteria too generic"
   - Check if risks analyzer now has feature-specific priority definitions
   - If yes → mark as resolved
-  
+
 - Gap: "Missing risk mitigation for database failure"
   - Check if risks analyzer identified mitigation strategy
   - If yes → mark as resolved

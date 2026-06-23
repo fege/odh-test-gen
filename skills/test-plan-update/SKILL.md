@@ -265,10 +265,10 @@ fi
    ```bash
    # Get gap count from sub-agent statistics
    new_gap_count=<count_of_unresolved_gaps>
-   
+
    # Update status: Open if gaps remain, Resolved if all resolved
    new_status=$([ $new_gap_count -eq 0 ] && echo "Resolved" || echo "Open")
-   
+
    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlanGaps.md \
        gap_count=$new_gap_count \
        status=$new_status)
@@ -319,7 +319,7 @@ Update the README with:
 3. Changelog entry:
    ```markdown
    ## Changelog
-   
+
    ### v1.1.0 (2026-04-23)
    - Updated with new API specification
    - Resolved 3 gaps from TestPlanGaps.md

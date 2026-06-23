@@ -36,8 +36,7 @@ class TestReviewSchemaValidation(unittest.TestCase):
         data["scores"]["specificity"] = 3
         errors = validate(data, "test-plan-review")
         self.assertTrue(
-            any("scores.specificity" in err and "maximum 2" in err
-                for err in errors),
+            any("scores.specificity" in err and "maximum 2" in err for err in errors),
             errors,
         )
 
@@ -46,8 +45,7 @@ class TestReviewSchemaValidation(unittest.TestCase):
         data["score"] = 9
         errors = validate(data, "test-plan-review")
         self.assertTrue(
-            any("score: expected 10 from scores.*, got 9" in err
-                for err in errors),
+            any("score: expected 10 from scores.*, got 9" in err for err in errors),
             errors,
         )
 
@@ -56,8 +54,7 @@ class TestReviewSchemaValidation(unittest.TestCase):
         data["before_score"] = 7
         errors = validate(data, "test-plan-review")
         self.assertTrue(
-            any("before_score and before_scores must both be set" in err
-                for err in errors),
+            any("before_score and before_scores must both be set" in err for err in errors),
             errors,
         )
 
@@ -73,7 +70,6 @@ class TestReviewSchemaValidation(unittest.TestCase):
         data["before_score"] = 8
         errors = validate(data, "test-plan-review")
         self.assertTrue(
-            any("before_score: expected 7 from before_scores.*, got 8" in err
-                for err in errors),
+            any("before_score: expected 7 from before_scores.*, got 8" in err for err in errors),
             errors,
         )

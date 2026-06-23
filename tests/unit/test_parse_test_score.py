@@ -6,7 +6,6 @@ Tests parsing test score assessment files.
 
 import json
 
-import pytest
 
 from scripts.parse_test_score import parse_test_score
 from tests.constants import SCORE_FILE_READY, SCORE_FILE_REVISE
@@ -20,9 +19,9 @@ def test_parses_ready_verdict(tmp_path):
     result = parse_test_score(str(score_file))
     data = json.loads(result)
 
-    assert data['verdict'] == 'Ready'
-    assert data['total_score'] == 9
-    assert data['needs_revision'] is False
+    assert data["verdict"] == "Ready"
+    assert data["total_score"] == 9
+    assert data["needs_revision"] is False
 
 
 def test_parses_revise_verdict_with_issues(tmp_path):
@@ -33,8 +32,8 @@ def test_parses_revise_verdict_with_issues(tmp_path):
     result = parse_test_score(str(score_file))
     data = json.loads(result)
 
-    assert data['verdict'] == 'Revise'
-    assert data['total_score'] == 5
-    assert data['needs_revision'] is True
-    assert 'Missing error handling' in data['issues']
-    assert 'Add try/except blocks' in data['issues']
+    assert data["verdict"] == "Revise"
+    assert data["total_score"] == 5
+    assert data["needs_revision"] is True
+    assert "Missing error handling" in data["issues"]
+    assert "Add try/except blocks" in data["issues"]

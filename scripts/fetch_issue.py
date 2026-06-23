@@ -60,35 +60,25 @@ def format_issue_as_markdown(issue_data: dict[str, Any]) -> str:
         component_names = [c.get("name", "Unknown") for c in components]
         lines.append(f"- **Components**: {', '.join(component_names)}")
 
-    lines.extend([
-        "",
-        "## Description",
-        "",
-        description,
-        "",
-    ])
+    lines.extend(
+        [
+            "",
+            "## Description",
+            "",
+            description,
+            "",
+        ]
+    )
 
     return "\n".join(lines)
 
 
 def main():
     """Main entry point for the script."""
-    parser = argparse.ArgumentParser(
-        description="Fetch a Jira issue and save it as markdown"
-    )
-    parser.add_argument(
-        "issue_key",
-        help="The Jira issue key (e.g., RHAISTRAT-400)"
-    )
-    parser.add_argument(
-        "--output",
-        "-o",
-        help="Output file path (default: stdout)"
-    )
-    parser.add_argument(
-        "--fields",
-        help="Comma-separated list of fields to fetch (default: all)"
-    )
+    parser = argparse.ArgumentParser(description="Fetch a Jira issue and save it as markdown")
+    parser.add_argument("issue_key", help="The Jira issue key (e.g., RHAISTRAT-400)")
+    parser.add_argument("--output", "-o", help="Output file path (default: stdout)")
+    parser.add_argument("--fields", help="Comma-separated list of fields to fetch (default: all)")
 
     args = parser.parse_args()
 
