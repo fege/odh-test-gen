@@ -26,11 +26,11 @@ Exit codes: 0 = PASS (or --inspect), 1 = FAIL, 2 = WRONG PAGE (retry with differ
     assertion, use --inspect for one diagnostic call. It prints the JS result and takes a
     screenshot but does NOT affect the TC log or verdict.
 """
+
 import argparse
 import json
 import os
 import sys
-from pathlib import Path
 
 os.environ.setdefault("NODE_NO_WARNINGS", "1")
 
@@ -40,16 +40,24 @@ except ImportError:
     print("ERROR: playwright not installed — run: pip install playwright && playwright install chromium")
     sys.exit(1)
 
-from paths import SKILL_DIR, TMP_DIR
+from paths import TMP_DIR
 
 from browser_common import get_page, release  # shared CDP connection logic
 
-TC_LOG    = TMP_DIR / "ui_tc_log.json"
-SESSION   = TMP_DIR / ".ui-session"
+TC_LOG = TMP_DIR / "ui_tc_log.json"
+SESSION = TMP_DIR / ".ui-session"
 
 
-def update_log(tc_id: str, what: str, expected: str, result: str, detail: str,
-               replace: bool = False, title: str = "", screenshot: str = "") -> None:
+def update_log(
+    tc_id: str,
+    what: str,
+    expected: str,
+    result: str,
+    detail: str,
+    replace: bool = False,
+    title: str = "",
+    screenshot: str = "",
+) -> None:
     log = {}
     if TC_LOG.exists():
         try:
@@ -66,14 +74,14 @@ def update_log(tc_id: str, what: str, expected: str, result: str, detail: str,
     if replace:
         # Remove any previous assertion with the same 'checked' text so a re-assertion
         # after fixing page state doesn't leave ghost FAIL entries in the log.
-        log[tc_id]["assertions"] = [
-            a for a in log[tc_id]["assertions"] if a["checked"] != what
-        ]
+        log[tc_id]["assertions"] = [a for a in log[tc_id]["assertions"] if a["checked"] != what]
 
     # Warn if the same assertion is logged again without --replace so Claude knows to use it
     if not replace and any(a.get("checked") == what for a in log[tc_id]["assertions"]):
-        print(f"  ⚠️  '{what}' logged twice for {tc_id} without --replace — "
-              f"use --replace to avoid duplicate entries", flush=True)
+        print(
+            f"  ⚠️  '{what}' logged twice for {tc_id} without --replace — use --replace to avoid duplicate entries",
+            flush=True,
+        )
 
     entry = {"checked": what, "expected": expected, "result": result, "detail": detail}
     if screenshot:
@@ -167,6 +175,7 @@ def _click_before(page, description: str) -> bool:
     that follows will FAIL with the real reason, which is the correct logged outcome.
     """
     from urllib.parse import urlparse
+
     url_before = page.url
 
     label = _click_element(page, description)
@@ -175,8 +184,7 @@ def _click_before(page, description: str) -> bool:
         print(f"  --click-before: ✅ [{label}]", flush=True)
     else:
         print(
-            f"  --click-before: ⚠️  '{description}' not found — "
-            f"proceeding; assertion will report the actual failure",
+            f"  --click-before: ⚠️  '{description}' not found — proceeding; assertion will report the actual failure",
             flush=True,
         )
         return True  # let the JS assertion run and FAIL with the real reason
@@ -188,8 +196,7 @@ def _click_before(page, description: str) -> bool:
         b, a = urlparse(url_before), urlparse(url_after)
         if b.netloc != a.netloc or any(p in a.path for p in ("/oauth/", "/login")):
             print(
-                f"  --click-before: ⚠️  unintended navigation "
-                f"{url_before!r} → {url_after!r}",
+                f"  --click-before: ⚠️  unintended navigation {url_before!r} → {url_after!r}",
                 flush=True,
             )
             return False  # caller will return exit 2 (WRONG_PAGE)
@@ -198,30 +205,45 @@ def _click_before(page, description: str) -> bool:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--tc",           required=True)
-    parser.add_argument("--title",        default="",  help="Human-readable TC title (stored in log for report)")
-    parser.add_argument("--what",         required=True)
-    parser.add_argument("--expected",     default="")
-    parser.add_argument("--js",           required=True)
-    parser.add_argument("--screenshot",   default="verify")
-    parser.add_argument("--selector",     default="")
-    parser.add_argument("--click-before",          default="",
-                        help="Click this element before asserting. Use for ephemeral UI state "
-                             "(dropdowns, menus, accordions) that close between separate tool calls.")
-    parser.add_argument("--expected-url-contains", default="",
-                        help="Abort with WRONG_PAGE (exit 2) if the current URL does not contain "
-                             "this string. Use to guard against asserting on the wrong page or tab.")
-    parser.add_argument("--retry",                 type=int, default=0,
-                        help="Retry the JS assertion up to N times (500 ms apart) on FAIL before "
-                             "logging. Use for async-updating UI or animations that may not have "
-                             "settled. Default: 0 (no retry).")
-    parser.add_argument("--inspect",      action="store_true",
-                        help="Diagnostic only — run JS and screenshot but DO NOT log to TC log or change verdict")
-    parser.add_argument("--replace",      action="store_true",
-                        help="Replace any previous assertion with the same --what text for this TC. "
-                             "Use when re-asserting after fixing page state to remove ghost FAIL entries.")
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--tc", required=True)
+    parser.add_argument("--title", default="", help="Human-readable TC title (stored in log for report)")
+    parser.add_argument("--what", required=True)
+    parser.add_argument("--expected", default="")
+    parser.add_argument("--js", required=True)
+    parser.add_argument("--screenshot", default="verify")
+    parser.add_argument("--selector", default="")
+    parser.add_argument(
+        "--click-before",
+        default="",
+        help="Click this element before asserting. Use for ephemeral UI state "
+        "(dropdowns, menus, accordions) that close between separate tool calls.",
+    )
+    parser.add_argument(
+        "--expected-url-contains",
+        default="",
+        help="Abort with WRONG_PAGE (exit 2) if the current URL does not contain "
+        "this string. Use to guard against asserting on the wrong page or tab.",
+    )
+    parser.add_argument(
+        "--retry",
+        type=int,
+        default=0,
+        help="Retry the JS assertion up to N times (500 ms apart) on FAIL before "
+        "logging. Use for async-updating UI or animations that may not have "
+        "settled. Default: 0 (no retry).",
+    )
+    parser.add_argument(
+        "--inspect",
+        action="store_true",
+        help="Diagnostic only — run JS and screenshot but DO NOT log to TC log or change verdict",
+    )
+    parser.add_argument(
+        "--replace",
+        action="store_true",
+        help="Replace any previous assertion with the same --what text for this TC. "
+        "Use when re-asserting after fixing page state to remove ghost FAIL entries.",
+    )
     args = parser.parse_args()
 
     pw, browser, page, _ctx = get_page()
@@ -237,9 +259,9 @@ def main() -> int:
             page.wait_for_function(
                 "() => {"
                 "  if (document.readyState !== 'complete' || !document.body) return false;"
-                "  var sel = '[aria-busy=\"true\"]"
-                ",[class*=\"pf-\"][class*=\"-c-spinner\"]"
-                ",[class*=\"pf-\"][class*=\"-c-skeleton\"]';"
+                '  var sel = \'[aria-busy="true"]'
+                ',[class*="pf-"][class*="-c-spinner"]'
+                ',[class*="pf-"][class*="-c-skeleton"]\';'
                 "  if (document.querySelector(sel)) return false;"
                 "  return document.body.innerText.trim().length > 50;"
                 "}",
@@ -250,11 +272,7 @@ def main() -> int:
 
         # 2. Detect 404 / wrong page — return exit code 2 so caller can retry
         body = page.inner_text("body") if page.query_selector("body") else ""
-        is_404 = (
-            "404" in page.title()
-            or "can't find that page" in body.lower()
-            or len(body.strip()) < 30
-        )
+        is_404 = "404" in page.title() or "can't find that page" in body.lower() or len(body.strip()) < 30
         if is_404:
             print(f"WRONG_PAGE: 404 or empty at {page.url}", flush=True)
             return 2
@@ -275,7 +293,7 @@ def main() -> int:
                 " document.body.appendChild(b); }"
                 " b.style.background = 'rgba(0,50,150,0.88)'; b.style.color = '#fff';"
                 " b.textContent = text; }",
-                [f"Checking: {safe_what}"]
+                [f"Checking: {safe_what}"],
             )
         except Exception:
             pass
@@ -290,8 +308,7 @@ def main() -> int:
         # 4b. URL pre-check — abort if the current page is not what the assertion expects.
         if args.expected_url_contains and args.expected_url_contains not in page.url:
             print(
-                f"WRONG_PAGE: expected URL containing {args.expected_url_contains!r}, "
-                f"got {page.url!r}",
+                f"WRONG_PAGE: expected URL containing {args.expected_url_contains!r}, got {page.url!r}",
                 flush=True,
             )
             return 2
@@ -304,7 +321,7 @@ def main() -> int:
         except Exception:
             pass
 
-        raw = f"FAIL:assertion did not run"
+        raw = "FAIL:assertion did not run"
         for _attempt in range(max(1, args.retry + 1)):
             # On retry with --click-before: re-click so a toggled-closed container
             # gets toggled open again before the JS re-runs.
@@ -335,15 +352,16 @@ def main() -> int:
         detail = raw.split(":", 1)[1].strip() if ":" in raw else raw
 
         # 5. Update banner to green/red result
-        icon    = "PASS" if passed else "FAIL"
-        color   = "rgba(0,120,0,0.90)" if passed else "rgba(160,0,0,0.90)"
+        icon = "PASS" if passed else "FAIL"
+        color = "rgba(0,120,0,0.90)" if passed else "rgba(160,0,0,0.90)"
         outline = "green" if passed else "red"
-        bg      = "rgba(0,200,0,0.06)" if passed else "rgba(200,0,0,0.06)"
+        bg = "rgba(0,200,0,0.06)" if passed else "rgba(200,0,0,0.06)"
         banner_text = f"{icon}: {safe_what} — {detail[:80]}"
         try:
             page.evaluate(
-                "([text, color]) => { const b=document.getElementById('ui-banner'); if(b){b.style.background=color;b.textContent=text;} }",
-                [banner_text, color]
+                "([text, color]) => { const b=document.getElementById('ui-banner');"
+                " if(b){b.style.background=color;b.textContent=text;} }",
+                [banner_text, color],
             )
         except Exception:
             pass
@@ -362,27 +380,25 @@ def main() -> int:
         # 7. Optional: highlight the target element with pointer label (after screenshot
         #    so DOM mutations don't close open overlays before the image is captured)
         if args.selector:
-            safe_sel = args.selector.replace("'", "\\'")
-            safe_label = args.what.replace("'", " ").replace('"', " ")[:60]
             try:
                 page.evaluate(
-                    f"([sel, outline, bg, color, label]) => {{"
-                    f" document.getElementById('ui-pointer')?.remove();"
-                    f" const el = document.querySelector(sel);"
-                    f" if (el) {{"
-                    f"  el.scrollIntoView({{block:'center'}});"
-                    f"  el.style.outline='3px solid '+outline;"
-                    f"  el.style.background=bg;"
-                    f"  const rect=el.getBoundingClientRect();"
-                    f"  const p=document.createElement('div'); p.id='ui-pointer';"
-                    f"  p.style='position:fixed;z-index:2147483646;background:'+color+';color:#fff;"
-                    f"font:bold 11px monospace;padding:3px 8px;border-radius:3px;"
-                    f"top:'+Math.max(50,rect.top-30)+'px;left:'+Math.max(0,Math.min(rect.left,window.innerWidth-320))+'px;"
-                    f"max-width:320px;white-space:nowrap;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.4);';"
-                    f"  p.textContent='▶ '+label; document.body.appendChild(p);"
-                    f" }}"
-                    f"}}",
-                    [args.selector, outline, bg, color, args.what[:60]]
+                    "([sel, outline, bg, color, label]) => {"
+                    " document.getElementById('ui-pointer')?.remove();"
+                    " const el = document.querySelector(sel);"
+                    " if (el) {"
+                    "  el.scrollIntoView({block:'center'});"
+                    "  el.style.outline='3px solid '+outline;"
+                    "  el.style.background=bg;"
+                    "  const rect=el.getBoundingClientRect();"
+                    "  const p=document.createElement('div'); p.id='ui-pointer';"
+                    "  p.style='position:fixed;z-index:2147483646;background:'+color+';color:#fff;"
+                    "font:bold 11px monospace;padding:3px 8px;border-radius:3px;"
+                    "top:'+Math.max(50,rect.top-30)+'px;left:'+Math.max(0,Math.min(rect.left,window.innerWidth-320))+'px;"
+                    "max-width:320px;white-space:nowrap;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.4);';"
+                    "  p.textContent='▶ '+label; document.body.appendChild(p);"
+                    " }"
+                    "}",
+                    [args.selector, outline, bg, color, args.what[:60]],
                 )
                 # Second screenshot with element highlighted
                 page.screenshot(path=str(fname))
@@ -395,7 +411,8 @@ def main() -> int:
                 "() => {"
                 " document.getElementById('ui-banner')?.remove();"
                 " document.getElementById('ui-pointer')?.remove();"
-                " document.querySelectorAll('[style*=\"3px solid\"]').forEach(e=>{e.style.outline='';e.style.background='';});"
+                " document.querySelectorAll('[style*=\"3px solid\"]')"
+                ".forEach(e=>{e.style.outline='';e.style.background='';});"
                 "}"
             )
         except Exception:
@@ -407,10 +424,16 @@ def main() -> int:
             print(f"{prefix} [INSPECT] {args.what}: {detail}")
             return 0  # inspect never fails — it's diagnostic
         else:
-            update_log(args.tc, args.what, args.expected, result, detail,
-                       replace=args.replace,
-                       title=args.title,
-                       screenshot=fname.name if fname.exists() else "")
+            update_log(
+                args.tc,
+                args.what,
+                args.expected,
+                result,
+                detail,
+                replace=args.replace,
+                title=args.title,
+                screenshot=fname.name if fname.exists() else "",
+            )
             status = "✅" if passed else "❌"
             print(f"{status} {args.what}: {detail}")
             return 0 if passed else 1

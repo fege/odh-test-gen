@@ -69,18 +69,7 @@ repo_path=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run
 
 If found (exit code 0, prints path):
 ```bash
-cd "$repo_path"
-current_branch=$(git branch --show-current)
-
-if [ "$current_branch" = "<head_branch>" ]; then
-    # Already on the PR branch, just pull latest
-    git pull origin <head_branch>
-else
-    # Need to switch to PR branch
-    git fetch origin
-    git checkout <head_branch> 2>/dev/null || git checkout -b <head_branch> origin/<head_branch>
-    git pull origin <head_branch>
-fi
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py safe-checkout "$repo_path" "<head_branch>")
 ```
 - Set `repo_path` to the output
 - Log: "✓ Using local clone: $repo_path (updated)"
@@ -113,23 +102,14 @@ Validate the TestPlan.md frontmatter. If validation fails, show the errors — t
 
 ### Step 1: Collect Review Comments
 
-1. Fetch conversation comments and formal reviews in one call:
+1. Fetch all review comments (conversation + inline, bots filtered):
    ```bash
-   gh pr view <PR_NUMBER> --repo <owner>/<repo> --json comments,reviews
+   comments_json=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py pr-comments "<owner>/<repo>" <PR_NUMBER>)
    ```
 
-2. Fetch inline review comments (comments on specific lines/files):
-   ```bash
-   gh api repos/<owner>/<repo>/pulls/<PR_NUMBER>/comments
-   ```
+   The script returns a JSON array of comments, each with `author`, `body`, `type` (conversation/review/inline), and optional `path`/`line` for inline comments. Bot comments are already filtered.
 
-3. Parse and build a list of all comments with:
-   - **Who**: reviewer username
-   - **Where**: general, or specific file + line
-   - **What**: the comment body
-
-4. Filter out:
-   - Bot comments
+2. From the returned comments, filter out:
    - Purely conversational comments (e.g., "looks good", "thanks", "LGTM")
    - Already-resolved review threads (if resolution status is available)
 
@@ -231,39 +211,19 @@ If any validation fails, fix the issue before proceeding.
 
    If the user declines, leave the changes uncommitted and stop.
 
-2. Stage artifact changes selectively (exclude internal working files):
+2. Stage, check for changes, and commit in one call:
 
    ```bash
-   # Get feature directory name (relative path from repo root)
    feature_name=$(basename "$feature_dir")
-
-   # Always stage these required files
-   git add "$feature_name/TestPlan.md" "$feature_name/README.md"
-
-   # Stage optional files if they exist
-   [ -f "$feature_name/TestPlanGaps.md" ] && git add "$feature_name/TestPlanGaps.md"
-   [ -f "$feature_name/TestPlanReview.md" ] && git add "$feature_name/TestPlanReview.md"
-
-   # Stage test_cases markdown files if any exist
-   if [ -d "$feature_name/test_cases" ] && ls "$feature_name"/test_cases/*.md >/dev/null 2>&1; then
-     git add "$feature_name"/test_cases/*.md
+   repo_root=$(git -C "$feature_dir" rev-parse --show-toplevel)
+   if ! publish_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py publish-artifacts "$repo_root" "$feature_name" "test-plan(<source_key>): <short summary of changes> (PR #<PR_NUMBER>)"); then
+       echo "ERROR: publish-artifacts failed"; exit 1
    fi
    ```
 
-   **Important**: This selectively stages only the public artifacts, excluding internal working files like `.review-state.json`, `repo_instructions.md`, `test_implementation_conventions.md`, and `test_scores/` which are meant for internal orchestration only.
+   Generate the commit summary from the list of applied feedback items. Keep it concise — highlight the 2-3 most significant changes. See `skills/commit-examples.md` for examples.
 
-3. Commit with a descriptive message that summarizes the actual changes applied, not just "resolve feedback". Use a heredoc to avoid shell injection from frontmatter values:
-
-   ```bash
-   git commit -m "$(cat <<'EOF'
-   test-plan(<source_key>): <short summary of changes> (PR #<PR_NUMBER>)
-   EOF
-   )"
-   ```
-
-   Generate the summary from the list of applied feedback items. Keep it concise — highlight the 2-3 most significant changes. See `skills/commit-examples.md` for examples.
-
-4. Push to the same branch:
+3. Push to the same branch:
    ```bash
    git push origin <head_branch>
    ```

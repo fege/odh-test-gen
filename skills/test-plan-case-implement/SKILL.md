@@ -514,10 +514,13 @@ echo "$updates_json" | (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-topleve
 
 Returns JSON with `updated_count`, `updated_tcs`, `errors`. Show any errors to user.
 
-If feature source is a GitHub branch, commit updated TC files:
+If feature source is a GitHub branch, stage, commit, and push updated TC files:
 ```bash
-git add <feature_dir>/test_cases/*.md
-git commit -m "test-plan(<source_key>): mark TCs as implemented"
+feature_name=$(basename "$feature_dir")
+repo_root=$(git -C "$feature_dir" rev-parse --show-toplevel)
+if ! publish_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py publish-artifacts "$repo_root" "$feature_name" "test-plan(<source_key>): mark TCs as implemented"); then
+    echo "ERROR: publish-artifacts failed"; exit 1
+fi
 git push origin <branch_name>
 ```
 

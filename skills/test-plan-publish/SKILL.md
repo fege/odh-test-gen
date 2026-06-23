@@ -331,51 +331,29 @@ If the user declines, stop.
    - If branch doesn't exist: Create from up-to-date `main`
    - No user prompt needed - the workflow is deterministic
 
-4. Stage only public artifacts in the feature directory:
+4. Stage, check for changes, and commit in one call:
    ```bash
-   # Get feature directory name (relative path from repo root)
    feature_name=$(basename "$feature_dir")
-
-   # Always stage these required files
-   git add $feature_name/TestPlan.md $feature_name/README.md
-
-   # Stage optional files if they exist
-   [ -f $feature_name/TestPlanGaps.md ] && git add $feature_name/TestPlanGaps.md
-   [ -f $feature_name/TestPlanReview.md ] && git add $feature_name/TestPlanReview.md
-
-   # Stage test_cases files if they exist
-   [ -d $feature_name/test_cases ] && git add $feature_name/test_cases/*.md
-   ```
-
-   **Important**: This selectively stages only the public artifacts (TestPlan.md, TC-*.md, INDEX.md, README.md, TestPlanGaps.md), excluding internal working files like `.review-state.json`, `repo_instructions.md`, `test_implementation_conventions.md`, and `test_scores/` which are meant for internal orchestration only.
-
-5. Check if there are changes to commit:
-   ```bash
-   if ! git diff --cached --quiet; then
-       # There are staged changes, proceed with commit
-       echo "✓ Changes detected, creating commit"
-   else
+   if ! publish_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py publish-artifacts "$repo_root" "$feature_name" "test-plan(<source_key>): publish <feature> v<version>"); then
+       echo "ERROR: publish-artifacts failed"; exit 1
+   fi
+   committed=$(echo "$publish_result" | jq -r '.committed')
+   if [ "$committed" = "false" ]; then
        echo "⚠ No changes to commit - artifacts are already up to date"
        exit 0
    fi
    ```
 
-6. Commit with a descriptive message. Use a heredoc to avoid shell injection from frontmatter values:
-   ```bash
-   git commit -m "$(cat <<'EOF'
-   test-plan(<source_key>): publish <feature> v<version>
-   EOF
-   )"
-   ```
+   This selectively stages only the public artifacts (TestPlan.md, README.md, TestPlanGaps.md, TestPlanReview.md, test_cases/*.md), excludes internal working files, and commits if there are changes.
 
-7. Push the branch:
+5. Push the branch:
    ```bash
    git push publish-target test-plan/<source_key>
    ```
    
    **Note**: Always use regular push (not `--force`) since we're either creating a new branch or adding commits on top of an existing one.
 
-7. Clean up the temporary remote:
+6. Clean up the temporary remote:
    ```bash
    git remote remove publish-target
    ```
@@ -406,32 +384,14 @@ If the user declines, stop.
    - test_cases/INDEX.md (if exists, with count)
    ```
 
-3. Check if PR already exists for this branch, and create or update accordingly:
+3. Create or detect existing PR:
    ```bash
-   # Check if PR exists for this branch
-   existing_pr=$(gh pr list --repo $target_repo --head test-plan/<source_key> --json number --jq '.[0].number' 2>/dev/null)
-   
-   if [ -n "$existing_pr" ]; then
-       # PR exists - just confirm the push updated it
-       echo "✓ PR #$existing_pr updated with new commits"
-       pr_url=$(gh pr view $existing_pr --repo $target_repo --json url --jq '.url')
-   else
-       # No PR - create new one
-       pr_url=$(gh pr create \
-           --repo $target_repo \
-           --title "Test Plan: <feature> (v<version>)" \
-           --body "$(cat <<'EOF'
-   <pr_body>
-   EOF
-   )" \
-           --base main \
-           --head test-plan/<source_key> \
-           $([ -n "$reviewers" ] && echo "--reviewer $reviewers") \
-           --json url --jq '.url')
-   fi
+   pr_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py pr-create "$target_repo" "test-plan/<source_key>" "Test Plan: <feature> (v<version>)" "<pr_body>" $([ -n "$reviewers" ] && echo "--reviewers $reviewers"))
+   pr_url=$(echo "$pr_result" | jq -r '.pr_url')
+   pr_created=$(echo "$pr_result" | jq -r '.created')
    ```
    
-   **Note**: When updating an existing PR, the new commits are automatically added. The PR title and body are NOT updated (preserving any manual edits reviewers may have made).
+   **Note**: When an existing PR is detected, the new commits are automatically added by the push. The PR title and body are NOT updated (preserving any manual edits reviewers may have made).
 
 ### Step 6: Confirm
 
