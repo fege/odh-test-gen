@@ -4,14 +4,31 @@ import json
 
 import pytest
 
-from scripts.validate import validate_feature_dir, validate_gap_counts, validate_test_cases, validate_all
+from scripts.validate import (
+    validate_ac_citations,
+    validate_all,
+    validate_feature_dir,
+    validate_gap_counts,
+    validate_scope,
+    validate_structure,
+    validate_test_cases,
+)
 from scripts.utils.frontmatter_utils import write_frontmatter
 from tests.constants import (
-    VALID_TEST_PLAN_DATA,
-    VALID_TESTPLAN_CONTENT,
+    TESTPLAN_AC_CITED,
+    TESTPLAN_AC_MISSING,
+    TESTPLAN_BOLD_HEADINGS,
+    TESTPLAN_BROAD_LEVELS,
+    TESTPLAN_E2E_ONLY,
+    TESTPLAN_MISSING_SECTIONS,
+    TESTPLAN_NO_SECTION_13,
+    TESTPLAN_NO_SECTION_21,
     VALID_TEST_GAPS_DATA,
+    VALID_TEST_PLAN_DATA,
     VALID_TC_CONTENT,
+    VALID_TESTPLAN_CONTENT,
 )
+from tests.helpers import write_valid_testplan
 
 
 @pytest.fixture
@@ -138,7 +155,7 @@ class TestValidateAll:
     """Tests for validate_all — orchestration."""
 
     def test_all_valid(self, tmp_path):
-        write_frontmatter(str(tmp_path / "TestPlan.md"), VALID_TEST_PLAN_DATA, "test-plan")
+        write_valid_testplan(tmp_path / "TestPlan.md")
         write_frontmatter(str(tmp_path / "TestPlanGaps.md"), {**VALID_TEST_GAPS_DATA, "gap_count": 3}, "test-gaps")
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
@@ -153,7 +170,7 @@ class TestValidateAll:
         assert result["test_cases"]["valid"] is True
 
     def test_valid_without_test_cases(self, tmp_path):
-        write_frontmatter(str(tmp_path / "TestPlan.md"), VALID_TEST_PLAN_DATA, "test-plan")
+        write_valid_testplan(tmp_path / "TestPlan.md")
 
         result = validate_all(str(tmp_path))
 
@@ -166,14 +183,20 @@ class TestValidateAll:
         assert result["valid"] is False
         assert "TestPlan.md" in result["error"]
 
-    def test_skips_optional_gaps(self, feature_dir):
-        result = validate_all(feature_dir)
+    def test_skips_optional_gaps(self, tmp_path):
+        write_valid_testplan(tmp_path / "TestPlan.md")
+        tc_dir = tmp_path / "test_cases"
+        tc_dir.mkdir()
+        (tc_dir / "INDEX.md").write_text("# Index")
+        (tc_dir / "TC-API-001.md").write_text(VALID_TC_CONTENT)
+
+        result = validate_all(str(tmp_path))
 
         assert result["valid"] is True
         assert len(result["frontmatter"]) == 1
 
     def test_reports_invalid_test_cases(self, tmp_path):
-        write_frontmatter(str(tmp_path / "TestPlan.md"), VALID_TEST_PLAN_DATA, "test-plan")
+        write_valid_testplan(tmp_path / "TestPlan.md")
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
         (tc_dir / "INDEX.md").write_text("# Index")
@@ -183,3 +206,129 @@ class TestValidateAll:
 
         assert result["valid"] is False
         assert result["test_cases"]["valid"] is False
+
+
+class TestValidateScope:
+    """Tests for validate_scope — disallowed test levels in Section 2.1."""
+
+    def test_e2e_only_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_E2E_ONLY)
+
+        result = validate_scope(str(testplan))
+
+        assert result["valid"] is True
+        assert result["violations"] == []
+
+    def test_disallowed_levels_fail(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_BROAD_LEVELS)
+
+        result = validate_scope(str(testplan))
+
+        assert result["valid"] is False
+        assert len(result["violations"]) == 3
+        violation_names = [v["level"] for v in result["violations"]]
+        assert "API Integration Testing" in violation_names
+        assert "Data Validation Testing" in violation_names
+        assert "Functional Testing" in violation_names
+
+    def test_missing_section_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_NO_SECTION_21)
+
+        result = validate_scope(str(testplan))
+
+        assert result["valid"] is True
+        assert result["violations"] == []
+
+    def test_file_not_found(self):
+        result = validate_scope("/nonexistent/TestPlan.md")
+
+        assert result["valid"] is False
+        assert "error" in result
+
+
+class TestValidateAcCitations:
+    """Tests for validate_ac_citations — AC citation in Section 1.3 objectives."""
+
+    def test_all_objectives_cited_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_AC_CITED)
+
+        result = validate_ac_citations(str(testplan))
+
+        assert result["valid"] is True
+        assert result["total"] == 3
+        assert result["cited"] == 3
+        assert result["uncited"] == []
+
+    def test_missing_citation_fails(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_AC_MISSING)
+
+        result = validate_ac_citations(str(testplan))
+
+        assert result["valid"] is False
+        assert result["total"] == 3
+        assert result["cited"] == 2
+        assert len(result["uncited"]) == 1
+        assert result["uncited"][0]["line_number"] > 0
+
+    def test_no_section_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_NO_SECTION_13)
+
+        result = validate_ac_citations(str(testplan))
+
+        assert result["valid"] is True
+        assert result["total"] == 0
+
+    def test_file_not_found(self):
+        result = validate_ac_citations("/nonexistent/TestPlan.md")
+
+        assert result["valid"] is False
+        assert "error" in result
+
+
+class TestValidateStructure:
+    """Tests for validate_structure — required headings and pseudo-heading detection."""
+
+    def test_valid_structure_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        write_valid_testplan(testplan)
+
+        result = validate_structure(str(testplan))
+
+        assert result["valid"] is True
+        assert result["missing_headings"] == []
+        assert result["pseudo_headings"] == []
+
+    def test_bold_pseudo_headings_fail(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_BOLD_HEADINGS)
+
+        result = validate_structure(str(testplan))
+
+        assert result["valid"] is False
+        assert len(result["pseudo_headings"]) == 2
+        pseudo_texts = [p["text"] for p in result["pseudo_headings"]]
+        assert "**Measurement Points:**" in pseudo_texts
+        assert "**Purpose:**" in pseudo_texts
+
+    def test_missing_sections_fail(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_MISSING_SECTIONS)
+
+        result = validate_structure(str(testplan))
+
+        assert result["valid"] is False
+        assert "### 1.3 Test Objectives" in result["missing_headings"]
+        assert "### 2.1 Test Levels" in result["missing_headings"]
+        assert "## 4. Interfaces Under Test" in result["missing_headings"]
+
+    def test_file_not_found(self):
+        result = validate_structure("/nonexistent/TestPlan.md")
+
+        assert result["valid"] is False
+        assert "error" in result

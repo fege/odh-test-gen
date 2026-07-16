@@ -10,16 +10,22 @@ Usage:
     uv run python scripts/validate.py gap-counts <feature_dir> <resolved> <unresolved> <new>
     uv run python scripts/validate.py test-cases <feature_dir>
     uv run python scripts/validate.py all <feature_dir>
+    uv run python scripts/validate.py scope-check <testplan_path>
+    uv run python scripts/validate.py ac-citations <testplan_path>
+    uv run python scripts/validate.py structure <testplan_path>
 """
 
 import argparse
 import json
+import re
 import sys
 import yaml
 from pathlib import Path
 
+
 from scripts.utils.frontmatter_utils import read_frontmatter, read_frontmatter_validated
-from scripts.utils.schemas import detect_schema_type
+from scripts.utils.markdown_utils import extract_section
+from scripts.utils.schemas import TESTPLAN_STRUCTURE, detect_schema_type
 
 
 def validate_feature_dir(feature_dir: str) -> str:
@@ -160,6 +166,82 @@ def validate_test_cases(feature_dir: str, schema_type: str = "test-case") -> dic
     }
 
 
+def validate_scope(testplan_path: str) -> dict:
+    """Check Section 2.1 for disallowed test level names."""
+    path = Path(testplan_path)
+    if not path.exists():
+        return {"valid": False, "error": f"File not found: {testplan_path}"}
+
+    content = path.read_text()
+    section_lines, start_line = extract_section(content, "### 2.1 Test Levels")
+    if not section_lines:
+        return {"valid": True, "violations": []}
+
+    violations = [
+        {"level": level_name, "line_number": start_line + i}
+        for i, line in enumerate(section_lines)
+        for level_name in TESTPLAN_STRUCTURE["disallowed_test_levels"]
+        if f"**{level_name}**" in line
+    ]
+
+    return {"valid": not violations, "violations": violations}
+
+
+def validate_ac_citations(testplan_path: str) -> dict:
+    """Check Section 1.3 objectives for (AC: ...) citations."""
+    path = Path(testplan_path)
+    if not path.exists():
+        return {"valid": False, "error": f"File not found: {testplan_path}"}
+
+    content = path.read_text()
+    section_lines, start_line = extract_section(content, "### 1.3 Test Objectives")
+    if not section_lines:
+        return {"valid": True, "total": 0, "cited": 0, "uncited": []}
+
+    objective_re = re.compile(r"^\d+\.\s+")
+    ac_re = re.compile(r"\(AC:\s*")
+
+    objectives = [
+        {"text": line.strip(), "line_number": start_line + i}
+        for i, line in enumerate(section_lines)
+        if objective_re.match(line.strip())
+    ]
+
+    uncited = [obj for obj in objectives if not ac_re.search(obj["text"])]
+    cited = len(objectives) - len(uncited)
+
+    return {
+        "valid": not uncited,
+        "total": len(objectives),
+        "cited": cited,
+        "uncited": uncited,
+    }
+
+
+def validate_structure(testplan_path: str) -> dict:
+    """Check TestPlan.md for required headings and bold-text pseudo-headings."""
+    path = Path(testplan_path)
+    if not path.exists():
+        return {"valid": False, "error": f"File not found: {testplan_path}"}
+
+    content = path.read_text()
+    lines = content.splitlines()
+
+    required = [s["heading"] for s in TESTPLAN_STRUCTURE["sections"] if s["required"]]
+    missing_headings = [h for h in required if all(h not in line for line in lines)]
+
+    pseudo_re = re.compile(r"^\*\*[A-Z][^*]+\*\*:?\s*$")
+    pseudo_headings = [
+        {"text": line.strip(), "line_number": i + 1} for i, line in enumerate(lines) if pseudo_re.match(line.strip())
+    ]
+
+    return {
+        "valid": not missing_headings and not pseudo_headings,
+        "missing_headings": missing_headings,
+        "pseudo_headings": pseudo_headings,
+    }
+
+
 def validate_all(feature_dir: str) -> dict:
     """Run all validations on a feature directory.
 
@@ -184,13 +266,25 @@ def validate_all(feature_dir: str) -> dict:
             frontmatter_results.append({"file": artifact, "valid": False, "error": str(e)})
 
     tc_result = validate_test_cases(feature_dir)
+    scope_result = validate_scope(str(testplan_path))
+    ac_result = validate_ac_citations(str(testplan_path))
+    structure_result = validate_structure(str(testplan_path))
 
-    valid = all(f["valid"] for f in frontmatter_results) and tc_result["valid"]
+    valid = (
+        all(f["valid"] for f in frontmatter_results)
+        and tc_result["valid"]
+        and scope_result["valid"]
+        and ac_result["valid"]
+        and structure_result["valid"]
+    )
 
     return {
         "valid": valid,
         "frontmatter": frontmatter_results,
         "test_cases": tc_result,
+        "scope": scope_result,
+        "ac_citations": ac_result,
+        "structure": structure_result,
     }
 
 
@@ -215,6 +309,24 @@ def cmd_test_cases(args):
 
 def cmd_all(args):
     result = validate_all(args.feature_dir)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
+def cmd_scope_check(args):
+    result = validate_scope(args.testplan_path)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
+def cmd_ac_citations(args):
+    result = validate_ac_citations(args.testplan_path)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
+def cmd_structure(args):
+    result = validate_structure(args.testplan_path)
     print(json.dumps(result, indent=2))
     sys.exit(0 if result["valid"] else 1)
 
@@ -244,6 +356,18 @@ def main():
     p_all = subparsers.add_parser("all", help="Run all validations on a feature directory")
     p_all.add_argument("feature_dir", help="Path to feature directory")
     p_all.set_defaults(func=cmd_all)
+
+    p_scope = subparsers.add_parser("scope-check", help="Check Section 2.1 for disallowed test levels")
+    p_scope.add_argument("testplan_path", help="Path to TestPlan.md")
+    p_scope.set_defaults(func=cmd_scope_check)
+
+    p_ac = subparsers.add_parser("ac-citations", help="Check Section 1.3 objectives for AC citations")
+    p_ac.add_argument("testplan_path", help="Path to TestPlan.md")
+    p_ac.set_defaults(func=cmd_ac_citations)
+
+    p_struct = subparsers.add_parser("structure", help="Check required headings and pseudo-heading violations")
+    p_struct.add_argument("testplan_path", help="Path to TestPlan.md")
+    p_struct.set_defaults(func=cmd_structure)
 
     args = parser.parse_args()
     args.func(args)

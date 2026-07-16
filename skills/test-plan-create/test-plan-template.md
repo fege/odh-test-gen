@@ -19,23 +19,25 @@
 {Bulleted list of explicitly excluded areas from the strategy and its business need}
 
 ### 1.3 Test Objectives
-{Numbered list of 3-7 concrete test objectives derived from the strategy and its business need requirements}
+{Numbered list of 3-7 e2e/system or UI test objectives. Each must cite
+the STRAT acceptance criterion it validates.
+Format: "Verify [requirement] via [e2e/UI approach]
+(AC: [acceptance criterion text])"}
 
 ---
 
 ## 2. Test Strategy
 
 ### 2.1 Test Levels
-{Appropriate test levels for this feature, e.g.:}
-- **API Integration Testing** - Primary focus, testing REST endpoints against database
-- **Data Validation Testing** - Data transformation, persistence
-- **Functional Testing** - Business logic, filtering, search
+{Only e2e/system and UI test levels. Examples:}
+- **E2E System Testing** — End-to-end workflows exercising the deployed
+  system through its external interfaces (API, CLI, CRD)
+- **UI Testing** — Dashboard interactions, form validation, navigation
+  flows verified through the browser
 
 ### 2.2 Test Types
-- **Positive Testing** - Valid inputs, expected workflows
-- **Negative Testing** - Invalid inputs, error conditions, edge cases
-- **Boundary Testing** - Limits, filter combinations, large datasets
-- **Regression Testing** - Ensure existing functionality remains intact
+- **Positive Testing** — Valid inputs, expected workflows
+- **Negative Testing** — Invalid inputs, error conditions, unauthorized access, edge cases
 
 ### 2.3 Test Priorities
 - **P0 (Critical)** - {description of what qualifies as P0 for this feature}
@@ -57,15 +59,13 @@
 
 ---
 
-## 4. {API Endpoints / Methods / Components} Under Test
+## 4. Interfaces Under Test
 
-{Tables appropriate for the feature type. For REST APIs:}
+{Table of external interfaces exercised by e2e tests:}
 
-| Endpoint | Method | Purpose | Priority |
-|----------|--------|---------|----------|
-| {endpoint} | {GET/POST/etc} | {purpose} | {P0/P1/P2} |
-
-{For Python APIs or other interfaces, adapt the table format accordingly.}
+| Interface | Type | Purpose | Priority |
+|-----------|------|---------|----------|
+| {interface} | {REST/gRPC/UI/CLI/Config} | {purpose} | {P0/P1/P2} |
 
 ---
 
@@ -199,15 +199,15 @@ checks."}
 |----------|-------|----|----|-----|
 | | | | | |
 
-### 10.2 {Endpoint/Method} Coverage
+### 10.2 Interface Coverage
 
-{Fill in the Endpoint column from Section 4. Test Cases column
+{Fill in the Interface column from Section 4. Test Cases column
 will be filled by `/test-plan-create-cases`. Coverage column will
 be filled by `/coverage-assessment`. Leave both empty until then.}
 
-| Endpoint | Test Cases | Coverage |
-|----------|------------|----------|
-| {endpoint} | | |
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| {interface} | | |
 
 ### 10.3 Document Change Log
 

@@ -165,24 +165,50 @@ If environment variables are set, proceed to Step 0.3.
 
    # Read the saved strategy
    strategy_content=$(cat "$strategy_file")
-
-   # Clean up
-   rm "$strategy_file"
    ```
    - Extract `components` from the Jira response by parsing the markdown output (list of RHOAI product component names, e.g., `["AI Hub", "Model Serving"]`)
    - If Components field is empty or missing, set `components = []`
    - Store for use in frontmatter (Step 3.1)
 2. **ADR** (if provided): Read the ADR file for additional technical detail (API endpoints, data models, implementation specifics).
 
+### Step 1.5: Parse and Validate Strategy Sections
+
+Run the STRAT parser on the fetched strategy file to extract structured data deterministically:
+
+```bash
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+ ac_json=$(uv run python scripts/parse_strat.py acceptance-criteria "$strategy_file") && \
+ nfr_json=$(uv run python scripts/parse_strat.py nfr "$strategy_file") || nfr_json=""
+ oos_json=$(uv run python scripts/parse_strat.py out-of-scope "$strategy_file") || oos_json=""
+ strat_gaps=""
+ [ -z "$nfr_json" ] && strat_gaps="${strat_gaps}- Strategy has no Non-Functional Requirements section.\n"
+ [ -z "$oos_json" ] && strat_gaps="${strat_gaps}- Strategy has no Out-of-Scope section.\n")
+rm "$strategy_file"
+```
+
+**If `acceptance-criteria` exits non-zero** (no ACs found or count is 0), **STOP immediately**:
+1. Create `mkdir -p <feature_name>` and write a lowest-score review:
+   ```bash
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set \
+       <absolute_path_to_output_dir>/<feature_name>/TestPlanReview.md \
+       feature="<feature_name>" source_key=<JIRA_KEY> score=0 pass=false verdict=Rework \
+       scores='{"specificity":0,"grounding":0,"scope_fidelity":0,"actionability":0,"consistency":0}' \
+       auto_revised=false)
+   ```
+2. Write review body: `"Strategy has no acceptance criteria. Cannot generate AC-traced test plan."`
+3. Stamp `test-plan-rubric-fail` on the Jira issue (non-blocking). Do NOT proceed to Step 2.
+
 ### Step 2: Analyze (Parallel Sub-Agents)
+
+**Scope constraint**: This pipeline generates e2e/system and UI test plans only — no unit, integration, or component test levels in Section 2.1. Each test objective (Section 1.3) must cite a STRAT acceptance criterion: `(AC: [text])`. Step 3.2 validates both constraints deterministically.
 
 Invoke these three forked analyzer skills **in parallel** using the Skill tool. Each runs in its own isolated context with the strategy and ADR content.
 
-Pass the full strategy content (and ADR content if available) inline in the skill arguments so each sub-agent has the source material.
+Pass the full strategy content (and ADR content if available) inline in the skill arguments so each sub-agent has the source material. Additionally, pass the deterministic extractions from Step 1.5 to the relevant analyzers as structured JSON — these are ground truth that the analyzer must use, not re-derive from the raw text.
 
-- **`test-plan.analyze.endpoints`**: Extracts feature scope (in-scope, out-of-scope, test objectives) and identifies API endpoints/methods under test. Produces findings for Sections 1 and 4.
-- **`test-plan.analyze.risks`**: Determines test levels, test types, priority definitions, risks with mitigations, and non-functional requirement assessments. Produces findings for Sections 2, 7, and 8.
-- **`test-plan.analyze.infra`**: Identifies test environment configuration, test data, test users, infrastructure, and tooling requirements. Produces findings for Sections 3 and 9.
+- **`test-plan.analyze.endpoints`**: Pass full strategy + ADR + `ac_json` (acceptance criteria) + `oos_json` (out-of-scope). Extracts feature scope (in-scope, out-of-scope, AC-traced test objectives) and identifies the e2e test surface (interfaces exercised by e2e tests). Produces findings for Sections 1 and 4.
+- **`test-plan.analyze.risks`**: Pass full strategy + ADR + `nfr_json` (non-functional requirements). Determines e2e/UI test levels, test types, priority definitions, risks with mitigations, and NFR assessments. Produces findings for Sections 2, 7, and 8.
+- **`test-plan.analyze.infra`**: Pass full strategy + ADR only. Identifies test environment configuration, test data, test users, infrastructure, and tooling requirements. Produces findings for Sections 3 and 9.
 
 Once all three sub-agents return:
 1. Merge their structured findings into the test plan template (Step 3)
@@ -197,7 +223,8 @@ Once all three sub-agents return:
 2. Read the template from `${CLAUDE_SKILL_DIR}/test-plan-template.md` using the Read tool
 3. Generate `<feature_name>/TestPlan.md` by filling in the template with the gathered information. Follow the template structure exactly — do not add, remove, or reorder sections. Do NOT write frontmatter manually — Step 3.1 handles it.
    - **Line length**: Wrap all prose lines to a maximum of 100 characters. This does not apply to tables, code blocks, or headings — only paragraph text and list items.
-4. For Section 10.2 ({Endpoint/Method} Coverage): fill in the Endpoint column using the endpoints identified in Section 4. Leave the Test Cases and Coverage columns empty — they will be filled later in the process.
+   - **Markdown headings**: Use proper markdown heading syntax (`##`, `###`, `####`) for all section and subsection titles. Never substitute bold text (`**Title**`) for a heading. This applies to all generated files (TestPlan.md, TestPlanGaps.md, README.md).
+4. For Section 10.2 (Interface Coverage): fill in the Interface column using the interfaces identified in Section 4. Leave the Test Cases and Coverage columns empty — they will be filled later in the process.
 5. Generate `<feature_name>/README.md` with:
    - Feature name and one-line description
    - Links to Jira strategy, ADR (if provided)
@@ -240,6 +267,20 @@ fi
 - `reviewers` defaults to `[]`.
 
 If the script exits with an error, fix the field values and retry — do not write frontmatter by hand.
+
+### Step 3.2: Validate Generated Test Plan
+
+After setting frontmatter, run the deterministic validation checks:
+
+```bash
+testplan="<absolute_path_to_output_dir>/<feature_name>/TestPlan.md"
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+ uv run python scripts/validate.py scope-check "$testplan" && \
+ uv run python scripts/validate.py ac-citations "$testplan" && \
+ uv run python scripts/validate.py structure "$testplan")
+```
+
+If any check fails, fix the violations in `TestPlan.md` using the Edit tool and re-run the failing check **once**. If the second attempt still fails, **STOP**. Report the validation failures to the user and do NOT proceed to Step 3.5.
 
 ### Step 3.5: Collect Gaps and Prompt for Additional Documents
 
@@ -411,6 +452,8 @@ Label stamping is **non-blocking** — if it fails, log a warning and continue. 
 - Does NOT resolve GitHub PR review comments (use `/test-plan-resolve-feedback <PR_URL>` after publishing)
 - Section 5 (Test Cases): left as placeholder — to be filled later in the process
 - Section 6 (E2E Test Scenarios): left as placeholder — to be filled by `/test-plan-create-cases`
+- Section 2.1 (Test Levels): ONLY e2e/system and UI levels — no unit, integration, or component levels
+- Section 1.3 (Test Objectives): Each objective must cite a STRAT acceptance criterion via `(AC: ...)`
 - Section 7 (Non-Functional Requirements): filled by `test-plan.analyze.risks` — each category must be addressed or marked Not Applicable
 - Section 10.1 (Test Case Summary): left as placeholder — to be filled later in the process
 - Section 10.2 Test Cases column: left empty — to be filled by `/test-plan-create-cases`

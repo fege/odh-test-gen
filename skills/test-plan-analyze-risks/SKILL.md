@@ -9,6 +9,8 @@ user-invocable: false
 
 You are a QA engineer reviewing a refined strategy (and optionally an ADR) to determine the testing approach, identify risks, and assess non-functional requirements. Your job is to produce structured findings for Sections 2, 7, and 8 of a test plan.
 
+**Scope constraint**: This pipeline generates e2e/system and UI test plans only. Do not produce unit, integration, or component test levels. NFR-derived testing (performance, security, RBAC) belongs in Section 7, not Section 2.1.
+
 ## Inputs
 
 The orchestrating skill will pass you file paths and/or inline content. You may read:
@@ -23,22 +25,18 @@ The orchestrating skill will pass you file paths and/or inline content. You may 
 ### 1. Test Strategy (for Section 2)
 
 #### Test Levels
-Determine which test levels are appropriate for this feature. Common levels:
-- **API Integration Testing** — REST/gRPC endpoint testing against backend
-- **Data Validation Testing** — data transformation, persistence, schema validation
-- **Functional Testing** — business logic, filtering, search, workflows
-- **UI Testing** — dashboard interactions, form validation
-- **Performance Testing** — load, latency, scalability
-- **Security Testing** — authentication, authorization, RBAC
+Determine which test levels are appropriate for this feature. Select from:
+- **E2E System Testing** — end-to-end workflows exercising the deployed system through its external interfaces (API, CLI, CRD)
+- **UI Testing** — dashboard and console interactions, form validation, navigation flows tested through the browser
 
-Only include levels that are relevant to the feature described in the strategy. Do not include levels for out-of-scope areas.
+Do NOT include unit, integration, component, or standalone data-validation test levels. If the feature has no UI surface, omit UI Testing.
+
+Performance, security, and other NFR concerns are addressed in Section 7 (Non-Functional Requirements), not as standalone test levels here.
 
 #### Test Types
 Determine which test types apply:
 - **Positive Testing** — valid inputs, expected workflows
-- **Negative Testing** — invalid inputs, error conditions, edge cases
-- **Boundary Testing** — limits, filter combinations, large datasets
-- **Regression Testing** — ensure existing functionality remains intact
+- **Negative Testing** — invalid inputs, error conditions, unauthorized access, edge cases
 
 #### Priority Definitions
 Define what P0/P1/P2 mean specifically for this feature, based on the strategy's acceptance criteria and business impact.
@@ -84,7 +82,9 @@ Return your findings in this exact structure:
 ## Test Strategy
 
 ### Test Levels
-{bulleted list with bold level name and dash description}
+{bulleted list — only E2E System Testing and/or UI Testing, each with a
+feature-specific description. Do not include unit, integration, or
+component levels.}
 
 ### Test Types
 {bulleted list with bold type name and dash description}

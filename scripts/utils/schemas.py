@@ -283,6 +283,38 @@ SCHEMAS = {
 }
 
 
+# ─── Test Plan Structure Schema ───────────────────────────────────────────────────
+
+TESTPLAN_STRUCTURE = {
+    "sections": [
+        {"heading": "## 1. Executive Summary", "required": True},
+        {"heading": "### 1.1 Purpose", "required": True},
+        {"heading": "### 1.2 Scope", "required": True},
+        {"heading": "### 1.3 Test Objectives", "required": True},
+        {"heading": "## 2. Test Strategy", "required": True},
+        {"heading": "### 2.1 Test Levels", "required": True},
+        {"heading": "### 2.2 Test Types", "required": True},
+        {"heading": "### 2.3 Test Priorities", "required": True},
+        {"heading": "## 3. Test Environment", "required": True},
+        {"heading": "## 4. Interfaces Under Test", "required": True},
+        {"heading": "## 5. Test Cases", "required": False},
+        {"heading": "## 6. E2E Test Scenarios", "required": False},
+        {"heading": "## 7. Non-Functional Requirements", "required": True},
+        {"heading": "## 8. Risks and Mitigation", "required": True},
+        {"heading": "## 9. Test Environment Requirements", "required": True},
+        {"heading": "## 10. Appendix", "required": True},
+    ],
+    "disallowed_test_levels": [
+        "Unit Testing",
+        "Integration Testing",
+        "Component Testing",
+        "Data Validation Testing",
+        "Functional Testing",
+        "API Integration Testing",
+    ],
+}
+
+
 # ─── Auto-detection ─────────────────────────────────────────────────────────────
 
 

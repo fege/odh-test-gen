@@ -237,6 +237,279 @@ automation_status: Not Started
 """
 
 # Valid TC file with all required fields
+# TestPlan.md with only e2e/UI test levels (valid scope)
+TESTPLAN_E2E_ONLY = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 1. Executive Summary
+
+### 1.3 Test Objectives
+
+1. Verify model deployment via e2e system test (AC: "Users can deploy models")
+2. Verify dashboard navigation via UI test (AC: "Dashboard shows model status")
+
+## 2. Test Strategy
+
+### 2.1 Test Levels
+
+- **E2E System Testing** — end-to-end workflows through API and CLI
+- **UI Testing** — dashboard interactions and form validation
+
+### 2.2 Test Types
+
+- **Positive Testing** — valid inputs
+"""
+
+# TestPlan.md with disallowed test levels (invalid scope)
+TESTPLAN_BROAD_LEVELS = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 1. Executive Summary
+
+### 1.3 Test Objectives
+
+1. Verify API endpoint returns correct data
+2. Verify UI renders correctly
+
+## 2. Test Strategy
+
+### 2.1 Test Levels
+
+- **API Integration Testing** — REST endpoint testing against backend
+- **Data Validation Testing** — data transformation, persistence
+- **E2E System Testing** — end-to-end workflows
+- **Functional Testing** — business logic, filtering
+
+### 2.2 Test Types
+
+- **Positive Testing** — valid inputs
+"""
+
+# TestPlan.md with no Section 2.1
+TESTPLAN_NO_SECTION_21 = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 2. Test Strategy
+
+### 2.2 Test Types
+
+- **Positive Testing** — valid inputs
+"""
+
+# TestPlan.md with all AC citations present (valid)
+TESTPLAN_AC_CITED = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 1. Executive Summary
+
+### 1.3 Test Objectives
+
+1. Verify model deployment works end-to-end (AC: "Users can deploy models from the catalog")
+2. Verify dashboard shows status (AC: "Model status is visible in the dashboard")
+3. Verify RBAC enforcement (AC: "Non-admin users cannot delete models")
+
+## 2. Test Strategy
+"""
+
+# TestPlan.md with missing AC citations (invalid)
+TESTPLAN_AC_MISSING = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 1. Executive Summary
+
+### 1.3 Test Objectives
+
+1. Verify model deployment works end-to-end (AC: "Users can deploy models")
+2. Verify dashboard shows correct status
+3. Verify RBAC enforcement for admin users (AC: "Admin users can manage all models")
+
+## 2. Test Strategy
+"""
+
+# TestPlan.md with no Section 1.3
+TESTPLAN_NO_SECTION_13 = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 2. Test Strategy
+"""
+
+# TestPlan.md body content with proper structure (no frontmatter)
+TESTPLAN_VALID_BODY = """
+# Test Feature Test Plan
+
+## 1. Executive Summary
+
+### 1.1 Purpose
+
+Test the feature.
+
+### 1.2 Scope
+
+In scope items.
+
+### 1.3 Test Objectives
+
+1. Verify something (AC: "acceptance criterion")
+
+## 2. Test Strategy
+
+### 2.1 Test Levels
+
+- **E2E System Testing** — end-to-end workflows
+
+### 2.2 Test Types
+
+- **Positive Testing** — valid inputs
+
+### 2.3 Test Priorities
+
+- **P0 (Critical)** — core flows
+
+## 3. Test Environment
+
+## 4. Interfaces Under Test
+
+## 7. Non-Functional Requirements
+
+## 8. Risks and Mitigation
+
+## 9. Test Environment Requirements
+
+## 10. Appendix
+"""
+
+# TestPlan.md with bold-text pseudo-headings (invalid structure)
+TESTPLAN_BOLD_HEADINGS = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 1. Executive Summary
+
+### 1.1 Purpose
+
+Test the feature.
+
+### 1.2 Scope
+
+In scope items.
+
+### 1.3 Test Objectives
+
+1. Verify something (AC: "acceptance criterion")
+
+## 2. Test Strategy
+
+### 2.1 Test Levels
+
+- **E2E System Testing** — end-to-end workflows
+
+### 2.2 Test Types
+
+- **Positive Testing** — valid inputs
+
+### 2.3 Test Priorities
+
+- **P0 (Critical)** — core flows
+
+## 3. Test Environment
+
+## 4. Interfaces Under Test
+
+## 7. Non-Functional Requirements
+
+**Measurement Points:**
+
+Some content here.
+
+**Purpose:**
+
+More content.
+
+## 8. Risks and Mitigation
+
+## 9. Test Environment Requirements
+
+## 10. Appendix
+"""
+
+# TestPlan.md missing required sections
+TESTPLAN_MISSING_SECTIONS = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 1. Executive Summary
+
+### 1.1 Purpose
+
+Test the feature.
+
+## 2. Test Strategy
+
+## 10. Appendix
+"""
+
 VALID_TC_CONTENT = """---
 test_case_id: TC-API-001
 source_key: RHAISTRAT-1519

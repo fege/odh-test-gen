@@ -3,7 +3,7 @@
 import subprocess
 
 from scripts.repo import publish_artifacts
-from tests.conftest import add_feature
+from tests.helpers import add_feature
 
 
 def test_publishes_successfully(git_repo):

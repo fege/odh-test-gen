@@ -5,7 +5,7 @@ import subprocess
 import pytest
 
 from scripts.repo import stage_artifacts
-from tests.conftest import add_feature
+from tests.helpers import add_feature
 
 
 def _staged_files(repo_path):
