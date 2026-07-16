@@ -19,10 +19,8 @@
 {Bulleted list of explicitly excluded areas from the strategy and its business need}
 
 ### 1.3 Test Objectives
-{Numbered list of 3-7 e2e/system or UI test objectives. Each must cite
-the STRAT acceptance criterion it validates.
-Format: "Verify [requirement] via [e2e/UI approach]
-(AC: [acceptance criterion text])"}
+{At least one objective per STRAT acceptance criterion — every AC must
+be covered. Each objective cites the AC it validates: (AC: #N)}
 
 ---
 

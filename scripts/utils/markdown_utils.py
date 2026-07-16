@@ -14,7 +14,7 @@ def extract_section(content: str, heading: str) -> tuple[list[str], int]:
     pattern = re.compile(r"^#{1," + str(level) + r"}\s")
     start = None
     for i, line in enumerate(lines):
-        if heading in line:
+        if line.startswith(heading):
             start = i + 1
             continue
         if start is not None and pattern.match(line):

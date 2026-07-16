@@ -228,7 +228,7 @@ def validate_structure(testplan_path: str) -> dict:
     lines = content.splitlines()
 
     required = [s["heading"] for s in TESTPLAN_STRUCTURE["sections"] if s["required"]]
-    missing_headings = [h for h in required if all(h not in line for line in lines)]
+    missing_headings = [h for h in required if not any(line.startswith(h) for line in lines)]
 
     pseudo_re = re.compile(r"^\*\*[A-Z][^*]+\*\*:?\s*$")
     pseudo_headings = [

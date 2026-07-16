@@ -27,7 +27,7 @@ The orchestrating skill will pass you file paths and/or inline content. You may 
 1. **Purpose**: What is being tested and why? Derive from the strategy's business need (WHAT/WHY) and technical approach (HOW).
 2. **In Scope**: Bulleted list of what falls within the testing team's responsibilities. Derive strictly from the strategy.
 3. **Out of Scope**: Bulleted list of explicitly excluded areas. Only list items the strategy explicitly excludes — do not invent exclusions.
-4. **Test Objectives**: 3-7 concrete, numbered test objectives. Each objective MUST:
+4. **Test Objectives**: At least one objective per STRAT acceptance criterion — every AC must be covered. Each objective MUST:
    - Cite the STRAT acceptance criterion it validates (quote or paraphrase the AC text)
    - Frame verification as an e2e/system or UI test goal — not a unit or integration test
    - Use the format: "Verify [AC requirement] via [e2e/UI approach] (AC: [quoted or paraphrased AC text])"
@@ -74,9 +74,8 @@ Return your findings in this exact structure:
 {bulleted list}
 
 ### Test Objectives
-{numbered list, 3-7 items. Each must cite the STRAT acceptance criterion
-it validates. Format: "Verify [requirement] via [e2e/UI approach]
-(AC: [acceptance criterion text])"}
+{At least one objective per STRAT acceptance criterion — every AC must
+be covered. Each objective cites the AC it validates: (AC: #N)}
 
 ## Interfaces Under Test
 
