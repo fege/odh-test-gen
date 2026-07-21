@@ -193,7 +193,7 @@ Process **one category at a time** from Section 5.2. For each category:
 
    - `source_key`: use the value extracted from the test plan's frontmatter in Step 1
    - `last_updated`: MUST be quoted string (e.g., "2026-05-04"), not unquoted date
-   - If the test plan's Section 7.2 is non-trivial, evaluate `upgrade_phase` for every TC before finalising its frontmatter — including TC-UI-*, TC-E2E-*, and all other categories, not just TC-UPGRADE-*. The question is always the same: does this TC's expected behaviour differ between the old and new version? If yes, set the phase. Do not skip this evaluation for any TC.
+   - If the test plan's Section 7.2 is non-trivial, evaluate `upgrade_phase` for every TC before finalising its frontmatter — including TC-UI-*, TC-E2E-*, and all other categories, not just TC-UPG-*. The question is always the same: does this TC's expected behaviour differ between the old and new version? If yes, set the phase. Do not skip this evaluation for any TC.
    - Write the frontmatter directly — validation happens in Step 5.7
    - **Important**: In regeneration mode, files were already read in Step 2.5, so Edit/Write will succeed
 

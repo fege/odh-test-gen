@@ -277,10 +277,13 @@ testplan="<absolute_path_to_output_dir>/<feature_name>/TestPlan.md"
 (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
  uv run python scripts/validate.py scope-check "$testplan" && \
  uv run python scripts/validate.py ac-citations "$testplan" && \
- uv run python scripts/validate.py structure "$testplan")
+ uv run python scripts/validate.py structure "$testplan" && \
+ uv run python scripts/validate.py category-prefixes "$testplan" && \
+ uv run python scripts/validate.py interface-types "$testplan" && \
+ uv run python scripts/validate.py infra-scope "$testplan")
 ```
 
-If any check fails, fix the violations in `TestPlan.md` using the Edit tool and re-run the failing check **once**. If the second attempt still fails, **STOP**. Report the validation failures to the user and do NOT proceed to Step 3.5.
+If any check fails, fix the violations in `TestPlan.md` and re-run **once**. If it still fails, **STOP** and report to the user.
 
 ### Step 3.5: Collect Gaps and Prompt for Additional Documents
 
@@ -450,13 +453,11 @@ Label stamping is **non-blocking** — if it fails, log a warning and continue. 
 - Does NOT fetch child stories under the epic
 - Does NOT fetch the Google Doc ADR — it reads a local file only
 - Does NOT resolve GitHub PR review comments (use `/test-plan-resolve-feedback <PR_URL>` after publishing)
-- Section 5 (Test Cases): left as placeholder — to be filled later in the process
+- Section 5 (Test Cases): placeholder — 5.2 categories must be test types (E2E, UI, NEG, NFR, UPG), not feature areas
 - Section 6 (E2E Test Scenarios): left as placeholder — to be filled by `/test-plan-create-cases`
 - Section 2.1 (Test Levels): ONLY e2e/system and UI levels — no unit, integration, or component levels
 - Section 1.3 (Test Objectives): Each objective must cite a STRAT acceptance criterion via `(AC: ...)`
 - Section 7 (Non-Functional Requirements): filled by `test-plan.analyze.risks` — each category must be addressed or marked Not Applicable
-- Section 10.1 (Test Case Summary): left as placeholder — to be filled later in the process
-- Section 10.2 Test Cases column: left empty — to be filled by `/test-plan-create-cases`
-- Section 10.2 Coverage column: left empty — to be filled by `/coverage-assessment`
+- Section 10: placeholders — 10.1 and 10.2 filled by `/test-plan-create-cases` and `/coverage-assessment`
 
 $ARGUMENTS

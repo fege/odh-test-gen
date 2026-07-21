@@ -32,12 +32,23 @@ def parse_acceptance_criteria(content: str) -> dict:
         return {"found": False, "count": 0, "acceptance_criteria": []}
 
     paragraphs = re.split(r"\n\n+", section.strip())
-    criteria = []
+
+    merged = []
+    prev_numbered = False
     for para in paragraphs:
         text = " ".join(para.split())
-        if text:
-            criteria.append({"text": text})
+        if not text:
+            continue
+        if text.startswith("# "):
+            merged.append(text[2:])
+            prev_numbered = True
+        elif prev_numbered:
+            merged[-1] += " " + text
+            prev_numbered = False
+        else:
+            merged.append(text)
 
+    criteria = [{"text": t} for t in merged]
     return {"found": True, "count": len(criteria), "acceptance_criteria": criteria}
 
 
@@ -62,23 +73,29 @@ def parse_nfr(content: str) -> dict:
     return {"found": True, "requirements": requirements}
 
 
+def _parse_bullet_item(text: str) -> dict:
+    """Parse a single bullet item, extracting bold title if present."""
+    bold_match = re.match(r"^\*([^*]+)\*\s*(.*)", text)
+    if bold_match:
+        title = bold_match.group(1).strip()
+        rest = bold_match.group(2).strip()
+        rest = rest.lstrip(":—–-").strip()
+        return {"title": title, "text": rest}
+    return {"title": "", "text": text}
+
+
 def parse_out_of_scope(content: str) -> dict:
     """Extract out-of-scope items from STRAT content."""
     section = extract_jira_section(content, "h3. Out-of-Scope")
     if section is None:
         return {"found": False, "count": 0, "items": []}
 
-    item_re = re.compile(r"^\*\s+\*([^*]+)\*:\s*(.+)")
+    bullet_re = re.compile(r"^\*\s+(.+)")
     items = []
     for line in section.splitlines():
-        match = item_re.match(line)
-        if match:
-            items.append(
-                {
-                    "title": match.group(1).strip(),
-                    "text": match.group(2).strip(),
-                }
-            )
+        bullet_match = bullet_re.match(line)
+        if bullet_match:
+            items.append(_parse_bullet_item(bullet_match.group(1).strip()))
 
     return {"found": True, "count": len(items), "items": items}
 

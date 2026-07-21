@@ -42,7 +42,9 @@ Interfaces to look for in the source documents:
 - **gRPC services**: service name, RPC methods
 - **UI pages/flows**: page or flow name, user actions
 - **CLI commands**: oc/kubectl commands, application CLIs, subcommands, flags
-- **Configuration**: CRDs, ConfigMaps, environment variables
+- **CRD APIs**: custom resources the test creates, reads, or patches via oc/kubectl
+
+Config files, environment variables, and CRD fields consumed during setup are prerequisites, not interfaces — they belong in test case preconditions.
 
 **Critical anti-hallucination rules:**
 - ONLY include interfaces that are **explicitly mentioned** in the strategy or ADR
@@ -81,7 +83,7 @@ be covered. Each objective cites the AC it validates: (AC: #N)}
 
 | Interface | Type | Purpose | Priority |
 |-----------|------|---------|----------|
-| {interface} | {REST/gRPC/UI/CLI/Config} | {purpose} | {P0/P1/P2} |
+| {interface} | {REST/gRPC/UI/CLI/CRD} | {purpose} | {P0/P1/P2} |
 
 ### Pending Details
 {List any functionality described in the strategy that lacks concrete endpoint/method details. If none, write "None — all interfaces fully specified."}

@@ -510,6 +510,232 @@ Test the feature.
 ## 10. Appendix
 """
 
+# STRAT parser test data — Jira wiki markup variations
+
+STRAT_AC_NUMBERED_LIST = (
+    "h3. Acceptance Criteria (Proposed — requires PM/Engineering validation)\n\n"
+    "# Given a user opens a session,\n"
+    "\n"
+    "   when the page loads, then a tile is visible, measured by rendering.\n"
+    "\n"
+    "# Given a user clicks the tile,\n"
+    "\n"
+    "   when the dialog opens, then samples are shown, measured by card count.\n"
+    "\n"
+    "# Given the dialog is open,\n"
+    "\n"
+    "   when the user selects a filter, then results update, measured by count.\n"
+    "\n"
+    "h3. Effort Estimate\n"
+)
+
+STRAT_AC_NUMBERED_SINGLE_LINE = (
+    "h3. Acceptance Criteria\n\n"
+    "# Given X, when Y, then Z, measured by W.\n"
+    "\n"
+    "# Given A, when B, then C, measured by D.\n"
+    "\n"
+    "h3. Effort Estimate\n"
+)
+
+STRAT_OOS_PLAIN_TEXT = (
+    "h3. Out-of-Scope\n\n"
+    "* Custom management UI in the Dashboard (catalog is within JupyterLab only)\n"
+    "* Remote catalog server or registry (V1 uses local paths only)\n"
+    "* Sample authoring or editing tools within the dialog\n"
+    "* Automatic updates or versioning across restarts\n"
+    "* Usage telemetry\n"
+    "\nh3. Acceptance Criteria\n"
+)
+
+STRAT_OOS_EM_DASH = (
+    "h3. Out-of-Scope\n\n* *Backend API*—delivered by RHAISTRAT-2281, not this strategy\n\nh3. Acceptance Criteria\n"
+)
+
+STRAT_OOS_MIXED = (
+    "h3. Out-of-Scope\n\n"
+    "* *Tabbed serving admin UI*: Consolidating pages into a single tabbed interface\n"
+    "* Data ingestion, ETL, or data transformation UI\n"
+    "* *Rich form rendering*—deferred for TP\n"
+    "\nh3. Acceptance Criteria\n"
+)
+
+# TestPlan.md with allowed TC categories in Section 5.2 (valid)
+TESTPLAN_VALID_CATEGORIES = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 5. Test Cases
+
+### 5.1 Test Case Summary
+
+3 test cases total.
+
+### 5.2 Test Case Naming Convention
+
+Test cases follow the naming pattern: `TC-<CATEGORY>-<NUMBER>`
+
+| Prefix | Meaning |
+|--------|---------|
+| TC-E2E | End-to-end user journey flows |
+| TC-UI | Browser-based UI interaction flows |
+| TC-NEG | Negative and error path journeys |
+"""
+
+# TestPlan.md with feature-area TC categories in Section 5.2 (invalid)
+TESTPLAN_FEATURE_CATEGORIES = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 5. Test Cases
+
+### 5.1 Test Case Summary
+
+5 test cases total.
+
+### 5.2 Test Case Naming Convention
+
+Test cases follow the naming pattern: `TC-<CATEGORY>-<NUMBER>`
+
+| Prefix | Meaning |
+|--------|---------|
+| TC-CSAF | Content safety filtering tests |
+| TC-AUTH | Authentication and authorization tests |
+| TC-TOPIC | Topical blocking tests |
+| TC-E2E | End-to-end user journey flows |
+"""
+
+# TestPlan.md with no Section 5.2
+TESTPLAN_NO_SECTION_52 = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 5. Test Cases
+
+### 5.1 Test Case Summary
+
+0 test cases.
+
+## 6. E2E Test Scenarios
+"""
+
+# TestPlan.md with valid interface types in Section 4 (no Config)
+TESTPLAN_VALID_INTERFACES = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose | Priority |
+|-----------|------|---------|----------|
+| `/v1/chat/completions` | REST | Chat inference | P0 |
+| NemoGuardrails CRD | CRD | Guardrail configuration | P1 |
+| Dashboard model page | UI | Model management | P0 |
+"""
+
+# TestPlan.md with Config-type entries in Section 4 (invalid)
+TESTPLAN_CONFIG_INTERFACES = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose | Priority |
+|-----------|------|---------|----------|
+| `/v1/chat/completions` | REST | Chat inference | P0 |
+| `config.yaml` | Config | Runtime configuration | P1 |
+| `BASE_URL` env var | Config | Service endpoint | P1 |
+| Dashboard model page | UI | Model management | P0 |
+"""
+
+# TestPlan.md with clean test infra (no SUT/dev tooling)
+TESTPLAN_CLEAN_INFRA = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+### 3.1 Test Cluster Configuration
+- OpenShift 4.16+
+- RHOAI 3.5 operator
+
+### 9.2 Configuration
+- `KUBECONFIG` env var for cluster access
+- CatalogSource for operator subscription
+
+### 9.3 Test Tools
+- oc/kubectl for cluster interaction
+- curl for API testing
+- pytest for test execution
+"""
+
+# TestPlan.md with local dev tooling leaked into infra sections
+TESTPLAN_DEV_TOOLING_INFRA = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+### 3.1 Test Cluster Configuration
+- OpenShift 4.16+
+- Local development runtime: Python 3.x with pip
+- Container runtime (podman or docker)
+
+### 9.2 Configuration
+- `KUBECONFIG` env var for cluster access
+
+### 9.3 Test Tools
+- oc/kubectl for cluster interaction
+- pip install for local development
+- docker-compose for local SUT setup
+- Ollama for local LLM inference
+"""
+
 VALID_TC_CONTENT = """---
 test_case_id: TC-API-001
 source_key: RHAISTRAT-1519

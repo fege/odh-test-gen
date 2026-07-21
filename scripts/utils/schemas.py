@@ -312,6 +312,25 @@ TESTPLAN_STRUCTURE = {
         "Functional Testing",
         "API Integration Testing",
     ],
+    "allowed_tc_categories": ["E2E", "UI", "NEG", "NFR", "UPG"],
+    "dev_tooling_indicators": [
+        "pip install",
+        "pip",
+        "podman",
+        "docker-compose",
+        "Ollama",
+        "ollama",
+        "localhost",
+        "local LLM",
+        "docker run",
+        "npm install",
+        "yarn install",
+    ],
+    "infra_sections": [
+        "### 3.1 Test Cluster Configuration",
+        "### 9.2 Configuration",
+        "### 9.3 Test Tools",
+    ],
 }
 
 

@@ -47,7 +47,9 @@ be covered. Each objective cites the AC it validates: (AC: #N)}
 ## 3. Test Environment
 
 ### 3.1 Test Cluster Configuration
-{OpenShift version, RHOAI version, database, language/runtime requirements}
+{Cluster-side requirements to execute tests: OpenShift version, RHOAI version,
+operator versions, databases. Does not include developer tooling (pip, podman,
+Ollama, docker-compose) — those belong in test case preconditions.}
 
 ### 3.2 Test Data Requirements
 {What test data is needed, example configurations, sample YAML/JSON}
@@ -59,11 +61,13 @@ be covered. Each objective cites the AC it validates: (AC: #N)}
 
 ## 4. Interfaces Under Test
 
-{Table of external interfaces exercised by e2e tests:}
+{Interfaces the test actively sends requests to or interacts with during
+execution. Does not include config files, environment variables, or CRD
+fields consumed during setup — those belong in test case preconditions.}
 
 | Interface | Type | Purpose | Priority |
 |-----------|------|---------|----------|
-| {interface} | {REST/gRPC/UI/CLI/Config} | {purpose} | {P0/P1/P2} |
+| {interface} | {REST/gRPC/UI/CLI/CRD} | {purpose} | {P0/P1/P2} |
 
 ---
 
@@ -86,7 +90,18 @@ be covered. Each objective cites the AC it validates: (AC: #N)}
 
 Test cases follow the naming pattern: `TC-<CATEGORY>-<NUMBER>`
 
-{List each category prefix and its meaning, derived from the test strategy analysis}
+Only the following category prefixes are allowed — feature areas go in the
+test case name after the prefix, not as a separate category:
+
+| Prefix | Meaning |
+|--------|---------|
+| TC-E2E | End-to-end user journey flows |
+| TC-UI | Browser-based UI interaction flows |
+| TC-NEG | Negative and error path journeys |
+| TC-NFR | Non-functional requirement validation (performance, disconnected, RBAC) |
+| TC-UPG | Upgrade path validation |
+
+Select only the categories relevant to the feature under test.
 
 ---
 
@@ -180,10 +195,14 @@ checks."}
 {Cluster requirements, operator versions, dependencies}
 
 ### 9.2 Configuration
-{Environment variables, config files, catalog sources}
+{Cluster-side config to execute tests: operator settings, namespace config,
+env vars on the test harness, credentials. SUT configuration (CRD field values,
+ConfigMap contents) belongs in test case preconditions.}
 
 ### 9.3 Test Tools
-{API testing tools, database query tools, log viewing, performance tools}
+{Tools QE uses to run and observe tests: oc/kubectl, curl/httpie, pytest,
+test frameworks, log viewers. Developer tooling (pip, podman, Ollama,
+docker-compose) is not test infrastructure.}
 
 ---
 

@@ -7,8 +7,11 @@ import pytest
 from scripts.validate import (
     validate_ac_citations,
     validate_all,
+    validate_category_prefixes,
     validate_feature_dir,
     validate_gap_counts,
+    validate_infra_scope,
+    validate_interface_types,
     validate_scope,
     validate_structure,
     validate_test_cases,
@@ -19,10 +22,17 @@ from tests.constants import (
     TESTPLAN_AC_MISSING,
     TESTPLAN_BOLD_HEADINGS,
     TESTPLAN_BROAD_LEVELS,
+    TESTPLAN_CLEAN_INFRA,
+    TESTPLAN_CONFIG_INTERFACES,
+    TESTPLAN_DEV_TOOLING_INFRA,
     TESTPLAN_E2E_ONLY,
+    TESTPLAN_FEATURE_CATEGORIES,
     TESTPLAN_MISSING_SECTIONS,
     TESTPLAN_NO_SECTION_13,
     TESTPLAN_NO_SECTION_21,
+    TESTPLAN_NO_SECTION_52,
+    TESTPLAN_VALID_CATEGORIES,
+    TESTPLAN_VALID_INTERFACES,
     VALID_TEST_GAPS_DATA,
     VALID_TEST_PLAN_DATA,
     VALID_TC_CONTENT,
@@ -329,6 +339,128 @@ class TestValidateStructure:
 
     def test_file_not_found(self):
         result = validate_structure("/nonexistent/TestPlan.md")
+
+        assert result["valid"] is False
+        assert "error" in result
+
+
+class TestValidateCategoryPrefixes:
+    """Tests for validate_category_prefixes — allowed TC categories in Section 5.2."""
+
+    def test_allowed_categories_pass(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_VALID_CATEGORIES)
+
+        result = validate_category_prefixes(str(testplan))
+
+        assert result["valid"] is True
+        assert result["disallowed"] == []
+
+    def test_feature_area_categories_fail(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_FEATURE_CATEGORIES)
+
+        result = validate_category_prefixes(str(testplan))
+
+        assert result["valid"] is False
+        assert len(result["disallowed"]) == 3
+        disallowed_names = [d["category"] for d in result["disallowed"]]
+        assert "CSAF" in disallowed_names
+        assert "AUTH" in disallowed_names
+        assert "TOPIC" in disallowed_names
+
+    def test_no_section_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_NO_SECTION_52)
+
+        result = validate_category_prefixes(str(testplan))
+
+        assert result["valid"] is True
+        assert result["disallowed"] == []
+
+    def test_file_not_found(self):
+        result = validate_category_prefixes("/nonexistent/TestPlan.md")
+
+        assert result["valid"] is False
+        assert "error" in result
+
+
+class TestValidateInterfaceTypes:
+    """Tests for validate_interface_types — Config-type entries in Section 4."""
+
+    def test_valid_types_pass(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_VALID_INTERFACES)
+
+        result = validate_interface_types(str(testplan))
+
+        assert result["valid"] is True
+        assert result["config_entries"] == []
+
+    def test_config_type_warns(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_CONFIG_INTERFACES)
+
+        result = validate_interface_types(str(testplan))
+
+        assert result["valid"] is False
+        assert len(result["config_entries"]) == 2
+        interfaces = [e["interface"] for e in result["config_entries"]]
+        assert "`config.yaml`" in interfaces
+        assert "`BASE_URL` env var" in interfaces
+
+    def test_no_section_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_NO_SECTION_52)
+
+        result = validate_interface_types(str(testplan))
+
+        assert result["valid"] is True
+        assert result["config_entries"] == []
+
+    def test_file_not_found(self):
+        result = validate_interface_types("/nonexistent/TestPlan.md")
+
+        assert result["valid"] is False
+        assert "error" in result
+
+
+class TestValidateInfraScope:
+    """Tests for validate_infra_scope — local dev tooling in Sections 3.1/9.2/9.3."""
+
+    def test_clean_infra_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_CLEAN_INFRA)
+
+        result = validate_infra_scope(str(testplan))
+
+        assert result["valid"] is True
+        assert result["warnings"] == []
+
+    def test_dev_tooling_warns(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_DEV_TOOLING_INFRA)
+
+        result = validate_infra_scope(str(testplan))
+
+        assert result["valid"] is False
+        assert len(result["warnings"]) >= 3
+        indicators = [w["indicator"] for w in result["warnings"]]
+        assert "pip" in indicators
+        assert "docker-compose" in indicators
+        assert "Ollama" in indicators
+
+    def test_no_sections_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_NO_SECTION_52)
+
+        result = validate_infra_scope(str(testplan))
+
+        assert result["valid"] is True
+        assert result["warnings"] == []
+
+    def test_file_not_found(self):
+        result = validate_infra_scope("/nonexistent/TestPlan.md")
 
         assert result["valid"] is False
         assert "error" in result

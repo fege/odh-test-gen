@@ -13,6 +13,9 @@ Usage:
     uv run python scripts/validate.py scope-check <testplan_path>
     uv run python scripts/validate.py ac-citations <testplan_path>
     uv run python scripts/validate.py structure <testplan_path>
+    uv run python scripts/validate.py category-prefixes <testplan_path>
+    uv run python scripts/validate.py interface-types <testplan_path>
+    uv run python scripts/validate.py infra-scope <testplan_path>
 """
 
 import argparse
@@ -242,6 +245,85 @@ def validate_structure(testplan_path: str) -> dict:
     }
 
 
+def validate_category_prefixes(testplan_path: str) -> dict:
+    """Check Section 5.2 for disallowed TC category prefixes."""
+    path = Path(testplan_path)
+    if not path.exists():
+        return {"valid": False, "error": f"File not found: {testplan_path}"}
+
+    content = path.read_text()
+    section_lines, start_line = extract_section(content, "### 5.2 Test Case Naming Convention")
+    if not section_lines:
+        return {"valid": True, "disallowed": []}
+
+    allowed = set(TESTPLAN_STRUCTURE["allowed_tc_categories"])
+    tc_re = re.compile(r"TC-([A-Za-z0-9]+)")
+
+    disallowed = []
+    seen = set()
+    for i, line in enumerate(section_lines):
+        for match in tc_re.finditer(line):
+            cat = match.group(1)
+            if cat not in allowed and cat not in seen:
+                seen.add(cat)
+                disallowed.append({"category": cat, "line_number": start_line + i})
+
+    return {"valid": not disallowed, "disallowed": disallowed}
+
+
+def validate_interface_types(testplan_path: str) -> dict:
+    """Check Section 4 for Config-type interface entries."""
+    path = Path(testplan_path)
+    if not path.exists():
+        return {"valid": False, "error": f"File not found: {testplan_path}"}
+
+    content = path.read_text()
+    section_lines, start_line = extract_section(content, "## 4. Interfaces Under Test")
+    if not section_lines:
+        return {"valid": True, "config_entries": []}
+
+    table_re = re.compile(r"^\|\s*(.+?)\s*\|\s*Config\s*\|", re.IGNORECASE)
+    config_entries = []
+    for i, line in enumerate(section_lines):
+        match = table_re.match(line)
+        if match:
+            config_entries.append({"interface": match.group(1).strip(), "line_number": start_line + i})
+
+    return {"valid": not config_entries, "config_entries": config_entries}
+
+
+def validate_infra_scope(testplan_path: str) -> dict:
+    """Check Sections 3.1/9.2/9.3 for local development tooling indicators."""
+    path = Path(testplan_path)
+    if not path.exists():
+        return {"valid": False, "error": f"File not found: {testplan_path}"}
+
+    content = path.read_text()
+    indicators = TESTPLAN_STRUCTURE["dev_tooling_indicators"]
+    section_headings = TESTPLAN_STRUCTURE["infra_sections"]
+
+    warnings = []
+    seen = set()
+    for heading in section_headings:
+        section_lines, start_line = extract_section(content, heading)
+        if not section_lines:
+            continue
+        for i, line in enumerate(section_lines):
+            normalized_line = line.casefold()
+            for indicator in indicators:
+                if indicator.casefold() in normalized_line and indicator not in seen:
+                    seen.add(indicator)
+                    warnings.append(
+                        {
+                            "indicator": indicator,
+                            "section": heading,
+                            "line_number": start_line + i,
+                        }
+                    )
+
+    return {"valid": not warnings, "warnings": warnings}
+
+
 def validate_all(feature_dir: str) -> dict:
     """Run all validations on a feature directory.
 
@@ -269,6 +351,9 @@ def validate_all(feature_dir: str) -> dict:
     scope_result = validate_scope(str(testplan_path))
     ac_result = validate_ac_citations(str(testplan_path))
     structure_result = validate_structure(str(testplan_path))
+    category_result = validate_category_prefixes(str(testplan_path))
+    interface_result = validate_interface_types(str(testplan_path))
+    infra_result = validate_infra_scope(str(testplan_path))
 
     valid = (
         all(f["valid"] for f in frontmatter_results)
@@ -276,6 +361,9 @@ def validate_all(feature_dir: str) -> dict:
         and scope_result["valid"]
         and ac_result["valid"]
         and structure_result["valid"]
+        and category_result["valid"]
+        and interface_result["valid"]
+        and infra_result["valid"]
     )
 
     return {
@@ -285,6 +373,9 @@ def validate_all(feature_dir: str) -> dict:
         "scope": scope_result,
         "ac_citations": ac_result,
         "structure": structure_result,
+        "category_prefixes": category_result,
+        "interface_types": interface_result,
+        "infra_scope": infra_result,
     }
 
 
@@ -331,6 +422,24 @@ def cmd_structure(args):
     sys.exit(0 if result["valid"] else 1)
 
 
+def cmd_category_prefixes(args):
+    result = validate_category_prefixes(args.testplan_path)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
+def cmd_interface_types(args):
+    result = validate_interface_types(args.testplan_path)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
+def cmd_infra_scope(args):
+    result = validate_infra_scope(args.testplan_path)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Unified validation CLI for test plan artifacts",
@@ -368,6 +477,18 @@ def main():
     p_struct = subparsers.add_parser("structure", help="Check required headings and pseudo-heading violations")
     p_struct.add_argument("testplan_path", help="Path to TestPlan.md")
     p_struct.set_defaults(func=cmd_structure)
+
+    p_cat = subparsers.add_parser("category-prefixes", help="Check Section 5.2 for disallowed TC categories")
+    p_cat.add_argument("testplan_path", help="Path to TestPlan.md")
+    p_cat.set_defaults(func=cmd_category_prefixes)
+
+    p_iface = subparsers.add_parser("interface-types", help="Check Section 4 for Config-type entries")
+    p_iface.add_argument("testplan_path", help="Path to TestPlan.md")
+    p_iface.set_defaults(func=cmd_interface_types)
+
+    p_infra = subparsers.add_parser("infra-scope", help="Check Sections 3.1/9.2/9.3 for dev tooling")
+    p_infra.add_argument("testplan_path", help="Path to TestPlan.md")
+    p_infra.set_defaults(func=cmd_infra_scope)
 
     args = parser.parse_args()
     args.func(args)

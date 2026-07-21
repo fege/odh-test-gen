@@ -9,6 +9,13 @@ from scripts.utils.strat_utils import (
     parse_nfr,
     parse_out_of_scope,
 )
+from tests.constants import (
+    STRAT_AC_NUMBERED_LIST,
+    STRAT_AC_NUMBERED_SINGLE_LINE,
+    STRAT_OOS_EM_DASH,
+    STRAT_OOS_MIXED,
+    STRAT_OOS_PLAIN_TEXT,
+)
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
 
@@ -51,6 +58,22 @@ class TestParseAcceptanceCriteria:
         assert "Given" in first_ac
         assert "measured by" in first_ac
 
+    def test_numbered_list_acs_joined(self):
+        result = parse_acceptance_criteria(STRAT_AC_NUMBERED_LIST)
+
+        assert result["found"] is True
+        assert result["count"] == 3
+        assert "Given a user opens" in result["acceptance_criteria"][0]["text"]
+        assert "measured by rendering" in result["acceptance_criteria"][0]["text"]
+        assert "Given a user clicks" in result["acceptance_criteria"][1]["text"]
+        assert "measured by card count" in result["acceptance_criteria"][1]["text"]
+
+    def test_numbered_list_acs_single_line(self):
+        result = parse_acceptance_criteria(STRAT_AC_NUMBERED_SINGLE_LINE)
+
+        assert result["found"] is True
+        assert result["count"] == 2
+
 
 class TestParseNfr:
     """Tests for non-functional requirements extraction from fetched STRAT content."""
@@ -87,6 +110,26 @@ class TestParseOutOfScope:
         assert result["found"] is True
         assert result["count"] >= 5
         assert all(item["title"] for item in result["items"])
+
+    def test_plain_text_bullets(self):
+        result = parse_out_of_scope(STRAT_OOS_PLAIN_TEXT)
+
+        assert result["found"] is True
+        assert result["count"] == 5
+        assert "Custom management UI" in result["items"][0]["text"]
+
+    def test_em_dash_separator(self):
+        result = parse_out_of_scope(STRAT_OOS_EM_DASH)
+
+        assert result["found"] is True
+        assert result["count"] == 1
+        assert result["items"][0]["title"] == "Backend API"
+
+    def test_mixed_bold_and_plain_bullets(self):
+        result = parse_out_of_scope(STRAT_OOS_MIXED)
+
+        assert result["found"] is True
+        assert result["count"] == 3
 
     def test_no_out_of_scope_section(self):
         content = "h3. Requirements\n\nSome text.\n\nh3. Risks\n\nSome risks.\n"
