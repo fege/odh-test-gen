@@ -421,9 +421,7 @@ In scope items.
 
 ## 8. Risks and Mitigation
 
-## 9. Test Environment Requirements
-
-## 10. Appendix
+## 9. Appendix
 """
 
 # TestPlan.md with bold-text pseudo-headings (invalid structure)
@@ -482,9 +480,7 @@ More content.
 
 ## 8. Risks and Mitigation
 
-## 9. Test Environment Requirements
-
-## 10. Appendix
+## 9. Appendix
 """
 
 # TestPlan.md missing required sections
@@ -507,7 +503,7 @@ Test the feature.
 
 ## 2. Test Strategy
 
-## 10. Appendix
+## 9. Appendix
 """
 
 # STRAT parser test data — Jira wiki markup variations
@@ -695,15 +691,13 @@ author: QE Team
 
 # Test Feature Test Plan
 
-### 3.1 Test Cluster Configuration
+### 3.1 Infrastructure & Configuration
 - OpenShift 4.16+
 - RHOAI 3.5 operator
-
-### 9.2 Configuration
 - `KUBECONFIG` env var for cluster access
 - CatalogSource for operator subscription
 
-### 9.3 Test Tools
+### 3.4 Test Tools
 - oc/kubectl for cluster interaction
 - curl for API testing
 - pytest for test execution
@@ -721,15 +715,13 @@ author: QE Team
 
 # Test Feature Test Plan
 
-### 3.1 Test Cluster Configuration
+### 3.1 Infrastructure & Configuration
 - OpenShift 4.16+
 - Local development runtime: Python 3.x with pip
 - Container runtime (podman or docker)
-
-### 9.2 Configuration
 - `KUBECONFIG` env var for cluster access
 
-### 9.3 Test Tools
+### 3.4 Test Tools
 - oc/kubectl for cluster interaction
 - pip install for local development
 - docker-compose for local SUT setup

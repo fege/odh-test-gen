@@ -46,16 +46,24 @@ be covered. Each objective cites the AC it validates: (AC: #N)}
 
 ## 3. Test Environment
 
-### 3.1 Test Cluster Configuration
+### 3.1 Infrastructure & Configuration
 {Cluster-side requirements to execute tests: OpenShift version, RHOAI version,
-operator versions, databases. Does not include developer tooling (pip, podman,
-Ollama, docker-compose) — those belong in test case preconditions.}
+operator versions, databases, cluster config, env vars on test harness,
+credentials. Does not include developer tooling (pip, podman, Ollama,
+docker-compose) or SUT configuration (CRD field values, ConfigMap contents)
+— those belong in test case preconditions.}
 
 ### 3.2 Test Data Requirements
-{What test data is needed, example configurations, sample YAML/JSON}
+{What test data types are needed — describe shape and constraints, not
+full manifests. Actual fixtures belong in test automation.}
 
 ### 3.3 Test Users
 {Service accounts, admin users, anonymous users needed for testing}
+
+### 3.4 Test Tools
+{Tools QE uses to run and observe tests: oc/kubectl, curl/httpie, pytest,
+test frameworks, log viewers. Developer tooling (pip, podman, Ollama,
+docker-compose) is not test infrastructure.}
 
 ---
 
@@ -189,26 +197,9 @@ checks."}
 
 ---
 
-## 9. Test Environment Requirements
+## 9. Appendix
 
-### 9.1 Infrastructure
-{Cluster requirements, operator versions, dependencies}
-
-### 9.2 Configuration
-{Cluster-side config to execute tests: operator settings, namespace config,
-env vars on the test harness, credentials. SUT configuration (CRD field values,
-ConfigMap contents) belongs in test case preconditions.}
-
-### 9.3 Test Tools
-{Tools QE uses to run and observe tests: oc/kubectl, curl/httpie, pytest,
-test frameworks, log viewers. Developer tooling (pip, podman, Ollama,
-docker-compose) is not test infrastructure.}
-
----
-
-## 10. Appendix
-
-### 10.1 Test Case Summary
+### 9.1 Test Case Summary
 
 > **Note**: To be filled later in the process.
 
@@ -216,7 +207,7 @@ docker-compose) is not test infrastructure.}
 |----------|-------|----|----|-----|
 | | | | | |
 
-### 10.2 Interface Coverage
+### 9.2 Interface Coverage
 
 {Fill in the Interface column from Section 4. Test Cases column
 will be filled by `/test-plan-create-cases`. Coverage column will
@@ -226,7 +217,7 @@ be filled by `/coverage-assessment`. Leave both empty until then.}
 |-----------|------------|----------|
 | {interface} | | |
 
-### 10.3 Document Change Log
+### 9.3 Document Change Log
 
 | Version | Date | Changes |
 |---------|------|---------|

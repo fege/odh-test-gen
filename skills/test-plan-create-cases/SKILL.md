@@ -170,7 +170,7 @@ Process **one category at a time** from Section 5.2. For each category:
    - Assign priorities (P0/P1/P2) following the criteria in Section 2.3
    - Stay strictly within the scope defined in Section 1.2 — do NOT create test cases for out-of-scope items
    - Map back to test objectives from Section 1.3
-   - Check against previously generated categories to avoid duplicating coverage
+   - Before generating each TC, check all previously generated TCs across ALL categories. If another TC already verifies the same behavior (same preconditions, same verification target), do not create a duplicate — add the missing assertions to the existing TC instead
 
 2. **Write or Edit** the `TC-<CATEGORY>-<NUMBER>.md` files for that category immediately before moving to the next:
 
@@ -202,7 +202,9 @@ Process **one category at a time** from Section 5.2. For each category:
    - Each E2E test case should represent a complete user journey, not just a single endpoint call
    - Use `TC-E2E-<NUMBER>` naming convention (e.g., TC-E2E-001, TC-E2E-002)
 
-4. **Upgrade test cases (conditional)**: Read **Section 7.2 (Upgrade/Migration)** of the TestPlan.md. If Section 7.2 describes meaningful upgrade-specific behaviour (not just "Not Applicable" or a single sentence disclaimer), generate upgrade-aware TCs:
+4. **NFR test cases (conditional)**: Only create a standalone TC-NFR when the NFR requires dedicated infrastructure or setup that no E2E scenario covers (e.g., a disconnected cluster for air-gap testing, a performance benchmark harness). If an NFR is naturally exercised during an E2E flow — such as RBAC (use different user personas in E2E steps), mTLS (verify certs on pods created by E2E), or namespace isolation (already covered by NEG scenarios) — add it as assertions within the relevant TC-E2E or TC-NEG, not as a separate TC-NFR.
+
+5. **Upgrade test cases (conditional)**: Read **Section 7.2 (Upgrade/Migration)** of the TestPlan.md. If Section 7.2 describes meaningful upgrade-specific behaviour (not just "Not Applicable" or a single sentence disclaimer), generate upgrade-aware TCs:
 
    First, identify what kind of upgrade scenario this is — it determines the dominant phase:
    - **Feature introducing an upgrade change** (new API, new route, new auth model): primarily `post` TCs for new behaviour, `pre` TCs for state that disappears after upgrade, `both` for regressions
@@ -258,8 +260,8 @@ Update `<feature_dir>/TestPlan.md` using the Edit tool:
 2. **Section 5.1** — Fill in the Test Case Organization table with category, test case count, and priority distribution
 3. **Section 6.1** — Fill in the E2E Scenario Summary table with the generated TC-E2E-* scenarios (ID, scenario name, endpoints covered, priority)
 4. **Section 6.2** — Fill in the E2E Coverage Matrix mapping each endpoint from Section 4 to its E2E scenario IDs
-5. **Section 10.1** — Fill in the Test Case Summary table with counts per category and priority breakdown
-6. **Section 10.2** — Fill in the Test Cases column with TC IDs mapped to each endpoint. Leave the Coverage column empty — it will be filled later by `/coverage-assessment`
+5. **Section 9.1** — Fill in the Test Case Summary table with counts per category and priority breakdown
+6. **Section 9.2** — Fill in the Test Cases column with TC IDs mapped to each endpoint. Leave the Coverage column empty — it will be filled later by `/coverage-assessment`
 
 ### Step 5.5: Update README
 

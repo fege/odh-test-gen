@@ -293,7 +293,7 @@ def validate_interface_types(testplan_path: str) -> dict:
 
 
 def validate_infra_scope(testplan_path: str) -> dict:
-    """Check Sections 3.1/9.2/9.3 for local development tooling indicators."""
+    """Check Sections 3.1/3.4 for local development tooling indicators."""
     path = Path(testplan_path)
     if not path.exists():
         return {"valid": False, "error": f"File not found: {testplan_path}"}
@@ -486,7 +486,7 @@ def main():
     p_iface.add_argument("testplan_path", help="Path to TestPlan.md")
     p_iface.set_defaults(func=cmd_interface_types)
 
-    p_infra = subparsers.add_parser("infra-scope", help="Check Sections 3.1/9.2/9.3 for dev tooling")
+    p_infra = subparsers.add_parser("infra-scope", help="Check Sections 3.1/3.4 for dev tooling")
     p_infra.add_argument("testplan_path", help="Path to TestPlan.md")
     p_infra.set_defaults(func=cmd_infra_scope)
 

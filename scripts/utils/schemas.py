@@ -301,8 +301,7 @@ TESTPLAN_STRUCTURE = {
         {"heading": "## 6. E2E Test Scenarios", "required": False},
         {"heading": "## 7. Non-Functional Requirements", "required": True},
         {"heading": "## 8. Risks and Mitigation", "required": True},
-        {"heading": "## 9. Test Environment Requirements", "required": True},
-        {"heading": "## 10. Appendix", "required": True},
+        {"heading": "## 9. Appendix", "required": True},
     ],
     "disallowed_test_levels": [
         "Unit Testing",
@@ -327,9 +326,8 @@ TESTPLAN_STRUCTURE = {
         "yarn install",
     ],
     "infra_sections": [
-        "### 3.1 Test Cluster Configuration",
-        "### 9.2 Configuration",
-        "### 9.3 Test Tools",
+        "### 3.1 Infrastructure & Configuration",
+        "### 3.4 Test Tools",
     ],
 }
 

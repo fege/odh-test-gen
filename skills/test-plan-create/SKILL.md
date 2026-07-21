@@ -208,7 +208,7 @@ Pass the full strategy content (and ADR content if available) inline in the skil
 
 - **`test-plan.analyze.endpoints`**: Pass full strategy + ADR + `ac_json` (acceptance criteria) + `oos_json` (out-of-scope). Extracts feature scope (in-scope, out-of-scope, AC-traced test objectives) and identifies the e2e test surface (interfaces exercised by e2e tests). Produces findings for Sections 1 and 4.
 - **`test-plan.analyze.risks`**: Pass full strategy + ADR + `nfr_json` (non-functional requirements). Determines e2e/UI test levels, test types, priority definitions, risks with mitigations, and NFR assessments. Produces findings for Sections 2, 7, and 8.
-- **`test-plan.analyze.infra`**: Pass full strategy + ADR only. Identifies test environment configuration, test data, test users, infrastructure, and tooling requirements. Produces findings for Sections 3 and 9.
+- **`test-plan.analyze.infra`**: Pass full strategy + ADR only. Identifies test environment configuration, test data, test users, infrastructure, and tooling requirements. Produces findings for Section 3.
 
 Once all three sub-agents return:
 1. Merge their structured findings into the test plan template (Step 3)
@@ -224,7 +224,7 @@ Once all three sub-agents return:
 3. Generate `<feature_name>/TestPlan.md` by filling in the template with the gathered information. Follow the template structure exactly — do not add, remove, or reorder sections. Do NOT write frontmatter manually — Step 3.1 handles it.
    - **Line length**: Wrap all prose lines to a maximum of 100 characters. This does not apply to tables, code blocks, or headings — only paragraph text and list items.
    - **Markdown headings**: Use proper markdown heading syntax (`##`, `###`, `####`) for all section and subsection titles. Never substitute bold text (`**Title**`) for a heading. This applies to all generated files (TestPlan.md, TestPlanGaps.md, README.md).
-4. For Section 10.2 (Interface Coverage): fill in the Interface column using the interfaces identified in Section 4. Leave the Test Cases and Coverage columns empty — they will be filled later in the process.
+4. For Section 9.2 (Interface Coverage): fill in the Interface column using the interfaces identified in Section 4. Leave the Test Cases and Coverage columns empty — they will be filled later in the process.
 5. Generate `<feature_name>/README.md` with:
    - Feature name and one-line description
    - Links to Jira strategy, ADR (if provided)
@@ -391,7 +391,7 @@ The reviewer handles auto-revision internally (up to 2 cycles) and writes `<feat
 
 1. **Read the verdict** from `<feature_name>/TestPlanReview.md` frontmatter
 2. **Auto-fix** (if any): Apply clearly correct improvements suggested by the reviewer with these constraints:
-   - Consistency fixes (e.g., missing entries in Section 10.2 that are in Section 4)
+   - Consistency fixes (e.g., missing entries in Section 9.2 that are in Section 4)
    - Generic priority definitions that should be feature-specific (when the specific language is in the strategy)
    - **NEVER invent resolution paths for TBDs** — if the strategy doesn't specify where to find version requirements or missing details, leave them as plain "TBD". The gaps are already documented in TestPlanGaps.md.
    - **Only add content that is directly traceable to the source documents** (strategy, ADR, API specs, design docs, or any additional_docs) — do not make assumptions about where documentation exists or what it contains.
@@ -458,6 +458,6 @@ Label stamping is **non-blocking** — if it fails, log a warning and continue. 
 - Section 2.1 (Test Levels): ONLY e2e/system and UI levels — no unit, integration, or component levels
 - Section 1.3 (Test Objectives): Each objective must cite a STRAT acceptance criterion via `(AC: ...)`
 - Section 7 (Non-Functional Requirements): filled by `test-plan.analyze.risks` — each category must be addressed or marked Not Applicable
-- Section 10: placeholders — 10.1 and 10.2 filled by `/test-plan-create-cases` and `/coverage-assessment`
+- Section 9: placeholders — 9.1 and 9.2 filled by `/test-plan-create-cases` and `/coverage-assessment`
 
 $ARGUMENTS

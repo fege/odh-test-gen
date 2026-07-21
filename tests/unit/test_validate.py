@@ -426,7 +426,7 @@ class TestValidateInterfaceTypes:
 
 
 class TestValidateInfraScope:
-    """Tests for validate_infra_scope — local dev tooling in Sections 3.1/9.2/9.3."""
+    """Tests for validate_infra_scope — local dev tooling in Sections 3.1/3.4."""
 
     def test_clean_infra_passes(self, tmp_path):
         testplan = tmp_path / "TestPlan.md"
