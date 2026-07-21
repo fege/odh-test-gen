@@ -277,18 +277,21 @@ After generating all test case files and updating the test plan, validate covera
 2. **E2E coverage**: Verify that every P0 endpoint from Section 4 is covered by at least one TC-E2E-* test case. If any P0 endpoint lacks E2E coverage, generate the missing E2E test case(s) before proceeding.
 3. **Test objective coverage**: Check that every test objective from Section 1.3 is addressed by at least one test case. Flag any uncovered objectives.
 4. **Priority distribution**: Verify that P0 endpoints have P0 test cases — a critical endpoint should not only have P2 test cases.
-5. **Gap cross-reference**: If `TestPlanGaps.md` was read in Step 1.5, verify that no test cases were created for endpoints or areas flagged as pending/missing. If any were, remove them and flag the inconsistency.
-6. **Append to TestPlanGaps.md**: If `<feature_dir>/TestPlanGaps.md` exists, append a `## Test Case Coverage Gaps` section with any coverage gaps found (uncovered endpoints, missing objectives, priority mismatches, missing E2E scenarios). If the file does not exist, create it with just this section.
+5. **Configurable coverage**: Check that every env var, config path, or configurable explicitly named in Section 3.1 has at least one TC that exercises a non-default value. If any is uncovered, flag it as a coverage gap.
+6. **Gap cross-reference**: If `TestPlanGaps.md` was read in Step 1.5, verify that no test cases were created for endpoints or areas flagged as pending/missing. If any were, remove them and flag the inconsistency.
+7. **Append to TestPlanGaps.md**: If `<feature_dir>/TestPlanGaps.md` exists, append a `## Test Case Coverage Gaps` section with any coverage gaps found (uncovered endpoints, missing objectives, priority mismatches, missing E2E scenarios, uncovered configurables). If the file does not exist, create it with just this section.
 
-### Step 5.7: Validate Frontmatter
+### Step 5.7: Validate Frontmatter and Counts
 
-After all test case files are written, validate their frontmatter in one pass:
+After all test case files are written, validate frontmatter and TC counts:
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/validate.py test-cases <feature_dir>)
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+ uv run python scripts/validate.py test-cases <feature_dir> && \
+ uv run python scripts/validate.py tc-counts <feature_dir>)
 ```
 
-If any file fails validation, fix the frontmatter in that file and re-run the validation.
+If any check fails, fix the issue and re-run.
 
 ### What this skill does NOT do
 

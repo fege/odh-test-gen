@@ -366,6 +366,28 @@ author: QE Team
 ## 2. Test Strategy
 """
 
+# TestPlan.md with bullet-style objectives (not numbered — triggers format error)
+TESTPLAN_AC_BULLET_FORMAT = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 1. Executive Summary
+
+### 1.3 Test Objectives
+
+- **Obj-1**: Verify catalog tile is visible (AC: "tile is visible")
+- **Obj-2**: Verify dialog displays samples (AC: "samples displayed")
+
+## 2. Test Strategy
+"""
+
 # TestPlan.md with no Section 1.3
 TESTPLAN_NO_SECTION_13 = """---
 feature: Test Feature

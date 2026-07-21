@@ -16,6 +16,7 @@ Usage:
     uv run python scripts/validate.py category-prefixes <testplan_path>
     uv run python scripts/validate.py interface-types <testplan_path>
     uv run python scripts/validate.py infra-scope <testplan_path>
+    uv run python scripts/validate.py tc-counts <feature_dir>
 """
 
 import argparse
@@ -210,6 +211,13 @@ def validate_ac_citations(testplan_path: str) -> dict:
         if objective_re.match(line.strip())
     ]
 
+    has_content = any(line.strip() for line in section_lines)
+    if has_content and not objectives:
+        return {
+            "valid": False,
+            "error": "Section 1.3 has content but no numbered objectives detected (expected: 1. 2. 3. ...)",
+        }
+
     uncited = [obj for obj in objectives if not ac_re.search(obj["text"])]
     cited = len(objectives) - len(uncited)
 
@@ -324,6 +332,54 @@ def validate_infra_scope(testplan_path: str) -> dict:
     return {"valid": not warnings, "warnings": warnings}
 
 
+def validate_tc_counts(feature_dir: str) -> dict:
+    """Check Section 9.1 TC totals match actual TC file count and row arithmetic."""
+    feature_path = Path(feature_dir)
+    testplan_path = feature_path / "TestPlan.md"
+    tc_dir = feature_path / "test_cases"
+
+    if not testplan_path.exists():
+        return {"valid": False, "error": f"TestPlan.md not found at {testplan_path}"}
+    if not tc_dir.exists():
+        return {"valid": True, "file_count": 0, "table_total": 0, "mismatches": []}
+
+    actual_count = len(list(tc_dir.glob("TC-*.md")))
+
+    content = testplan_path.read_text()
+    section_lines, _ = extract_section(content, "### 9.1 Test Case Summary")
+    if not section_lines:
+        return {"valid": True, "file_count": actual_count, "table_total": 0, "mismatches": []}
+
+    total_re = re.compile(r"^\|\s*\*\*Total\*\*\s*\|\s*\*\*(\d+)\*\*")
+    row_re = re.compile(r"^\|\s*TC-\S+\s*\|\s*(\d+)\s*\|")
+
+    table_total = 0
+    row_sum = 0
+    mismatches = []
+    for line in section_lines:
+        total_match = total_re.match(line)
+        if total_match:
+            table_total = int(total_match.group(1))
+        row_match = row_re.match(line)
+        if row_match:
+            row_sum += int(row_match.group(1))
+
+    if table_total > 0 and row_sum != table_total:
+        mismatches.append(f"Row sum ({row_sum}) != table total ({table_total})")
+    if table_total > 0 and actual_count != table_total:
+        mismatches.append(f"TC file count ({actual_count}) != table total ({table_total})")
+    elif row_sum > 0 and actual_count != row_sum:
+        mismatches.append(f"TC file count ({actual_count}) != row sum ({row_sum})")
+
+    return {
+        "valid": not mismatches,
+        "file_count": actual_count,
+        "table_total": table_total,
+        "row_sum": row_sum,
+        "mismatches": mismatches,
+    }
+
+
 def validate_all(feature_dir: str) -> dict:
     """Run all validations on a feature directory.
 
@@ -354,6 +410,7 @@ def validate_all(feature_dir: str) -> dict:
     category_result = validate_category_prefixes(str(testplan_path))
     interface_result = validate_interface_types(str(testplan_path))
     infra_result = validate_infra_scope(str(testplan_path))
+    tc_counts_result = validate_tc_counts(feature_dir)
 
     valid = (
         all(f["valid"] for f in frontmatter_results)
@@ -364,6 +421,7 @@ def validate_all(feature_dir: str) -> dict:
         and category_result["valid"]
         and interface_result["valid"]
         and infra_result["valid"]
+        and tc_counts_result["valid"]
     )
 
     return {
@@ -376,6 +434,7 @@ def validate_all(feature_dir: str) -> dict:
         "category_prefixes": category_result,
         "interface_types": interface_result,
         "infra_scope": infra_result,
+        "tc_counts": tc_counts_result,
     }
 
 
@@ -440,6 +499,12 @@ def cmd_infra_scope(args):
     sys.exit(0 if result["valid"] else 1)
 
 
+def cmd_tc_counts(args):
+    result = validate_tc_counts(args.feature_dir)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Unified validation CLI for test plan artifacts",
@@ -489,6 +554,10 @@ def main():
     p_infra = subparsers.add_parser("infra-scope", help="Check Sections 3.1/3.4 for dev tooling")
     p_infra.add_argument("testplan_path", help="Path to TestPlan.md")
     p_infra.set_defaults(func=cmd_infra_scope)
+
+    p_tc_counts = subparsers.add_parser("tc-counts", help="Check Section 9.1 TC totals match file count")
+    p_tc_counts.add_argument("feature_dir", help="Path to feature directory")
+    p_tc_counts.set_defaults(func=cmd_tc_counts)
 
     args = parser.parse_args()
     args.func(args)

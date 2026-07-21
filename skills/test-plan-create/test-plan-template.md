@@ -19,8 +19,8 @@
 {Bulleted list of explicitly excluded areas from the strategy and its business need}
 
 ### 1.3 Test Objectives
-{At least one objective per STRAT acceptance criterion — every AC must
-be covered. Each objective cites the AC it validates: (AC: #N)}
+{Numbered list (1. 2. 3. ...) — at least one objective per STRAT
+acceptance criterion. Each cites the AC it validates: (AC: #N)}
 
 ---
 

@@ -14,10 +14,12 @@ from scripts.validate import (
     validate_interface_types,
     validate_scope,
     validate_structure,
+    validate_tc_counts,
     validate_test_cases,
 )
 from scripts.utils.frontmatter_utils import write_frontmatter
 from tests.constants import (
+    TESTPLAN_AC_BULLET_FORMAT,
     TESTPLAN_AC_CITED,
     TESTPLAN_AC_MISSING,
     TESTPLAN_BOLD_HEADINGS,
@@ -294,6 +296,15 @@ class TestValidateAcCitations:
         assert result["valid"] is True
         assert result["total"] == 0
 
+    def test_non_numbered_format_fails(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_AC_BULLET_FORMAT)
+
+        result = validate_ac_citations(str(testplan))
+
+        assert result["valid"] is False
+        assert "no numbered objectives detected" in result["error"]
+
     def test_file_not_found(self):
         result = validate_ac_citations("/nonexistent/TestPlan.md")
 
@@ -464,3 +475,71 @@ class TestValidateInfraScope:
 
         assert result["valid"] is False
         assert "error" in result
+
+
+class TestValidateTcCounts:
+    """Tests for validate_tc_counts — Section 9.1 totals vs actual TC files."""
+
+    def _make_feature_dir(self, tmp_path, section_91, tc_names):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(f"---\nfeature: Test\n---\n\n### 9.1 Test Case Summary\n\n{section_91}")
+        tc_dir = tmp_path / "test_cases"
+        tc_dir.mkdir()
+        for name in tc_names:
+            (tc_dir / f"{name}.md").write_text(f"---\ntest_case_id: {name}\n---\n")
+        return tmp_path
+
+    def test_counts_match_passes(self, tmp_path):
+        section = (
+            "| Category | Total | P0 | P1 | P2 |\n"
+            "|----------|-------|----|----|----|\n"
+            "| TC-E2E | 2 | 1 | 1 | 0 |\n"
+            "| TC-NEG | 1 | 0 | 1 | 0 |\n"
+            "| **Total** | **3** | **1** | **2** | **0** |\n"
+        )
+        self._make_feature_dir(tmp_path, section, ["TC-E2E-001", "TC-E2E-002", "TC-NEG-001"])
+
+        result = validate_tc_counts(str(tmp_path))
+
+        assert result["valid"] is True
+        assert result["file_count"] == 3
+        assert result["table_total"] == 3
+
+    def test_row_sum_mismatch_fails(self, tmp_path):
+        section = (
+            "| Category | Total | P0 | P1 | P2 |\n"
+            "|----------|-------|----|----|----|\n"
+            "| TC-E2E | 3 | 2 | 1 | 0 |\n"
+            "| TC-NEG | 2 | 1 | 1 | 0 |\n"
+            "| **Total** | **3** | **2** | **1** | **0** |\n"
+        )
+        tc_names = ["TC-E2E-001", "TC-E2E-002", "TC-E2E-003", "TC-NEG-001", "TC-NEG-002"]
+        self._make_feature_dir(tmp_path, section, tc_names)
+
+        result = validate_tc_counts(str(tmp_path))
+
+        assert result["valid"] is False
+        assert any("Row sum (5) != table total (3)" in m for m in result["mismatches"])
+
+    def test_file_count_mismatch_fails(self, tmp_path):
+        section = (
+            "| Category | Total | P0 | P1 | P2 |\n"
+            "|----------|-------|----|----|----|\n"
+            "| TC-E2E | 2 | 1 | 1 | 0 |\n"
+            "| **Total** | **2** | **1** | **1** | **0** |\n"
+        )
+        self._make_feature_dir(tmp_path, section, ["TC-E2E-001", "TC-E2E-002", "TC-E2E-003"])
+
+        result = validate_tc_counts(str(tmp_path))
+
+        assert result["valid"] is False
+        assert any("TC file count (3) != table total (2)" in m for m in result["mismatches"])
+
+    def test_no_test_cases_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text("---\nfeature: Test\n---\n\n### 9.1 Test Case Summary\n")
+
+        result = validate_tc_counts(str(tmp_path))
+
+        assert result["valid"] is True
+        assert result["file_count"] == 0
