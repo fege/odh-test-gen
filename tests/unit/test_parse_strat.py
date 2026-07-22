@@ -11,6 +11,7 @@ from scripts.utils.strat_utils import (
 )
 from tests.constants import (
     STRAT_AC_NUMBERED_LIST,
+    STRAT_AC_NUMBERED_MULTI_PARAGRAPH,
     STRAT_AC_NUMBERED_SINGLE_LINE,
     STRAT_OOS_EM_DASH,
     STRAT_OOS_MIXED,
@@ -73,6 +74,15 @@ class TestParseAcceptanceCriteria:
 
         assert result["found"] is True
         assert result["count"] == 2
+
+    def test_numbered_list_acs_three_paragraphs_merged(self):
+        result = parse_acceptance_criteria(STRAT_AC_NUMBERED_MULTI_PARAGRAPH)
+
+        assert result["found"] is True
+        assert result["count"] == 2
+        first = result["acceptance_criteria"][0]["text"]
+        assert "registers a vector store" in first
+        assert "measured by API response" in first
 
 
 class TestParseNfr:

@@ -556,6 +556,21 @@ STRAT_AC_NUMBERED_SINGLE_LINE = (
     "h3. Effort Estimate\n"
 )
 
+STRAT_AC_NUMBERED_MULTI_PARAGRAPH = (
+    "h3. Acceptance Criteria\n\n"
+    "# Given a user registers a vector store,\n"
+    "\n"
+    "   when the registration completes,\n"
+    "\n"
+    "   then the store appears in the catalog, measured by API response.\n"
+    "\n"
+    "# Given a user deletes a vector store,\n"
+    "\n"
+    "   when confirmed, then the store is removed.\n"
+    "\n"
+    "h3. Effort Estimate\n"
+)
+
 STRAT_OOS_PLAIN_TEXT = (
     "h3. Out-of-Scope\n\n"
     "* Custom management UI in the Dashboard (catalog is within JupyterLab only)\n"

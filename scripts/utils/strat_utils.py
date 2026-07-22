@@ -44,7 +44,6 @@ def parse_acceptance_criteria(content: str) -> dict:
             prev_numbered = True
         elif prev_numbered:
             merged[-1] += " " + text
-            prev_numbered = False
         else:
             merged.append(text)
 
