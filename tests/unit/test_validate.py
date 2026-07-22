@@ -545,6 +545,16 @@ class TestValidateTcCounts:
         assert result["valid"] is True
         assert result["file_count"] == 0
 
+    def test_malformed_table_with_tc_files_fails(self, tmp_path):
+        section = "This section has no parseable table rows.\n"
+        self._make_feature_dir(tmp_path, section, ["TC-E2E-001", "TC-E2E-002"])
+
+        result = validate_tc_counts(str(tmp_path))
+
+        assert result["valid"] is False
+        assert result["file_count"] == 2
+        assert any("no parseable" in m for m in result["mismatches"])
+
 
 class TestCheckInteractive:
     """Tests for check_interactive — deterministic CI/non-interactive detection."""

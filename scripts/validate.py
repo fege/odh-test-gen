@@ -368,10 +368,13 @@ def validate_tc_counts(feature_dir: str) -> dict:
 
     if table_total > 0 and row_sum != table_total:
         mismatches.append(f"Row sum ({row_sum}) != table total ({table_total})")
+
     if table_total > 0 and actual_count != table_total:
         mismatches.append(f"TC file count ({actual_count}) != table total ({table_total})")
-    elif row_sum > 0 and actual_count != row_sum:
+    if row_sum > 0 and actual_count != row_sum:
         mismatches.append(f"TC file count ({actual_count}) != row sum ({row_sum})")
+    if table_total == 0 and row_sum == 0 and actual_count > 0:
+        mismatches.append(f"TC files exist ({actual_count}) but no parseable Total/row counts in Section 9.1")
 
     return {
         "valid": not mismatches,
