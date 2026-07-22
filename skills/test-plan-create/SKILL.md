@@ -315,30 +315,15 @@ After generating the test plan, collect all gaps reported by the three sub-agent
    - If no gaps were identified, set `status=Resolved` and `gap_count=0`
    - `last_updated` is auto-set by the script
 
-4. **Check for non-interactive mode:**
+4. **Gaps decision gate** — run the check-interactive validator:
    ```bash
-   # Auto-proceed in CI or when explicitly requested
-   if [ -n "${CI:-}" ] || [ -n "${CLAUDE_NON_INTERACTIVE:-}" ]; then
-       NON_INTERACTIVE=true
-   else
-       NON_INTERACTIVE=false
-   fi
+   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+    uv run python scripts/validate.py check-interactive)
    ```
+   - **Exit 0 (non-interactive):** Skip the gaps menu. Proceed directly to Step 3.6.
+   - **Exit 1 (interactive):** Continue to Step 5.
 
-5. **If gaps exist**, handle based on mode:
-
-   **Non-interactive mode** (`NON_INTERACTIVE=true`):
-   ```bash
-   # Log gaps and auto-proceed to review
-   echo "========================================" >&2
-   echo "Gaps identified (auto-proceeding):" >&2
-   echo "========================================" >&2
-   cat "<feature_name>/TestPlanGaps.md" >&2
-   echo "========================================" >&2
-   # Proceed directly to Step 4 (review)
-   ```
-
-   **Interactive mode** (`NON_INTERACTIVE=false`):
+5. **Interactive gaps menu** (only reached when Step 4 exits 1 AND gaps exist):
 
    Present the user with a structured action menu via AskUserQuestion. List the gaps first, then offer numbered options. Example:
 
@@ -354,7 +339,7 @@ After generating the test plan, collect all gaps reported by the three sub-agent
    > 3. **Proceed to review + generate test cases** — continue and automatically run `/test-plan-create-cases` after review
 
 6. **If the user chooses option 1**: Read the provided documents, re-run only the relevant sub-agents from Step 2 with the new material, update the test plan, update `TestPlanGaps.md` (removing resolved gaps, adding any new ones), update the gaps frontmatter (`gap_count`, `status`), then present the menu again with remaining gaps (if any).
-7. **If the user chooses option 2, no gaps exist, or non-interactive mode**: Proceed to Step 3.6.
+7. **If the user chooses option 2 or no gaps exist**: Proceed to Step 3.6.
 8. **If the user chooses option 3**: Proceed to Step 3.6, and after the review is complete (Step 4), automatically invoke `/test-plan-create-cases` with the feature directory.
 
 ### Step 3.6: Stamp Jira label — test plan created

@@ -17,10 +17,12 @@ Usage:
     uv run python scripts/validate.py interface-types <testplan_path>
     uv run python scripts/validate.py infra-scope <testplan_path>
     uv run python scripts/validate.py tc-counts <feature_dir>
+    uv run python scripts/validate.py check-interactive
 """
 
 import argparse
 import json
+import os
 import re
 import sys
 import yaml
@@ -380,6 +382,23 @@ def validate_tc_counts(feature_dir: str) -> dict:
     }
 
 
+def check_interactive() -> dict:
+    """Check whether the session is interactive or non-interactive (CI).
+
+    Returns dict with:
+        interactive: bool — True if interactive, False if non-interactive
+        reason: str — which env var triggered non-interactive mode
+    """
+    ci = os.environ.get("CI", "")
+    non_interactive = os.environ.get("CLAUDE_NON_INTERACTIVE", "")
+
+    if non_interactive:
+        return {"interactive": False, "reason": "CLAUDE_NON_INTERACTIVE is set"}
+    if ci:
+        return {"interactive": False, "reason": "CI is set"}
+    return {"interactive": True, "reason": "no CI or CLAUDE_NON_INTERACTIVE env var detected"}
+
+
 def validate_all(feature_dir: str) -> dict:
     """Run all validations on a feature directory.
 
@@ -505,6 +524,12 @@ def cmd_tc_counts(args):
     sys.exit(0 if result["valid"] else 1)
 
 
+def cmd_check_interactive(_args):
+    result = check_interactive()
+    print(json.dumps(result, indent=2))
+    sys.exit(1 if result["interactive"] else 0)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Unified validation CLI for test plan artifacts",
@@ -558,6 +583,9 @@ def main():
     p_tc_counts = subparsers.add_parser("tc-counts", help="Check Section 9.1 TC totals match file count")
     p_tc_counts.add_argument("feature_dir", help="Path to feature directory")
     p_tc_counts.set_defaults(func=cmd_tc_counts)
+
+    p_check_interactive = subparsers.add_parser("check-interactive", help="Check if session is non-interactive (CI)")
+    p_check_interactive.set_defaults(func=cmd_check_interactive)
 
     args = parser.parse_args()
     args.func(args)

@@ -5,6 +5,7 @@ import json
 import pytest
 
 from scripts.validate import (
+    check_interactive,
     validate_ac_citations,
     validate_all,
     validate_category_prefixes,
@@ -543,3 +544,28 @@ class TestValidateTcCounts:
 
         assert result["valid"] is True
         assert result["file_count"] == 0
+
+
+class TestCheckInteractive:
+    """Tests for check_interactive — deterministic CI/non-interactive detection."""
+
+    @pytest.mark.parametrize(
+        ("env_vars", "expected_interactive", "expected_reason_contains"),
+        [
+            ({}, True, "no CI"),
+            ({"CLAUDE_NON_INTERACTIVE": "true"}, False, "CLAUDE_NON_INTERACTIVE"),
+            ({"CI": "true"}, False, "CI"),
+            ({"CLAUDE_NON_INTERACTIVE": "1", "CI": "true"}, False, "CLAUDE_NON_INTERACTIVE"),
+        ],
+        ids=["interactive", "non-interactive-explicit", "non-interactive-ci", "explicit-takes-precedence"],
+    )
+    def test_check_interactive(self, monkeypatch, env_vars, expected_interactive, expected_reason_contains):
+        monkeypatch.delenv("CI", raising=False)
+        monkeypatch.delenv("CLAUDE_NON_INTERACTIVE", raising=False)
+        for key, value in env_vars.items():
+            monkeypatch.setenv(key, value)
+
+        result = check_interactive()
+
+        assert result["interactive"] is expected_interactive
+        assert expected_reason_contains in result["reason"]
