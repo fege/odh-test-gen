@@ -526,6 +526,10 @@ def validate_tc_traceability(feature_dir: str) -> dict:
         if not raw_objectives:
             errors.append({"file": f.name, "error": "Missing or empty 'objectives' field"})
             continue
+        if not isinstance(raw_objectives, list):
+            type_name = type(raw_objectives).__name__
+            errors.append({"file": f.name, "error": f"'objectives' field must be a list, got {type_name}"})
+            continue
 
         for raw_num in raw_objectives:
             try:

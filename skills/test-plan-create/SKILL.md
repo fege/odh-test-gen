@@ -186,6 +186,7 @@ Run the STRAT parser on the fetched strategy file to extract structured data det
 ```bash
 repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
 ac_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py acceptance-criteria "$strategy_file")
+ac_exit=$?
 nfr_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py nfr "$strategy_file") || nfr_json=""
 oos_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py out-of-scope "$strategy_file") || oos_json=""
 [ "$strategy_is_temp" = "true" ] && rm "$strategy_file"
@@ -194,7 +195,7 @@ strat_gaps=""
 [ -z "$oos_json" ] && strat_gaps="${strat_gaps}- Strategy has no Out-of-Scope section.\n"
 ```
 
-**If `acceptance-criteria` exits non-zero** (no ACs found or count is 0), **STOP immediately**:
+**If `$ac_exit` is non-zero** (no ACs found or count is 0), **STOP immediately**:
 1. Create `mkdir -p <feature_name>` and write a lowest-score review:
    ```bash
    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set \

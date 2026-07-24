@@ -761,6 +761,21 @@ class TestValidateTcTraceability:
         assert result["valid"] is False
         assert "error" in result
 
+    def test_string_objectives_field_char_iterates_silently(self, tmp_path):
+        """A malformed string objectives field must not be silently char-iterated into valid-looking refs."""
+        section = "1. Verify login flow (AC: users can log in)\n2. Verify logout flow (AC: users can log out)\n"
+        self._make_feature_dir(
+            tmp_path,
+            section,
+            {"TC-E2E-001": {"objectives": '"12"'}},
+        )
+
+        result = validate_tc_traceability(str(tmp_path))
+
+        assert result["valid"] is False
+        assert len(result["errors"]) == 1
+        assert "list" in result["errors"][0]["error"].lower()
+
     def test_mixed_valid_and_invalid(self, tmp_path):
         section = "1. Verify login flow (AC: users can log in)\n2. Verify logout flow (no AC cited)\n"
         self._make_feature_dir(
