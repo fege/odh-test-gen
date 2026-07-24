@@ -31,21 +31,23 @@ def parse_acceptance_criteria(content: str) -> dict:
     if section is None:
         return {"found": False, "count": 0, "acceptance_criteria": []}
 
-    paragraphs = re.split(r"\n\n+", section.strip())
+    stripped = section.strip()
 
-    merged = []
-    prev_numbered = False
-    for para in paragraphs:
-        text = " ".join(para.split())
-        if not text:
-            continue
-        if text.startswith("# "):
-            merged.append(text[2:])
-            prev_numbered = True
-        elif prev_numbered:
-            merged[-1] += " " + text
-        else:
-            merged.append(text)
+    if re.search(r"(?m)^#\s+", stripped):
+        bullet_marker = r"(?m)^#\s+"
+    elif re.search(r"(?m)^\*\s+", stripped):
+        bullet_marker = r"(?m)^\*\s+"
+    else:
+        bullet_marker = None
+
+    if bullet_marker:
+        # Split on the bullet marker directly so entries survive with no blank line between them.
+        merged = [" ".join(item.split()) for item in re.split(bullet_marker, stripped)[1:] if item.strip()]
+    else:
+        merged = []
+        for para in re.split(r"\n\n+", stripped):
+            if text := " ".join(para.split()):
+                merged.append(text)
 
     criteria = [{"text": t} for t in merged]
     return {"found": True, "count": len(criteria), "acceptance_criteria": criteria}
@@ -57,9 +59,12 @@ def parse_nfr(content: str) -> dict:
     if section is None:
         return {"found": False, "requirements": []}
 
-    nfr_re = re.compile(r"^\*\s+\*([^*]+)\*:\s*(.+)", re.DOTALL)
+    nfr_re = re.compile(r"^\*\s+\*([^*]+)\*:\s*(.+)")
     requirements = []
-    for line in section.splitlines():
+    for raw_line in section.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
         match = nfr_re.match(line)
         if match:
             requirements.append(
@@ -68,6 +73,8 @@ def parse_nfr(content: str) -> dict:
                     "text": match.group(2).strip(),
                 }
             )
+        elif requirements:
+            requirements[-1]["text"] = f"{requirements[-1]['text']} {line}"
 
     return {"found": True, "requirements": requirements}
 
@@ -97,18 +104,3 @@ def parse_out_of_scope(content: str) -> dict:
             items.append(_parse_bullet_item(bullet_match.group(1).strip()))
 
     return {"found": True, "count": len(items), "items": items}
-
-
-def generate_objective_stubs(ac_result: dict) -> list[str]:
-    """Generate numbered test objective stubs from parsed acceptance criteria.
-
-    Each stub references its AC by number. The LLM fills in [FILL] with
-    the e2e/UI test objective text.
-    """
-    if not ac_result.get("found") or ac_result.get("count", 0) == 0:
-        return []
-
-    return [
-        f"{i}. Verify [FILL] via [e2e/UI approach] (AC: #{i})"
-        for i, _ in enumerate(ac_result["acceptance_criteria"], 1)
-    ]

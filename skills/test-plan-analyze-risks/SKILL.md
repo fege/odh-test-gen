@@ -57,6 +57,9 @@ Does the feature involve API calls with user-facing latency, data processing, UI
 #### RBAC/Authorization
 Does the feature expose endpoints, resources, or operations that require authorization checks? If yes, describe what must be tested (permission boundaries per role, multi-tenant isolation, privilege escalation prevention, service account permissions). If no, state Not Applicable with justification.
 
+#### Security
+Does the feature involve authentication mechanisms, token/session handling, transport security (TLS/encryption in transit), credential or secrets storage, or audit logging? This is distinct from RBAC/Authorization above — RBAC covers access-control and permission boundaries, Security covers authentication and data-protection concerns. If yes, describe what must be tested (token expiry/refresh, encryption enforcement, credential storage validation, audit trail completeness). If no, state Not Applicable with justification.
+
 ### 3. Risks and Mitigations (for Section 8)
 
 Identify risks from the strategy:
@@ -106,6 +109,9 @@ component levels.}
 {testing considerations, or "**Not Applicable** — {justification}"}
 
 ### RBAC/Authorization
+{testing considerations, or "**Not Applicable** — {justification}"}
+
+### Security
 {testing considerations, or "**Not Applicable** — {justification}"}
 
 ## Risks and Mitigations

@@ -52,13 +52,6 @@ Config files, environment variables, and CRD fields consumed during setup are pr
 - If the source documents describe functionality without specifying concrete interfaces, report the functionality and state that details are pending
 - If the ADR provides API specs, use those as the authoritative source for interface details
 
-### 3. Priority Assignment
-
-For each interface, assign a priority based on its importance to end-to-end user journeys:
-- **P0 (Critical)**: Supports core user journeys that must work for the feature to be usable
-- **P1 (High)**: Supports important flows that most users will rely on
-- **P2 (Medium)**: Supports edge-case flows, advanced features, or secondary paths
-
 ## Output Format
 
 Return your findings in this exact structure:
@@ -81,12 +74,12 @@ be covered. Each objective cites the AC it validates: (AC: #N)}
 
 ## Interfaces Under Test
 
-| Interface | Type | Purpose | Priority |
-|-----------|------|---------|----------|
-| {interface} | {REST/gRPC/UI/CLI/CRD} | {purpose} | {P0/P1/P2} |
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| {interface} | {REST/gRPC/UI/CLI/CRD} | {purpose} |
 
 ### Pending Details
-{List any functionality described in the strategy that lacks concrete endpoint/method details. If none, write "None — all interfaces fully specified."}
+{List any functionality described in the strategy that lacks concrete interface details. If none, write "None — all interfaces fully specified."}
 
 ## Gaps
 

@@ -62,16 +62,16 @@ class TestAnalyzeCommonSetup:
 
 | Test Case | Title | Priority |
 |-----------|-------|----------|
-| [TC-API-001](TC-API-001.md) | Test API endpoint | P0 |
+| [TC-NEG-001](TC-NEG-001.md) | Test API endpoint | P0 |
 | [TC-UI-001](TC-UI-001.md) | Test UI dashboard | P0 |
 """)
 
         # Create TCs with unique preconditions (no overlap)
-        (tc_dir / "TC-API-001.md").write_text("""---
-test_case_id: TC-API-001
+        (tc_dir / "TC-NEG-001.md").write_text("""---
+test_case_id: TC-NEG-001
 priority: P0
 ---
-# TC-API-001: Test API endpoint
+# TC-NEG-001: Test API endpoint
 
 **Objective**: Verify API endpoint returns correct response
 

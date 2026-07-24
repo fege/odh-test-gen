@@ -21,8 +21,8 @@ Usage:
         feature="MCP Catalog" source_key=RHAISTRAT-400 version=1.0.0 \
         status=Draft author="QA Team"
 
-    python3 scripts/frontmatter.py set mcp_catalog/test_cases/TC-API-001.md \
-        test_case_id=TC-API-001 source_key=RHAISTRAT-400 \
+    python3 scripts/frontmatter.py set mcp_catalog/test_cases/TC-E2E-001.md \
+        test_case_id=TC-E2E-001 source_key=RHAISTRAT-400 \
         priority=P0 status=Draft
 
     python3 scripts/frontmatter.py set mcp_catalog/TestPlanGaps.md \

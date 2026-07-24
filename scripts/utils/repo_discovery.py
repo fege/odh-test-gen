@@ -49,7 +49,7 @@ def extract_repo_indicators(testplan_path: str, tc_files: List[str]) -> Dict[str
     endpoints = []
 
     # --- Extract from Section 1.2 (Scope) ---
-    scope_match = re.search(r"###?\s+1\.2[:\s]+Scope(.*?)(?=###|\Z)", testplan_content, re.DOTALL | re.IGNORECASE)
+    scope_match = re.search(r"###?\s+1\.2[:\s]+Scope(.*?)(?=##|\Z)", testplan_content, re.DOTALL | re.IGNORECASE)
     if scope_match:
         scope_text = scope_match.group(1)
 
@@ -58,15 +58,15 @@ def extract_repo_indicators(testplan_path: str, tc_files: List[str]) -> Dict[str
             if re.search(r"\b" + re.escape(keyword) + r"\b", scope_text, re.IGNORECASE):
                 components.append(keyword)
 
-    # --- Extract from Section 4 (Endpoints/Methods Under Test) ---
+    # --- Extract from Section 4 (Interfaces Under Test) ---
     section4_match = re.search(
-        r"###?\s+4[:\s]+.*?(?:Endpoints?|Methods?)(.*?)(?=###|\Z)", testplan_content, re.DOTALL | re.IGNORECASE
+        r"###?\s+4[.:\s]+.*?Interfaces?(.*?)(?=##|\Z)", testplan_content, re.DOTALL | re.IGNORECASE
     )
     if section4_match:
         endpoints_text = section4_match.group(1)
 
         # Extract API paths (e.g., /api/v1/notebooks, /api/service-mesh/config)
-        api_pattern = r"(/api/[^\s\)\|]+)"
+        api_pattern = r"(/api/[^\s\)\|`]+)"
         api_endpoints = re.findall(api_pattern, endpoints_text)
         endpoints.extend(api_endpoints)
 

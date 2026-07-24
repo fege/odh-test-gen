@@ -37,7 +37,7 @@ Test objectives here.
 ### 1.2 Scope
 {scope_text}
 
-## 4. Endpoints Under Test
+## 4. Interfaces Under Test
 {endpoints_text}
 """)
 
@@ -97,7 +97,7 @@ Test objectives here.
         self._create_testplan(
             tmp_path,
             components=None,
-            scope_text="Tests the ODH Dashboard REST API for managing notebooks.",
+            scope_text="Tests the system end-to-end.",
             endpoints_text="| `/api/v1/dashboard/config` | GET | Config |\n| `/api/v1/notebooks` | POST | Create |",
         )
 

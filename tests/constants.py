@@ -23,8 +23,9 @@ VALID_TEST_PLAN_DATA = {
 }
 
 VALID_TEST_CASE_DATA = {
-    "test_case_id": "TC-API-001",
+    "test_case_id": "TC-E2E-001",
     "source_key": "RHAISTRAT-400",
+    "objectives": [1],
     "priority": "P0",
     "status": "Draft",
     "last_updated": "2026-04-14",
@@ -57,7 +58,7 @@ VALID_TEST_GAPS_DATA = {
 
 # TC file content templates for parser tests
 TC_WITH_FRONTMATTER_TITLE = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 priority: P0
 title: Create notebook via API
 ---
@@ -67,7 +68,7 @@ Test API endpoint.
 """
 
 TC_WITH_TITLE_SECTION = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 priority: P0
 ---
 
@@ -79,7 +80,7 @@ Test deletion.
 """
 
 TC_WITHOUT_TITLE = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 priority: P0
 ---
 
@@ -107,7 +108,7 @@ This feature enables users to spawn Jupyter notebooks.
 
 # Minimal valid TC file
 MINIMAL_TC_CONTENT = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 priority: P0
 ---
 
@@ -593,6 +594,31 @@ STRAT_OOS_MIXED = (
     "\nh3. Acceptance Criteria\n"
 )
 
+STRAT_AC_NUMBERED_NO_BLANK_LINES = (
+    "h3. Acceptance Criteria\n\n"
+    "# Given a user opens a session, when the page loads, then a tile is visible.\n"
+    "# Given a user clicks the tile, when the dialog opens, then samples are shown.\n"
+    "# Given the dialog is open, when the user selects a filter, then results update.\n"
+    "\nh3. Effort Estimate\n"
+)
+
+STRAT_AC_STAR_BULLETS_NO_BLANK_LINES = (
+    "h3. Acceptance Criteria (Proposed -- requires PM/Engineering validation)\n\n"
+    "* Given a user opens the form, when they submit valid input, then the entry is created\n"
+    "* Given a user submits invalid input, when validation runs, then an error is shown\n"
+    "* Given a duplicate name is submitted, when validation runs, then the request is rejected\n"
+    "\nh3. Effort Estimate\n"
+)
+
+STRAT_NFR_WRAPPED_BULLET = (
+    "h3. Non-Functional Requirements\n\n"
+    "* *Security*: Registration is namespace-scoped; the gen-ai BFF enforces\n"
+    "namespace isolation via the user token's RBAC permissions, consistent\n"
+    "with all other BFF endpoints.\n"
+    "* *Performance*: Connectivity validation enforces a configurable timeout.\n"
+    "\nh3. Out-of-Scope\n"
+)
+
 # TestPlan.md with allowed TC categories in Section 5.2 (valid)
 TESTPLAN_VALID_CATEGORIES = """---
 feature: Test Feature
@@ -687,11 +713,11 @@ author: QE Team
 
 ## 4. Interfaces Under Test
 
-| Interface | Type | Purpose | Priority |
-|-----------|------|---------|----------|
-| `/v1/chat/completions` | REST | Chat inference | P0 |
-| NemoGuardrails CRD | CRD | Guardrail configuration | P1 |
-| Dashboard model page | UI | Model management | P0 |
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| NemoGuardrails CRD | CRD | Guardrail configuration |
+| Dashboard model page | UI | Model management |
 """
 
 # TestPlan.md with Config-type entries in Section 4 (invalid)
@@ -708,12 +734,160 @@ author: QE Team
 
 ## 4. Interfaces Under Test
 
-| Interface | Type | Purpose | Priority |
-|-----------|------|---------|----------|
-| `/v1/chat/completions` | REST | Chat inference | P0 |
-| `config.yaml` | Config | Runtime configuration | P1 |
-| `BASE_URL` env var | Config | Service endpoint | P1 |
-| Dashboard model page | UI | Model management | P0 |
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `config.yaml` | Config | Runtime configuration |
+| `BASE_URL` env var | Config | Service endpoint |
+| Dashboard model page | UI | Model management |
+"""
+
+# TestPlan.md where Section 9.2 and 6.2 fully cover Section 4 interfaces
+TESTPLAN_INTERFACE_COVERAGE_FULL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+| `/v1/models` | TC-E2E-002 |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | | |
+| `/v1/models` | | |
+"""
+
+# TestPlan.md where Section 9.2 is missing an interface from Section 4
+TESTPLAN_INTERFACE_COVERAGE_MISSING_9_2 = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| | |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | | |
+"""
+
+# TestPlan.md where Section 6.2 is populated but missing an interface from Section 4
+TESTPLAN_INTERFACE_COVERAGE_MISSING_6_2 = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | | |
+| `/v1/models` | | |
+"""
+
+# TestPlan.md where Section 6.2 is still the pre-create-cases placeholder (skip check)
+TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_6_2 = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| | |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | | |
+| `/v1/models` | | |
 """
 
 # TestPlan.md with clean test infra (no SUT/dev tooling)
@@ -766,15 +940,16 @@ author: QE Team
 """
 
 VALID_TC_CONTENT = """---
-test_case_id: TC-API-001
-source_key: RHAISTRAT-1519
+test_case_id: TC-E2E-001
+source_key: RHAISTRAT-400
+objectives: [1]
 priority: P0
 status: Draft
 last_updated: "2026-05-05"
 automation_status: Not Started
 ---
 
-# TC-API-001: Test title
+# TC-E2E-001: Test title
 
 **Objective**: Test objective
 

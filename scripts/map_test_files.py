@@ -10,15 +10,15 @@ Usage:
 
 Strategies:
     - one-per-tc: One file per test case
-    - by-category: Group by category (TC-API, TC-E2E, etc.)
+    - by-category: Group by category (TC-NEG, TC-E2E, etc.)
     - by-category-with-subdirs: Categories in subdirectories
 
 Output (JSON):
     {
         "file_mapping": [
             {
-                "file_path": "tests/test_api_notebooks.py",
-                "test_cases": ["TC-API-001", "TC-API-002"],
+                "file_path": "tests/test_neg_notebooks.py",
+                "test_cases": ["TC-NEG-001", "TC-NEG-002"],
                 "function_names": ["test_create_notebook", "test_delete_notebook"]
             }
         ],

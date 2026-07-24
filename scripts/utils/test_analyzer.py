@@ -23,7 +23,7 @@ def identify_common_setup_requirements(test_cases: List[Dict]) -> List[Dict]:
         List of common requirements, sorted by usage count (descending):
         [{
             'requirement': 'RHOAI cluster deployed',
-            'used_by_tcs': ['TC-API-001', 'TC-API-002', 'TC-E2E-001'],
+            'used_by_tcs': ['TC-NEG-001', 'TC-NEG-002', 'TC-E2E-001'],
             'count': 3,
             'tc_priorities': ['P0', 'P1', 'P0']
         }]

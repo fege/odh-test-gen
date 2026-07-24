@@ -27,7 +27,7 @@ The parent skill passes:
 Old TestPlan.md: <full_content>
 
 New Findings from Analyzers:
-- Endpoints: <findings_from_test-plan.analyze.endpoints>
+- Interfaces: <findings_from_test-plan.analyze.endpoints>
 - Risks: <findings_from_test-plan.analyze.risks>
 - Infrastructure: <findings_from_test-plan.analyze.infra>
 
@@ -51,7 +51,7 @@ Store each section's content as baseline.
 ### Step 2: Parse New Analyzer Findings
 
 Extract new findings:
-- **From endpoints analyzer**: new scope items, new test objectives, new endpoints/methods
+- **From endpoints analyzer**: new scope items, new test objectives, new interfaces
 - **From risks analyzer**: new test types, updated priority definitions, new risks, updated NFR assessments
 - **From infra analyzer**: new environment requirements, new test data needs, new dependencies
 
@@ -94,10 +94,10 @@ For each section, apply this merge logic:
 - Merge additively: add new requirements, test data, users
 - Keep existing entries
 
-**Section 4 (Endpoints/Methods Under Test)**:
-- Add new endpoints from endpoints analyzer
-- Keep existing endpoints
-- Mark deprecated endpoints (if explicitly identified as removed)
+**Section 4 (Interfaces Under Test)**:
+- Add new interfaces from endpoints analyzer
+- Keep existing interfaces
+- Mark deprecated interfaces (if explicitly identified as removed)
 - Preserve any user-added notes or clarifications
 
 **Section 7 (Non-Functional Requirements)**:
@@ -125,8 +125,8 @@ Track all changes made:
 - Added 2 new in-scope items
 - Updated purpose to reflect new API spec details
 
-### Section 4 (Endpoints/Methods Under Test)
-- Added 3 new endpoints: POST /catalog/items, GET /catalog/items/{id}, DELETE /catalog/items/{id}
+### Section 4 (Interfaces Under Test)
+- Added 3 new interfaces: POST /catalog/items, GET /catalog/items/{id}, DELETE /catalog/items/{id}
 - Marked deprecated: GET /legacy/catalog (removed in v2.0)
 
 ### Section 7 (Non-Functional Requirements)
@@ -157,7 +157,7 @@ Return structured output for the parent skill:
 
 <full_updated_section_2_content>
 
-### Section 4: Endpoints/Methods Under Test
+### Section 4: Interfaces Under Test
 
 <full_updated_section_4_content>
 
@@ -184,7 +184,7 @@ Return structured output for the parent skill:
 
 ## Anti-hallucination Rules
 
-- Do NOT invent new endpoints not present in the new analyzer findings
+- Do NOT invent new interfaces not present in the new analyzer findings
 - Do NOT remove existing content unless explicitly contradicted by new findings
 - Do NOT modify test case sections (5, 6, 10) — they're owned by other skills
 - If unsure whether to keep or update a section → keep it (preserve user intent)

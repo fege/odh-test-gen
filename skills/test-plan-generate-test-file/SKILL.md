@@ -89,7 +89,7 @@ Returns JSON: `{"functions": [{"name": "...", "line": 42, "docstring": "..."}]}`
 If already-implemented tests found, ask user via AskUserQuestion:
 ```
 ✓ Found {N} already-implemented test(s) in {file_path}:
-  - TC-API-001: test_notebook_creation (line 42)
+  - TC-E2E-001: test_notebook_creation (line 42)
 
 Options:
 1. Skip them - Only implement missing tests
@@ -140,7 +140,7 @@ For each TC in `tcs_for_this_file` (sequential):
 
 **Docstring:**
 - Format: `{tc_id}: {objective}`
-- Example: `TC-API-001: Verify metadata fields match expected schema`
+- Example: `TC-E2E-001: Verify metadata fields match expected schema`
 
 **Implementation** (AAA pattern):
 - **Arrange**: Setup from preconditions

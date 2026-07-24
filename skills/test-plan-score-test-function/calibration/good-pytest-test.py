@@ -18,7 +18,7 @@ import pytest
 
 @pytest.mark.tier1
 def test_retrieve_tool_calling_metadata(model_catalog_client):
-    """TC-API-001: Verify Model Catalog BFF API returns complete tool-calling metadata."""
+    """TC-E2E-001: Verify Model Catalog BFF API returns complete tool-calling metadata."""
     # Arrange - from TC preconditions
     model_id = "RedHatAI/granite-3.1-8b-instruct"  # Exact ID from TC Expected Response
 

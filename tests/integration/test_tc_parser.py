@@ -26,13 +26,13 @@ class TestParseTcFile:
 
     def test_parse_complete_tc_file(self, tmp_path):
         """Should parse complete TC file with all sections."""
-        tc_file = tmp_path / "TC-API-001.md"
+        tc_file = tmp_path / "TC-E2E-001.md"
         tc_file.write_text(VALID_COMPLETE_TC)
 
         result = parse_tc_file(str(tc_file), read_frontmatter)
 
         # Frontmatter
-        assert result["test_case_id"] == "TC-API-001"
+        assert result["test_case_id"] == "TC-E2E-001"
         assert result["priority"] == "P0"
 
         # Mandatory sections

@@ -28,5 +28,5 @@ def feature_dir(tmp_path):
     tc_dir = tmp_path / "test_cases"
     tc_dir.mkdir()
     (tc_dir / "INDEX.md").write_text("# Index")
-    (tc_dir / "TC-API-001.md").write_text(VALID_TC_CONTENT)
+    (tc_dir / "TC-E2E-001.md").write_text(VALID_TC_CONTENT)
     return str(tmp_path)

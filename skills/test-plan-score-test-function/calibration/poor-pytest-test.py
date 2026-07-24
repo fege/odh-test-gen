@@ -14,7 +14,7 @@ import pytest
 
 @pytest.mark.p0  # Bad - marker invented, not from repo conventions
 def test_retrieve_tool_calling_metadata(api_client):
-    """TC-API-001: Verify that the API returns complete tool-calling metadata."""
+    """TC-E2E-001: Verify that the API returns complete tool-calling metadata."""
     # Arrange
     model_id = "test-model"  # Placeholder instead of exact ID from TC
 

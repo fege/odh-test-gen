@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("TC-API-001: Retrieve tool-calling metadata", func() {
+var _ = Describe("TC-E2E-001: Retrieve tool-calling metadata", func() {
 	It("should return complete tool-calling metadata for granite model", func() {
 		By("setting up request identity from TC preconditions")
 		requestIdentity := kubernetes.RequestIdentity{

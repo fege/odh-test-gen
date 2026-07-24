@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("TC-API-001", func() {
+var _ = Describe("TC-E2E-001", func() {
 	It("should get model", func() {
 		// Missing request identity setup from TC preconditions
 		modelID := "test-model" // Placeholder instead of exact TC ID

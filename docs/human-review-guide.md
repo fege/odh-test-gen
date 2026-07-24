@@ -128,7 +128,7 @@ Each PR contains up to four types of artifact:
 
 | File | Purpose |
 |------|---------|
-| `TestPlan.md` | The test plan -- 10 sections covering scope, strategy, environment, endpoints, test cases, NFRs, risks |
+| `TestPlan.md` | The test plan -- 9 sections covering scope, strategy, environment, interfaces, test cases, NFRs, risks |
 | `TestPlanGaps.md` | Known gaps where the AI lacked source material |
 | `TestPlanReview.md` | Automated rubric scores with evidence and cross-references |
 | `test_cases/TC-*.md` | Individual test case specifications |
@@ -161,12 +161,12 @@ What to check:
 
 #### Grounding (Section 4)
 
-**Smell test**: For every entry in Section 4 (endpoints/methods under
+**Smell test**: For every entry in Section 4 (interfaces under
 test), can you point to the exact sentence in the strategy or ADR that
 justifies it? If not, it may be fabricated.
 
 What to check:
-- Are endpoint paths, method signatures, and version numbers traceable
+- Are interface paths, method signatures, and version numbers traceable
   to the strategy or ADR?
 - Are unknowns marked as TBD (acceptable) rather than filled with
   plausible-sounding but invented details (not acceptable)?
@@ -175,7 +175,7 @@ What to check:
 
 **This is the most important criterion for human review.** The
 automated scorer can detect structural fabrication patterns, but only a
-domain expert can verify whether a specific endpoint path or API
+domain expert can verify whether a specific interface path or API
 contract is real.
 
 #### Scope Fidelity (Section 1, Section 4)
@@ -187,7 +187,7 @@ direction indicate misalignment.
 What to check:
 - Does every in-scope item from the strategy map to at least one test
   objective?
-- Are out-of-scope items truly absent from Section 4 endpoints?
+- Are out-of-scope items truly absent from Section 4 interfaces?
 - Is there scope creep (testing things the strategy doesn't mention)?
 
 #### Actionability (Section 3, Section 9)
@@ -206,14 +206,16 @@ What to check:
 #### Consistency (cross-section)
 
 Run these six cross-checks:
-1. Section 4 endpoints are a subset of Section 1.2 scope
+1. Section 4 interfaces are a subset of Section 1.2 scope
 2. Section 2.1 test levels match interface types in Section 4
-3. Priority assignments in Section 4 match Section 2.3 definitions
-4. Section 10.2 lists every endpoint from Section 4
+3. Priority assignments in Section 6.1 match Section 2.3 definitions
+4. Section 9.2 lists every interface from Section 4 (checked
+   deterministically -- see `TestPlanReview.md`'s interface-coverage
+   result)
 5. Section 7 NFR categories are consistent with feature scope (e.g.,
    a feature that pulls images should not mark Disconnected as N/A)
-6. Section 6.2 E2E Coverage Matrix includes all P0 endpoints (if test
-   cases have been generated)
+6. Section 6.2 E2E Coverage Matrix includes all interfaces (checked
+   deterministically; expected unpopulated until create-cases runs)
 
 ### 4. Review test cases
 
@@ -234,8 +236,9 @@ them for:
 
 #### Coverage
 
-- Does the test case set cover all endpoints/methods from Section 4?
-- Are P0 endpoints covered by at least one test case?
+- Does the test case set cover all interfaces from Section 4?
+- Do P0 flows in Section 6.1 have adequate test case coverage (not
+  just P2 test cases)?
 - Is there a mix of positive, negative, and boundary test cases?
 - Do E2E test cases (TC-E2E-*) cover the user journeys described in
   the strategy?
@@ -295,7 +298,7 @@ The test plan is now the basis for test automation via
 ### QE Engineer (feature owner)
 
 You know the feature best. Focus on:
-- **Grounding** -- Are the endpoints and API contracts real? Are
+- **Grounding** -- Are the interfaces and API contracts real? Are
   versions correct?
 - **Completeness** -- Are there test scenarios the AI missed that you
   know are important?
@@ -309,9 +312,9 @@ Focus on:
 - **Scope fidelity** -- Does the test plan match what was agreed in the
   strategy?
 - **Priority alignment** -- Are the right things marked P0?
-- **NFRs** -- Are disconnected, upgrade, performance, and RBAC
-  considerations properly addressed or explicitly marked N/A with
-  justification?
+- **NFRs** -- Are disconnected, upgrade, performance, RBAC, and
+  security considerations properly addressed or explicitly marked
+  N/A with justification?
 - **Gaps** -- Are the gaps in `TestPlanGaps.md` blockers, or can
   testing proceed?
 
@@ -330,14 +333,14 @@ Focus on:
 | Issue | Where to Look | Fix |
 |-------|--------------|-----|
 | Generic priority definitions | Section 2.3 | PR comment: "P0 should reference [specific scenario]" |
-| Fabricated endpoint paths | Section 4, TestPlanReview.md grounding table | PR comment with correct paths, or provide ADR |
+| Fabricated interface paths | Section 4, TestPlanReview.md grounding table | PR comment with correct paths, or provide ADR |
 | Missing test scenarios | Section 4, test_cases/ | PR comment describing the missing scenario |
 | Vague environment setup | Sections 3, 9 | PR comment with specific versions and config |
 | Scope creep (testing out-of-scope items) | Section 1.2 vs Section 4 | PR comment identifying out-of-scope entries |
 | NFR marked N/A incorrectly | Section 7 | PR comment explaining why the category applies |
 | TBDs that you can resolve | TestPlanGaps.md | PR comment with the answer, or provide the source doc |
-| Inconsistent cross-references | Section 10.2 vs Section 4 | PR comment (often auto-fixed by the pipeline) |
-| Missing E2E coverage for P0 endpoints | Section 6.2 | PR comment requesting E2E test cases |
+| Inconsistent cross-references | Section 9.2 vs Section 4 | PR comment (often auto-fixed by the pipeline) |
+| Missing E2E coverage for interfaces | Section 6.2 | PR comment requesting E2E test cases |
 
 ## Key Rules
 
@@ -353,7 +356,7 @@ Focus on:
 5. **Don't fix what the pipeline can fix.** Consistency issues
    (mismatched tables, missing cross-references) are often handled by
    auto-revision. Focus your review on domain accuracy.
-6. **Check fabrication carefully.** A plausible-sounding endpoint
+6. **Check fabrication carefully.** A plausible-sounding interface
    path that doesn't exist is worse than a TBD, because downstream
    test cases will be built on it.
 

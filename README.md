@@ -208,7 +208,7 @@ export CLAUDE_NON_INTERACTIVE=true
 /test-plan-case-implement mcp_catalog
 
 # Generate code for specific test cases only
-/test-plan-case-implement mcp_catalog --test-cases TC-API-001,TC-API-002
+/test-plan-case-implement mcp_catalog --test-cases TC-E2E-001,TC-E2E-002
 
 # Score a test plan without triggering auto-revision
 /test-plan-score mcp_catalog

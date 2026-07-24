@@ -264,15 +264,15 @@ def extract_category_from_tc_id(tc_id: str) -> str:
     Extract category from TC ID.
 
     Args:
-        tc_id: Test case ID (e.g., 'TC-API-001', 'TC-E2E-042')
+        tc_id: Test case ID (e.g., 'TC-NEG-001', 'TC-E2E-042')
 
     Returns:
-        Category name in lowercase (e.g., 'api', 'e2e')
+        Category name in lowercase (e.g., 'neg', 'e2e')
         Returns 'other' if format is invalid
 
     Examples:
-        >>> extract_category_from_tc_id("TC-API-001")
-        'api'
+        >>> extract_category_from_tc_id("TC-NEG-001")
+        'neg'
         >>> extract_category_from_tc_id("TC-E2E-042")
         'e2e'
         >>> extract_category_from_tc_id("INVALID")

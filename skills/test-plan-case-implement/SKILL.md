@@ -22,14 +22,14 @@ Generate executable test automation code (pytest, etc.) from TC-*.md test case s
 ## Usage
 
 ```
-/test-plan-case-implement <FEATURE_SOURCE> [--test-cases TC-API-001,TC-API-002] [--target-repo ~/Code/opendatahub-tests]
+/test-plan-case-implement <FEATURE_SOURCE> [--test-cases TC-NEG-001,TC-NEG-002] [--target-repo ~/Code/opendatahub-tests]
 ```
 
 Examples:
 - `/test-plan-case-implement features/notebooks/RHAISTRAT-400-notebook-spawning`
 - `/test-plan-case-implement https://github.com/opendatahub-io/opendatahub-test-plans/pull/7` (GitHub PR)
 - `/test-plan-case-implement test-plan/RHAISTRAT-400` (GitHub branch)
-- `/test-plan-case-implement https://github.com/opendatahub-io/opendatahub-test-plans/pull/7 --test-cases TC-API-001,TC-API-002` (selective)
+- `/test-plan-case-implement https://github.com/opendatahub-io/opendatahub-test-plans/pull/7 --test-cases TC-NEG-001,TC-NEG-002` (selective)
 - `/test-plan-case-implement features/notebooks/RHAISTRAT-400 --target-repo ~/Code/opendatahub-tests`
 
 **Note:** After publishing a test plan, artifacts only exist on the PR branch. Pass the PR URL:
@@ -46,7 +46,7 @@ Parse `$ARGUMENTS` to extract:
    - Local path: `features/notebooks/RHAISTRAT-400-notebook-spawning`
    - GitHub PR: `https://github.com/org/repo/pull/7`
    - GitHub branch: `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400` or `test-plan/RHAISTRAT-400`
-2. **`--test-cases`** (optional): Comma-separated list of test case IDs to implement (e.g., `TC-API-001,TC-API-002,TC-E2E-001`)
+2. **`--test-cases`** (optional): Comma-separated list of test case IDs to implement (e.g., `TC-NEG-001,TC-NEG-002,TC-E2E-001`)
 3. **`--target-repo`** (optional): Override auto-detected target repository path or URL
 
 If the first argument is missing or starts with `--`, fail with usage error showing required format and PR/local path examples.
@@ -297,7 +297,7 @@ If any TCs are placed `downstream` or `both`, locate downstream repository:
 #### 3.1 Parse --test-cases argument
 
 If `--test-cases` was provided:
-1. Parse comma-separated list (e.g., `TC-API-001,TC-API-002,TC-E2E-001`)
+1. Parse comma-separated list (e.g., `TC-NEG-001,TC-NEG-002,TC-E2E-001`)
 2. Validate each TC ID exists in `test_cases/`
 3. If any TC ID not found, inform user and stop
 4. Set `selected_test_cases = [parsed TC IDs]`
@@ -508,7 +508,7 @@ Build updates array from sub-agent results (ONLY for successfully implemented TC
 
 Update frontmatter in bulk:
 ```bash
-# updates.json: [{"tc_id": "TC-API-001", "automation_status": "Implemented", "file": "...", "function": "..."}]
+# updates.json: [{"tc_id": "TC-NEG-001", "automation_status": "Implemented", "file": "...", "function": "..."}]
 echo "$updates_json" | (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/update_tc_frontmatter.py "$feature_dir" -)
 ```
 

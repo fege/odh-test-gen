@@ -10,7 +10,7 @@ Usage:
 updates.json format:
     [
         {
-            "tc_id": "TC-API-001",
+            "tc_id": "TC-E2E-001",
             "automation_status": "Complete",
             "automation_file": "tests/test_api.py",
             "automation_function": "test_create_notebook"
@@ -20,7 +20,7 @@ updates.json format:
 Output (JSON):
     {
         "updated_count": 2,
-        "updated_tcs": ["TC-API-001", "TC-API-002"],
+        "updated_tcs": ["TC-E2E-001", "TC-E2E-002"],
         "errors": []
     }
 """

@@ -78,6 +78,13 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 4. Store the raw strategy text for passing to sub-agents.
 
+5. Compute interface coverage deterministically (Section 9.2 and Section 6.2 vs Section 4 are a mechanical table diff, not an LLM judgment call):
+   ```bash
+   interface_coverage_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+       uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md 2>/dev/null || true)
+   ```
+   `valid: false` here is expected pre-create-cases (Section 6.2 not yet populated) — this is not a failure, just data for the score agent.
+
 ### Step 2: Score (fork)
 
 Read the score agent prompt from `${CLAUDE_SKILL_DIR}/prompts/score-agent.md`.
@@ -87,6 +94,7 @@ Launch a **forked** score agent with these substitutions:
 - `{TEST_PLAN_PATH}` = `<feature_dir>/TestPlan.md`
 - `{STRATEGY_TEXT}` = raw strategy description text from Step 1
 - `{CALIBRATION_DIR}` = `${CLAUDE_SKILL_DIR}/calibration/`
+- `{INTERFACE_COVERAGE_RESULT}` = JSON from Step 1.5 (`interface_coverage_result`)
 
 The score agent evaluates the test plan against a 5-criterion rubric (specificity, grounding, scope fidelity, actionability, consistency) and returns a structured assessment with per-criterion scores and a grounding cross-reference table.
 
@@ -101,13 +109,14 @@ The score agent evaluates the test plan against a 5-criterion rubric (specificit
 | 2.3 Priorities | Are P0/P1/P2 definitions specific to this feature, not generic? |
 | 3.1 Cluster Config | Are versions and dependencies specified or marked TBD? |
 | 3.2 Test Data | Are test data requirements concrete enough to act on? |
-| 4 Endpoints/Methods | Are entries grounded in source documents, not fabricated? |
+| 4 Interfaces Under Test | Are entries grounded in source documents, not fabricated? |
 | 6.1 E2E Scenarios | Is the E2E Scenario Summary populated with TC-E2E-* entries? (Note: expected to be empty until create-cases runs) |
-| 6.2 E2E Coverage | Does each P0 endpoint from Section 4 have E2E scenario coverage in Section 6.2? (Note: expected to be empty until create-cases runs) |
+| 6.2 E2E Coverage | Does each interface from Section 4 have E2E scenario coverage in Section 6.2? Checked deterministically via `interface-coverage` (Step 1.5), not LLM table-reading. (Note: expected to be empty until create-cases runs) |
 | 7.1 Disconnected | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
 | 7.2 Upgrade | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
 | 7.3 Performance | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
 | 7.4 RBAC | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
+| 7.5 Security | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
 | 8 Risks | Are risks specific to this feature, not boilerplate? |
 | 9 Environment | Is there enough detail to set up a test environment? |
 
@@ -123,12 +132,12 @@ Launch a **forked** review agent with these substitutions:
 The review agent writes `<feature_dir>/TestPlanReview.md` with rubric scores, feedback, and validated frontmatter.
 
 **Consistency checks performed by the review agent:**
-- Do the endpoints in Section 4 align with the scope in Section 1.2?
+- Do the interfaces in Section 4 align with the scope in Section 1.2?
 - Do the test levels in Section 2.1 match the interface types in Section 4?
-- Are priority assignments in Section 4 consistent with the definitions in Section 2.3?
-- Does Section 9.2 list all endpoints from Section 4?
+- Are priority assignments in Section 6.1 consistent with the definitions in Section 2.3?
+- Does Section 9.2 list all interfaces from Section 4? (deterministic — from the `interface-coverage` result computed in Step 1.5, not re-derived)
 - Are NFR categories in Section 7 consistent with the feature scope? (e.g., a feature that pulls images should not mark Disconnected as N/A)
-- Does Section 6.2 E2E Coverage Matrix include all P0 endpoints from Section 4? (Note: expected to be empty until create-cases runs)
+- Does Section 6.2 E2E Coverage Matrix include all interfaces from Section 4? (deterministic — from the `interface-coverage` result; expected unpopulated until create-cases runs)
 
 ### Step 4: Check Criteria and Revise (max 2 cycles)
 

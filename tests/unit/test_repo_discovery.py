@@ -43,13 +43,14 @@ class TestExtractRepoIndicators:
         testplan = tmp_path / "TestPlan.md"
         testplan.write_text(TESTPLAN_FOR_TC_PRECONDITIONS)
 
-        tc_file = tmp_path / "TC-API-001.md"
+        tc_file = tmp_path / "TC-E2E-001.md"
         tc_file.write_text(TC_WITH_COMPONENT_MENTIONS)
 
         result = extract_repo_indicators(str(testplan), [str(tc_file)])
 
         assert "notebooks" in result["components"]
         assert "model-registry" in result["components"]
+        assert "/api/v1/config" in result["endpoints"]
 
     def test_deduplicates_components(self, tmp_path):
         """Should deduplicate component mentions."""

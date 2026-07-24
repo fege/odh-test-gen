@@ -59,7 +59,7 @@ def test_stages_test_cases_when_dir_exists(git_repo):
     add_feature(
         git_repo,
         "feat",
-        ["TestPlan.md", "README.md", "test_cases/INDEX.md", "test_cases/TC-API-001.md"],
+        ["TestPlan.md", "README.md", "test_cases/INDEX.md", "test_cases/TC-E2E-001.md"],
     )
 
     exit_code, result = stage_artifacts(str(git_repo), "feat")
@@ -67,7 +67,7 @@ def test_stages_test_cases_when_dir_exists(git_repo):
     assert exit_code == 0
     staged = _staged_files(git_repo)
     assert "feat/test_cases/INDEX.md" in staged
-    assert "feat/test_cases/TC-API-001.md" in staged
+    assert "feat/test_cases/TC-E2E-001.md" in staged
 
 
 @pytest.mark.parametrize(

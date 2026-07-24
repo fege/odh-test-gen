@@ -5,12 +5,12 @@ TC file content strings for testing tc_parser.py
 """
 
 VALID_COMPLETE_TC = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 source_key: RHAISTRAT-1262
 priority: P0
 status: Draft
 ---
-# TC-API-001: Test Title
+# TC-E2E-001: Test Title
 
 **Objective**: Verify that the API returns correct metadata
 
@@ -36,7 +36,7 @@ status: Draft
 """
 
 TC_WITH_MULTILINE_ITEMS = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 ---
 **Objective**: Test multiline
 
@@ -56,7 +56,7 @@ test_case_id: TC-API-001
 """
 
 TC_WITH_EMPTY_LINES = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 ---
 **Objective**: Test
 
@@ -77,7 +77,7 @@ test_case_id: TC-API-001
 """
 
 TC_MISSING_OBJECTIVE = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 ---
 **Preconditions**:
 - Req
@@ -90,7 +90,7 @@ test_case_id: TC-API-001
 """
 
 TC_EMPTY_PRECONDITIONS = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 ---
 **Objective**: Test
 
@@ -104,7 +104,7 @@ test_case_id: TC-API-001
 """
 
 TC_MISSING_TEST_STEPS = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 ---
 **Objective**: Test
 
@@ -116,7 +116,7 @@ test_case_id: TC-API-001
 """
 
 TC_MISSING_EXPECTED_RESULTS = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 ---
 **Objective**: Test
 
@@ -128,7 +128,7 @@ test_case_id: TC-API-001
 """
 
 TC_WITH_OPTIONAL_SECTIONS = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 ---
 **Objective**: Test
 
@@ -158,7 +158,7 @@ test_case_id: TC-API-001
 """
 
 TC_WITH_BULLET_TEST_STEPS = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 ---
 **Objective**: Test
 
@@ -179,12 +179,12 @@ TESTPLAN_WITH_ENDPOINTS = """---
 feature: Test Feature
 source_key: RHAISTRAT-1262
 ---
-### 4: Endpoints/Methods Under Test
+### 4: Interfaces Under Test
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| /api/v1/notebooks | GET | List notebooks |
-| /api/v1/models | POST | Create model |
+| Interface | Type | Description |
+|-----------|------|-------------|
+| /api/v1/notebooks | REST | List notebooks |
+| /api/v1/models | REST | Create model |
 """
 
 TESTPLAN_WITH_SCOPE_COMPONENTS = """---
@@ -201,12 +201,12 @@ feature: Test
 ### 1.2 Scope
 Test scope
 
-### 4: Endpoints
-None
+## 4. Interfaces Under Test
+| /api/v1/config | GET | Read config |
 """
 
 TC_WITH_COMPONENT_MENTIONS = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 priority: P0
 ---
 **Objective**: Test

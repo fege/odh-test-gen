@@ -7,11 +7,13 @@ You are a test plan quality scorer. Apply the rubric below to the test plan and 
 Feature directory: {FEATURE_DIR}
 Test plan path: {TEST_PLAN_PATH}
 Strategy text (inline): {STRATEGY_TEXT}
+Interface coverage result (precomputed, inline JSON): {INTERFACE_COVERAGE_RESULT}
 
 ## Inputs
 
 1. Read the test plan from `{TEST_PLAN_PATH}`
 2. The raw strategy text is provided inline above — use it as the ground-truth source for grounding checks
+3. The interface coverage result is provided inline above — it is the precomputed, deterministic diff of Section 4 interfaces against Section 9.2 and Section 6.2. Use its `missing_in_9_2` and `missing_in_6_2` fields directly for the corresponding Consistency cross-checks below. Do NOT re-derive these two checks by reading the tables yourself.
 
 ## Rubric — 5 Criteria, 0-2 Each, Total 0-10
 
@@ -29,13 +31,13 @@ Strategy text (inline): {STRATEGY_TEXT}
 
 | Score | Definition |
 |-------|------------|
-| **0** | Contains fabricated endpoint paths, invented API signatures, assumed versions, or technical details not present in the strategy or ADR. |
-| **1** | Mostly grounded, but some extrapolation beyond sources (e.g., inferred endpoint paths from component names, assumed versions from general knowledge). |
+| **0** | Contains fabricated interface paths, invented API signatures, assumed versions, or technical details not present in the strategy or ADR. |
+| **1** | Mostly grounded, but some extrapolation beyond sources (e.g., inferred interface paths from component names, assumed versions from general knowledge). |
 | **2** | All technical details traceable to strategy/ADR. Unknowns explicitly marked as TBD with the document type that would resolve them — not guessed at. |
 
 **Smell test:** For every entry in Section 4, can you point to the exact sentence in the strategy or ADR that justifies it? If not, it's fabricated.
 
-**GROUNDING CROSS-REFERENCE (required):** For each entry in Section 4 (endpoints/methods under test), you MUST:
+**GROUNDING CROSS-REFERENCE (required):** For each entry in Section 4 (interfaces under test), you MUST:
 1. Search the strategy text for the specific sentence or phrase that justifies the entry
 2. If found, cite the source sentence verbatim in your notes
 3. If NOT found, mark the entry as "SUSPECTED FABRICATION — no source match"
@@ -45,8 +47,8 @@ Strategy text (inline): {STRATEGY_TEXT}
 | Score | Definition |
 |-------|------------|
 | **0** | Major misalignment — testing things the strategy doesn't mention, or missing key in-scope items. Test objectives don't trace back to strategy requirements. |
-| **1** | Minor gaps — most in-scope items covered, but some strategy requirements have no corresponding test objective, or out-of-scope items bleed into endpoints/test levels. |
-| **2** | Every in-scope item from the strategy maps to at least one test objective. Every out-of-scope item is truly absent from endpoints and test levels. No scope creep, no scope gaps. |
+| **1** | Minor gaps — most in-scope items covered, but some strategy requirements have no corresponding test objective, or out-of-scope items bleed into interfaces/test levels. |
+| **2** | Every in-scope item from the strategy maps to at least one test objective. Every out-of-scope item is truly absent from interfaces and test levels. No scope creep, no scope gaps. |
 
 **Smell test:** List the strategy's deliverables. For each one, find the test objective that covers it. Any orphans in either direction = misalignment.
 
@@ -64,17 +66,17 @@ Strategy text (inline): {STRATEGY_TEXT}
 
 | Score | Definition |
 |-------|------------|
-| **0** | Contradictions — endpoints in Section 4 not covered by scope in Section 1.2, priority assignments conflict with definitions, test levels don't match interface types, NFR categories marked N/A despite feature scope requiring them. |
-| **1** | Minor inconsistencies — Section 9.2 missing an endpoint from Section 4, a test level in 2.1 with no corresponding entries in Section 4, Section 6.2 missing a P0 endpoint (post-create-cases only). |
-| **2** | All cross-references align: scope -> objectives -> endpoints -> coverage tables (both Section 6.2 E2E and Section 9.2 API). Priority assignments match definitions. Test levels correspond to actual interface types under test. NFR categories align with feature scope. Section 6 placeholder present pre-create-cases. |
+| **0** | Contradictions — interfaces in Section 4 not covered by scope in Section 1.2, priority assignments conflict with definitions, test levels don't match interface types, NFR categories marked N/A despite feature scope requiring them. |
+| **1** | Minor inconsistencies — `interface-coverage` result shows `missing_in_9_2` non-empty, a test level in 2.1 with no corresponding entries in Section 4, `missing_in_6_2` non-empty when `section_6_2_populated` is true. |
+| **2** | All cross-references align: scope -> objectives -> interfaces -> coverage tables (both Section 6.2 E2E and Section 9.2 Interface Coverage, per the precomputed `interface-coverage` result). Priority assignments (Section 6.1) match Section 2.3 definitions. Test levels correspond to actual interface types under test. NFR categories align with feature scope. Section 6 placeholder present pre-create-cases. |
 
 **Cross-checks (perform all):**
-- Section 4 endpoints are a subset of Section 1.2 scope
+- Section 4 interfaces are a subset of Section 1.2 scope
 - Section 2.1 test levels match interface types in Section 4
-- Priority assignments in Section 4 match Section 2.3 definitions
-- Section 9.2 lists every endpoint from Section 4
+- Priority assignments in Section 6.1 match Section 2.3 definitions
+- `interface-coverage` result: `missing_in_9_2` is empty (read directly from the precomputed JSON — do not re-derive)
 - Section 7 NFR categories are consistent with the feature scope (e.g., a feature that pulls images should not mark Disconnected as N/A; each category must be addressed or marked Not Applicable with justification)
-- Section 6.2 E2E Coverage Matrix includes all P0 endpoints from Section 4 (Note: **Pre-create-cases** = acceptable if placeholder text is present; **Post-create-cases** = must have actual coverage for all P0 endpoints. Check if test cases exist to determine which state applies)
+- `interface-coverage` result: if `section_6_2_populated` is `true`, `missing_in_6_2` must be empty (read directly from the precomputed JSON); if `false`, this is expected pre-create-cases and not a deduction
 
 ## Output Format
 
@@ -99,16 +101,16 @@ Return your assessment in this exact structure:
 
 | Section 4 Entry | Source Match | Status |
 |-----------------|-------------|--------|
-| {endpoint/method} | {verbatim source sentence or "none"} | {Grounded / Suspected Fabrication / Extrapolated} |
+| {interface} | {verbatim source sentence or "none"} | {Grounded / Suspected Fabrication / Extrapolated} |
 
 ### Consistency Cross-Checks
 
 - Section 4 vs Section 1.2 scope: {result}
 - Section 2.1 test levels vs Section 4 interface types: {result}
-- Section 4 priorities vs Section 2.3 definitions: {result}
-- Section 9.2 vs Section 4 endpoints: {result}
+- Section 6.1 priorities vs Section 2.3 definitions: {result}
+- Section 9.2 interface coverage (per `interface-coverage` result): {result}
 - Section 7 NFR categories vs feature scope: {result}
-- Section 6.2 E2E coverage vs Section 4 P0 endpoints: {result}
+- Section 6.2 interface coverage (per `interface-coverage` result): {result}
 ```
 
 Be rigorous. When in doubt between two scores, choose the lower one and explain why.

@@ -99,6 +99,10 @@ SCHEMAS = {
             "required": True,
             "pattern": r"^(RHAISTRAT|RHOAIENG|RHAIRFE)-\d+$",
         },
+        "objectives": {
+            "type": "list",
+            "required": True,
+        },
         "priority": {
             "type": "string",
             "required": True,

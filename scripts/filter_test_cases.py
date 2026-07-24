@@ -10,8 +10,8 @@ Usage:
 
 Output (JSON):
     {
-        "to_implement": ["TC-API-002", "TC-API-003"],
-        "already_implemented": ["TC-API-001"]
+        "to_implement": ["TC-E2E-002", "TC-E2E-003"],
+        "already_implemented": ["TC-E2E-001"]
     }
 """
 

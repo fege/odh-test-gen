@@ -4,7 +4,6 @@ from pathlib import Path
 
 
 from scripts.utils.strat_utils import (
-    generate_objective_stubs,
     parse_acceptance_criteria,
     parse_nfr,
     parse_out_of_scope,
@@ -12,7 +11,10 @@ from scripts.utils.strat_utils import (
 from tests.constants import (
     STRAT_AC_NUMBERED_LIST,
     STRAT_AC_NUMBERED_MULTI_PARAGRAPH,
+    STRAT_AC_NUMBERED_NO_BLANK_LINES,
     STRAT_AC_NUMBERED_SINGLE_LINE,
+    STRAT_AC_STAR_BULLETS_NO_BLANK_LINES,
+    STRAT_NFR_WRAPPED_BULLET,
     STRAT_OOS_EM_DASH,
     STRAT_OOS_MIXED,
     STRAT_OOS_PLAIN_TEXT,
@@ -84,6 +86,24 @@ class TestParseAcceptanceCriteria:
         assert "registers a vector store" in first
         assert "measured by API response" in first
 
+    def test_numbered_list_acs_no_blank_lines_between_entries(self):
+        result = parse_acceptance_criteria(STRAT_AC_NUMBERED_NO_BLANK_LINES)
+
+        assert result["found"] is True
+        assert result["count"] == 3
+        assert "Given a user opens" in result["acceptance_criteria"][0]["text"]
+        assert "Given a user clicks" in result["acceptance_criteria"][1]["text"]
+        assert "Given the dialog is open" in result["acceptance_criteria"][2]["text"]
+
+    def test_star_bulleted_acs_no_blank_lines_between_entries(self):
+        result = parse_acceptance_criteria(STRAT_AC_STAR_BULLETS_NO_BLANK_LINES)
+
+        assert result["found"] is True
+        assert result["count"] == 3
+        assert "Given a user opens the form" in result["acceptance_criteria"][0]["text"]
+        assert "Given a user submits invalid input" in result["acceptance_criteria"][1]["text"]
+        assert "Given a duplicate name is submitted" in result["acceptance_criteria"][2]["text"]
+
 
 class TestParseNfr:
     """Tests for non-functional requirements extraction from fetched STRAT content."""
@@ -107,6 +127,14 @@ class TestParseNfr:
 
         assert result["found"] is False
         assert result["requirements"] == []
+
+    def test_wrapped_bullet_not_truncated(self):
+        result = parse_nfr(STRAT_NFR_WRAPPED_BULLET)
+
+        assert result["found"] is True
+        security = next(nfr for nfr in result["requirements"] if nfr["category"] == "Security")
+        assert "namespace isolation" in security["text"]
+        assert "with all other BFF endpoints" in security["text"]
 
 
 class TestParseOutOfScope:
@@ -148,41 +176,3 @@ class TestParseOutOfScope:
 
         assert result["found"] is False
         assert result["items"] == []
-
-
-class TestGenerateObjectiveStubs:
-    """Tests for deterministic AC objective stub generation."""
-
-    def test_generates_one_stub_per_ac(self):
-        content = (FIXTURES_DIR / "strat-1737.md").read_text()
-        ac_result = parse_acceptance_criteria(content)
-
-        stubs = generate_objective_stubs(ac_result)
-
-        assert len(stubs) == ac_result["count"]
-
-    def test_stubs_have_numbered_ac_references(self):
-        content = (FIXTURES_DIR / "strat-1737.md").read_text()
-        ac_result = parse_acceptance_criteria(content)
-
-        stubs = generate_objective_stubs(ac_result)
-
-        for i, stub in enumerate(stubs, 1):
-            assert stub.startswith(f"{i}. Verify ")
-            assert f"(AC: #{i})" in stub
-
-    def test_stubs_contain_fill_marker(self):
-        content = (FIXTURES_DIR / "strat-1737.md").read_text()
-        ac_result = parse_acceptance_criteria(content)
-
-        stubs = generate_objective_stubs(ac_result)
-
-        for stub in stubs:
-            assert "[FILL]" in stub
-
-    def test_empty_ac_returns_empty_stubs(self):
-        ac_result = {"found": False, "count": 0, "acceptance_criteria": []}
-
-        stubs = generate_objective_stubs(ac_result)
-
-        assert stubs == []

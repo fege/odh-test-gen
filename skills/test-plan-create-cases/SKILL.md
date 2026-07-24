@@ -104,12 +104,13 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 1. Read `<feature_dir>/TestPlan.md` using the Read tool
 2. Extract the `source_key` from the YAML frontmatter — this will be used in Step 3.1 to set frontmatter on each test case file
 3. Extract:
-   - Section 4 (Endpoints/Methods Under Test) — the full list of what needs test coverage
+   - Section 4 (Interfaces Under Test) — the interface catalog (Interface, Type, Purpose)
    - Section 2 (Test Strategy) — test levels, types, priorities to guide test case depth
    - Section 3 (Test Environment) — preconditions and test data requirements
    - Section 5.2 (Test Case Naming Convention) — the `TC-<CATEGORY>-<NUMBER>` prefixes and their meanings
    - Section 1.2 (Scope) — in-scope vs out-of-scope boundaries
-   - Section 1.3 (Test Objectives) — what the tests should validate
+   - Section 1.3 (Test Objectives) — numbered objectives, each citing an AC. These are the traceability anchors for every generated TC — every TC frontmatter must reference at least one objective from this section (see Step 3.1)
+   - Section 6 (E2E Test Scenarios), if already populated from a prior run — existing flow priorities to preserve during regeneration. On a fresh run this section is empty; priority for new flows is assigned per Section 2.3 criteria as scenarios are generated in Step 3
 
 ### Step 1.5: Read Gaps (if available)
 
@@ -165,11 +166,11 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 Process **one category at a time** from Section 5.2. For each category:
 
 1. **Design** all test cases for that category:
-   - Cover every endpoint/method from Section 4 relevant to this category
+   - Cover every interface from Section 4 relevant to this category
    - Include positive, negative, and boundary scenarios (per Section 2.2)
    - Assign priorities (P0/P1/P2) following the criteria in Section 2.3
    - Stay strictly within the scope defined in Section 1.2 — do NOT create test cases for out-of-scope items
-   - Map back to test objectives from Section 1.3
+   - Map each TC to the Section 1.3 objective(s) it validates — record as `objectives` in frontmatter (Step 3.1)
    - Before generating each TC, check all previously generated TCs across ALL categories. If another TC already verifies the same behavior (same preconditions, same verification target), do not create a duplicate — add the missing assertions to the existing TC instead
 
 2. **Write or Edit** the `TC-<CATEGORY>-<NUMBER>.md` files for that category immediately before moving to the next:
@@ -183,6 +184,7 @@ Process **one category at a time** from Section 5.2. For each category:
    ---
    test_case_id: TC-<CATEGORY>-<NUMBER>
    source_key: <STRAT_KEY_FROM_TEST_PLAN>
+   objectives: [<N>, ...]
    priority: <P0|P1|P2>
    status: Draft
    automation_status: Not Started
@@ -192,14 +194,15 @@ Process **one category at a time** from Section 5.2. For each category:
    ```
 
    - `source_key`: use the value extracted from the test plan's frontmatter in Step 1
+   - `objectives`: list of Section 1.3 objective numbers this TC validates (e.g., `[1, 3]`) — required, must be non-empty
    - `last_updated`: MUST be quoted string (e.g., "2026-05-04"), not unquoted date
    - If the test plan's Section 7.2 is non-trivial, evaluate `upgrade_phase` for every TC before finalising its frontmatter — including TC-UI-*, TC-E2E-*, and all other categories, not just TC-UPG-*. The question is always the same: does this TC's expected behaviour differ between the old and new version? If yes, set the phase. Do not skip this evaluation for any TC.
    - Write the frontmatter directly — validation happens in Step 5.7
    - **Important**: In regeneration mode, files were already read in Step 2.5, so Edit/Write will succeed
 
 3. **E2E test cases (mandatory)**: After processing all categories, generate TC-E2E-*.md test cases that validate the user journeys defined in the strategy:
-   - Every P0 endpoint from Section 4 MUST be covered by at least one E2E scenario
-   - Each E2E test case should represent a complete user journey, not just a single endpoint call
+   - Every interface from Section 4 MUST be covered by at least one E2E scenario
+   - Each E2E test case should represent a complete user journey, not just a single interface call
    - Use `TC-E2E-<NUMBER>` naming convention (e.g., TC-E2E-001, TC-E2E-002)
 
 4. **NFR test cases (conditional)**: Only create a standalone TC-NFR when the NFR requires dedicated infrastructure or setup that no E2E scenario covers (e.g., a disconnected cluster for air-gap testing, a performance benchmark harness). If an NFR is naturally exercised during an E2E flow — such as RBAC (use different user personas in E2E steps), mTLS (verify certs on pods created by E2E), or namespace isolation (already covered by NEG scenarios) — add it as assertions within the relevant TC-E2E or TC-NEG, not as a separate TC-NFR.
@@ -234,7 +237,7 @@ A test that FAILs for the wrong reason is worse than no test at all. When in dou
 
 **Anti-hallucination rules:**
 - Do NOT invent requirements not present in the test plan
-- Do NOT create test cases for endpoints marked as "pending details" in Section 4
+- Do NOT create test cases for interfaces marked as "pending details" in Section 4
 - If the test plan is ambiguous about what to test, ask the user via AskUserQuestion
 
 ### Step 4: Generate Index
@@ -258,10 +261,10 @@ After all categories are complete (including upgrade TCs if generated):
 Update `<feature_dir>/TestPlan.md` using the Edit tool:
 1. **Section 5** — Update the note to reflect test cases have been generated, with a link to `test_cases/INDEX.md`
 2. **Section 5.1** — Fill in the Test Case Organization table with category, test case count, and priority distribution
-3. **Section 6.1** — Fill in the E2E Scenario Summary table with the generated TC-E2E-* scenarios (ID, scenario name, endpoints covered, priority)
-4. **Section 6.2** — Fill in the E2E Coverage Matrix mapping each endpoint from Section 4 to its E2E scenario IDs
+3. **Section 6.1** — Fill in the E2E Scenario Summary table with the generated TC-E2E-* scenarios (ID, scenario name, interfaces covered, priority)
+4. **Section 6.2** — Fill in the E2E Coverage Matrix mapping each interface from Section 4 to its E2E scenario IDs
 5. **Section 9.1** — Fill in the Test Case Summary table with counts per category and priority breakdown
-6. **Section 9.2** — Fill in the Test Cases column with TC IDs mapped to each endpoint. Leave the Coverage column empty — it will be filled later by `/coverage-assessment`
+6. **Section 9.2** — Fill in the Test Cases column with TC IDs mapped to each interface. Leave the Coverage column empty — it will be filled later by `/coverage-assessment`
 
 ### Step 5.5: Update README
 
@@ -273,22 +276,26 @@ Update `<feature_dir>/README.md` to add a link to the test cases index:
 
 After generating all test case files and updating the test plan, validate coverage:
 
-1. **Endpoint coverage**: Check that every endpoint/method from Section 4 (that is NOT marked as "pending details") has at least one test case. Flag any uncovered endpoints.
-2. **E2E coverage**: Verify that every P0 endpoint from Section 4 is covered by at least one TC-E2E-* test case. If any P0 endpoint lacks E2E coverage, generate the missing E2E test case(s) before proceeding.
+1. **Interface coverage**: Run `uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md` (deterministic table diff — do not eyeball Section 9.2/6.2 yourself). If `missing_in_9_2` is non-empty, those interfaces (excluding any marked "pending details" in Section 4) lack test case coverage — flag them as gaps.
+2. **E2E coverage**: From the same `interface-coverage` result, if `section_6_2_populated` is `true` and `missing_in_6_2` is non-empty, those interfaces lack E2E scenario coverage — generate the missing TC-E2E-* test case(s), update Sections 6.2/9.2, and re-run the validator before proceeding.
 3. **Test objective coverage**: Check that every test objective from Section 1.3 is addressed by at least one test case. Flag any uncovered objectives.
-4. **Priority distribution**: Verify that P0 endpoints have P0 test cases — a critical endpoint should not only have P2 test cases.
+4. **Priority distribution**: Verify that TC priorities align with the flow priorities in Section 6.1 — a P0 flow should not only have P2 test cases.
 5. **Configurable coverage**: Check that every env var, config path, or configurable explicitly named in Section 3.1 has at least one TC that exercises a non-default value. If any is uncovered, flag it as a coverage gap.
-6. **Gap cross-reference**: If `TestPlanGaps.md` was read in Step 1.5, verify that no test cases were created for endpoints or areas flagged as pending/missing. If any were, remove them and flag the inconsistency.
-7. **Append to TestPlanGaps.md**: If `<feature_dir>/TestPlanGaps.md` exists, append a `## Test Case Coverage Gaps` section with any coverage gaps found (uncovered endpoints, missing objectives, priority mismatches, missing E2E scenarios, uncovered configurables). If the file does not exist, create it with just this section.
+6. **Objective traceability**: Check that every generated TC's `objectives` frontmatter field references at least one valid Section 1.3 objective number, and that every referenced objective has an AC citation. Flag any TC with a missing, empty, or invalid `objectives` field.
+7. **Gap cross-reference**: If `TestPlanGaps.md` was read in Step 1.5, verify that no test cases were created for interfaces or areas flagged as pending/missing. If any were, remove them and flag the inconsistency.
+8. **Append to TestPlanGaps.md**: If `<feature_dir>/TestPlanGaps.md` exists, append a `## Test Case Coverage Gaps` section with any coverage gaps found (uncovered interfaces, missing objectives, priority mismatches, missing E2E scenarios, uncovered configurables). If the file does not exist, create it with just this section.
 
-### Step 5.7: Validate Frontmatter and Counts
+### Step 5.7: Validate Frontmatter, Counts, Scope, and Traceability
 
-After all test case files are written, validate frontmatter and TC counts:
+After all test case files are written, validate frontmatter, TC counts, category scope, and objective traceability:
 
 ```bash
 (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
  uv run python scripts/validate.py test-cases <feature_dir> && \
- uv run python scripts/validate.py tc-counts <feature_dir>)
+ uv run python scripts/validate.py tc-counts <feature_dir> && \
+ uv run python scripts/validate.py tc-scope <feature_dir> && \
+ uv run python scripts/validate.py tc-traceability <feature_dir> && \
+ uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md)
 ```
 
 If any check fails, fix the issue and re-run.
@@ -297,6 +304,6 @@ If any check fails, fix the issue and re-run.
 
 - Does NOT modify the test plan's Sections 1-4, 7-9 — those are owned by `/test-plan-create`
 - Does NOT fill Automation Status or Notes in TC files — those are filled later by `/coverage-assessment`
-- Does NOT create test cases for out-of-scope items or pending endpoints
+- Does NOT create test cases for out-of-scope items or pending interfaces
 
 $ARGUMENTS

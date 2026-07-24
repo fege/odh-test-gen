@@ -46,9 +46,9 @@ class TestTCRegenerationCheck:
             test_cases_dir.mkdir()
 
             # Create some TC files
-            (test_cases_dir / "TC-API-001.md").write_text("# TC-API-001\n")
-            (test_cases_dir / "TC-API-002.md").write_text("# TC-API-002\n")
             (test_cases_dir / "TC-E2E-001.md").write_text("# TC-E2E-001\n")
+            (test_cases_dir / "TC-E2E-002.md").write_text("# TC-E2E-002\n")
+            (test_cases_dir / "TC-E2E-003.md").write_text("# TC-E2E-003\n")
 
             old_argv = sys.argv
             old_stdout = sys.stdout

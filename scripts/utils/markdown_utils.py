@@ -22,3 +22,27 @@ def extract_section(content: str, heading: str) -> tuple[list[str], int]:
     if start is not None:
         return lines[start:], start + 1
     return [], 0
+
+
+def parse_table_rows(section_lines: list) -> list:
+    """Parse the first markdown table in section_lines, skipping header and separator rows.
+
+    Returns a list of rows, each a list of cell strings.
+    """
+    rows = []
+    header_skipped = False
+    separator_re = re.compile(r"^:?-+:?$")
+    for line in section_lines:
+        stripped = line.strip()
+        if not (stripped.startswith("|") and stripped.endswith("|")):
+            if header_skipped:
+                break
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if not header_skipped:
+            header_skipped = True
+            continue
+        if all(separator_re.match(c) for c in cells):
+            continue
+        rows.append(cells)
+    return rows

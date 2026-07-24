@@ -20,7 +20,7 @@ class TestSchemaDetection:
         [
             ("TestPlan.md", "test-plan"),
             ("tool_calling/TestPlan.md", "test-plan"),
-            ("TC-API-001.md", "test-case"),
+            ("TC-E2E-001.md", "test-case"),
             ("test_cases/TC-UI-042.md", "test-case"),
             ("TestPlanGaps.md", "test-gaps"),
             ("feature/TestPlanGaps.md", "test-gaps"),
@@ -136,7 +136,7 @@ class TestCaseSchemaValidation:
         "field_name,field_value,should_pass",
         [
             # test_case_id validation (pattern: TC-[A-Z0-9]+-\d+)
-            ("test_case_id", "TC-API-001", True),
+            ("test_case_id", "TC-E2E-001", True),
             ("test_case_id", "TC-UI-123", True),
             ("test_case_id", "TC001", False),
             ("test_case_id", "TC-api-001", False),
@@ -146,6 +146,11 @@ class TestCaseSchemaValidation:
             ("priority", "P2", True),
             ("priority", "P3", False),
             ("priority", "High", False),
+            # objectives validation (type: list)
+            ("objectives", [1, 3], True),
+            ("objectives", [1], True),
+            ("objectives", "1", False),
+            ("objectives", 1, False),
         ],
     )
     def test_field_validation(self, field_name, field_value, should_pass):
