@@ -126,7 +126,7 @@ The review agent writes `<feature_dir>/TestPlanReview.md` with rubric scores, fe
 - Do the endpoints in Section 4 align with the scope in Section 1.2?
 - Do the test levels in Section 2.1 match the interface types in Section 4?
 - Are priority assignments in Section 4 consistent with the definitions in Section 2.3?
-- Does Section 10.2 list all endpoints from Section 4?
+- Does Section 9.2 list all endpoints from Section 4?
 - Are NFR categories in Section 7 consistent with the feature scope? (e.g., a feature that pulls images should not mark Disconnected as N/A)
 - Does Section 6.2 E2E Coverage Matrix include all P0 endpoints from Section 4? (Note: expected to be empty until create-cases runs)
 

@@ -3,7 +3,7 @@
 import sys
 
 from scripts import repo
-from tests.conftest import add_feature
+from tests.helpers import add_feature
 
 
 def test_publish_artifacts_exits_0(git_repo):
