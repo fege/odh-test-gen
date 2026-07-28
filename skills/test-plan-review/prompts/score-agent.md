@@ -13,7 +13,7 @@ Interface coverage result (precomputed, inline JSON): {INTERFACE_COVERAGE_RESULT
 
 1. Read the test plan from `{TEST_PLAN_PATH}`
 2. The raw strategy text is provided inline above — use it as the ground-truth source for grounding checks
-3. Check the test plan's `additional_docs` frontmatter field (visible in the file from step 1). For each entry that is a local file path, read it — its content is a second grounding source with the same standing as the strategy text. Entries that are URLs (e.g. a Google Doc link) cannot be fetched; see the Grounding criterion below for how to score interfaces attributable only to one of those.
+3. Check the test plan's `additional_docs` frontmatter field (visible in the file from step 1). For each entry that is a local file path: canonicalize it, reject any path that is absolute or contains `..` traversal, and only read paths under the feature directory (`{FEATURE_DIR}`) or the repository root (`{FEATURE_DIR}/../../`). Skip entries that fail these checks. Each readable file's content is a second grounding source with the same standing as the strategy text. Entries that are URLs (e.g. a Google Doc link) cannot be fetched; see the Grounding criterion below for how to score interfaces attributable only to one of those.
 4. The interface coverage result is provided inline above — it is the precomputed, deterministic diff of Section 4 interfaces against Section 9.2 and Section 6.2. Use its `missing_in_9_2` and `missing_in_6_2` fields directly for the corresponding Consistency cross-checks below. Do NOT re-derive these two checks by reading the tables yourself.
 
 ## Rubric — 5 Criteria, 0-2 Each, Total 0-10

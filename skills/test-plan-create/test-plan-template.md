@@ -195,9 +195,10 @@ data protection — distinct from 7.4's access-control concerns.
 Address: authentication/token handling, transport encryption (TLS),
 credential and secrets storage, audit logging.}
 
-{If not applicable: "**Not Applicable** — this feature introduces no
-new authentication mechanism, network transport, or credential
-handling beyond what the platform already secures."}
+{If not applicable: "**Not Applicable** — this feature does not
+involve authentication mechanisms, token or session handling,
+transport encryption (TLS), credential or secrets storage, or
+audit logging."}
 
 ---
 

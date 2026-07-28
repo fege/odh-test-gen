@@ -162,12 +162,14 @@ What to check:
 #### Grounding (Section 4)
 
 **Smell test**: For every entry in Section 4 (interfaces under
-test), can you point to the exact sentence in the strategy or ADR that
-justifies it? If not, it may be fabricated.
+test), can you point to the exact sentence in the strategy, ADR, or
+any readable additional document (API spec, design doc) listed in the
+test plan's `additional_docs` frontmatter? If not, it may be
+fabricated.
 
 What to check:
 - Are interface paths, method signatures, and version numbers traceable
-  to the strategy or ADR?
+  to the strategy, ADR, or a readable additional document?
 - Are unknowns marked as TBD (acceptable) rather than filled with
   plausible-sounding but invented details (not acceptable)?
 - Does `TestPlanReview.md` contain a grounding cross-reference table?
