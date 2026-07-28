@@ -302,7 +302,7 @@ If any check fails, fix the issue and re-run.
 
 ### What this skill does NOT do
 
-- Does NOT modify the test plan's Sections 1-4, 7-9 — those are owned by `/test-plan-create`
+- Does NOT modify the test plan's Sections 1-4, 7-8, or 9.3 — those are owned by `/test-plan-create` (Sections 9.1 and 9.2 ARE filled by this skill — see Steps 5.5/5.6)
 - Does NOT fill Automation Status or Notes in TC files — those are filled later by `/coverage-assessment`
 - Does NOT create test cases for out-of-scope items or pending interfaces
 

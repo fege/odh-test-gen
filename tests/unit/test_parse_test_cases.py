@@ -1,6 +1,7 @@
 """Unit tests for scripts/parse_test_cases.py"""
 
 import json
+
 import pytest
 
 from scripts.parse_test_cases import parse_test_cases
@@ -15,12 +16,11 @@ def test_parses_single_tc(tmp_path):
     (tc_dir / "TC-E2E-001.md").write_text(f"""---
 test_case_id: {VALID_TEST_CASE_DATA["test_case_id"]}
 source_key: {VALID_TEST_CASE_DATA["source_key"]}
+objectives: [1, 3]
 priority: {VALID_TEST_CASE_DATA["priority"]}
 status: {VALID_TEST_CASE_DATA["status"]}
 last_updated: "{VALID_TEST_CASE_DATA["last_updated"]}"
 automation_status: Not Started
-placement_location: component
-level: integration
 ---
 # Verify API endpoint
 
@@ -44,6 +44,7 @@ level: integration
 
     assert len(data) == 1
     assert data[0]["test_case_id"] == "TC-E2E-001"
+    assert data[0]["objectives"] == [1, 3]
     assert data[0]["objective"] == "Test the API endpoint works"
     assert len(data[0]["preconditions"]) == 2
     assert len(data[0]["test_steps"]) == 2
@@ -59,6 +60,7 @@ def test_parses_multiple_tcs(tmp_path):
         (tc_dir / f"TC-E2E-00{i}.md").write_text(f"""---
 test_case_id: TC-E2E-00{i}
 source_key: RHAISTRAT-400
+objectives: [{i}]
 priority: P0
 status: Draft
 last_updated: "2026-05-05"

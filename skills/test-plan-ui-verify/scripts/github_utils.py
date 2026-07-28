@@ -10,7 +10,6 @@ import re
 import subprocess
 
 import yaml
-
 from helpers import matches_tc_filter as _matches_tc_filter
 
 

@@ -776,8 +776,8 @@ author: QE Team
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
-| `/v1/chat/completions` | | |
-| `/v1/models` | | |
+| `/v1/chat/completions` | TC-E2E-001 | |
+| `/v1/models` | TC-E2E-002 | |
 """
 
 # TestPlan.md where Section 9.2 is missing an interface from Section 4
@@ -813,7 +813,7 @@ author: QE Team
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
-| `/v1/chat/completions` | | |
+| `/v1/chat/completions` | TC-E2E-001 | |
 """
 
 # TestPlan.md where Section 6.2 is populated but missing an interface from Section 4
@@ -886,8 +886,160 @@ author: QE Team
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
-| `/v1/chat/completions` | | |
+| `/v1/chat/completions` | TC-E2E-001 | |
+| `/v1/models` | TC-E2E-002 | |
+"""
+
+# TestPlan.md where Section 9.2 lists the interface but its Test Cases cell is blank
+TESTPLAN_INTERFACE_COVERAGE_EMPTY_9_2_CELL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+| `/v1/models` | TC-E2E-002 |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
 | `/v1/models` | | |
+"""
+
+# TestPlan.md where Section 6.2 lists the interface but its E2E Scenarios cell is blank
+TESTPLAN_INTERFACE_COVERAGE_EMPTY_6_2_CELL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+| `/v1/models` | |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+| `/v1/models` | TC-E2E-002 | |
+"""
+
+# TestPlan.md where Section 9.2's Test Cases cell is a non-informative placeholder, not a real TC ID
+TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_TC_CELL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+| `/v1/models` | TC-E2E-002 |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+| `/v1/models` | TBD | |
+"""
+
+# TestPlan.md where Section 6.2's E2E Scenarios cell is a non-informative placeholder, not a real TC ID
+TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_SCENARIO_CELL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+| `/v1/models` | - |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+| `/v1/models` | TC-E2E-002 | |
 """
 
 # TestPlan.md with clean test infra (no SUT/dev tooling)

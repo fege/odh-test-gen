@@ -13,7 +13,8 @@ Interface coverage result (precomputed, inline JSON): {INTERFACE_COVERAGE_RESULT
 
 1. Read the test plan from `{TEST_PLAN_PATH}`
 2. The raw strategy text is provided inline above — use it as the ground-truth source for grounding checks
-3. The interface coverage result is provided inline above — it is the precomputed, deterministic diff of Section 4 interfaces against Section 9.2 and Section 6.2. Use its `missing_in_9_2` and `missing_in_6_2` fields directly for the corresponding Consistency cross-checks below. Do NOT re-derive these two checks by reading the tables yourself.
+3. Check the test plan's `additional_docs` frontmatter field (visible in the file from step 1). For each entry that is a local file path, read it — its content is a second grounding source with the same standing as the strategy text. Entries that are URLs (e.g. a Google Doc link) cannot be fetched; see the Grounding criterion below for how to score interfaces attributable only to one of those.
+4. The interface coverage result is provided inline above — it is the precomputed, deterministic diff of Section 4 interfaces against Section 9.2 and Section 6.2. Use its `missing_in_9_2` and `missing_in_6_2` fields directly for the corresponding Consistency cross-checks below. Do NOT re-derive these two checks by reading the tables yourself.
 
 ## Rubric — 5 Criteria, 0-2 Each, Total 0-10
 
@@ -31,16 +32,17 @@ Interface coverage result (precomputed, inline JSON): {INTERFACE_COVERAGE_RESULT
 
 | Score | Definition |
 |-------|------------|
-| **0** | Contains fabricated interface paths, invented API signatures, assumed versions, or technical details not present in the strategy or ADR. |
-| **1** | Mostly grounded, but some extrapolation beyond sources (e.g., inferred interface paths from component names, assumed versions from general knowledge). |
-| **2** | All technical details traceable to strategy/ADR. Unknowns explicitly marked as TBD with the document type that would resolve them — not guessed at. |
+| **0** | Contains fabricated interface paths, invented API signatures, assumed versions, or technical details not present in the strategy or any readable additional document (step 3 of Inputs), with no `additional_docs` reference that could plausibly explain it either. |
+| **1** | Mostly grounded, but some extrapolation beyond sources (e.g., inferred interface paths from component names, assumed versions from general knowledge, or details attributable only to an `additional_docs` reference this agent could not fetch, such as a URL). |
+| **2** | All technical details traceable to the strategy or a readable additional document. Unknowns explicitly marked as TBD with the document type that would resolve them — not guessed at. |
 
-**Smell test:** For every entry in Section 4, can you point to the exact sentence in the strategy or ADR that justifies it? If not, it's fabricated.
+**Smell test:** For every entry in Section 4, can you point to the exact sentence in the strategy or a readable additional document that justifies it? If not, and no `additional_docs` reference could plausibly cover it either, it's fabricated.
 
 **GROUNDING CROSS-REFERENCE (required):** For each entry in Section 4 (interfaces under test), you MUST:
-1. Search the strategy text for the specific sentence or phrase that justifies the entry
-2. If found, cite the source sentence verbatim in your notes
-3. If NOT found, mark the entry as "SUSPECTED FABRICATION — no source match"
+1. Search the strategy text, and any readable additional-doc content from `additional_docs` (Inputs step 3), for the specific sentence or phrase that justifies the entry
+2. If found, cite the source (strategy or filename) and the verbatim sentence in your notes
+3. If NOT found in any readable source, but `additional_docs` lists an unreadable reference (e.g. a URL) that plausibly covers this interface, mark it "Extrapolated — attributed to an unreadable referenced document" rather than fabrication
+4. If no source, readable or referenced, accounts for the entry, mark it "SUSPECTED FABRICATION — no source match"
 
 ### 3. SCOPE FIDELITY — Does the test plan's scope match the strategy's scope?
 

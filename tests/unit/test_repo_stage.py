@@ -62,7 +62,7 @@ def test_stages_test_cases_when_dir_exists(git_repo):
         ["TestPlan.md", "README.md", "test_cases/INDEX.md", "test_cases/TC-E2E-001.md"],
     )
 
-    exit_code, result = stage_artifacts(str(git_repo), "feat")
+    exit_code, _ = stage_artifacts(str(git_repo), "feat")
 
     assert exit_code == 0
     staged = _staged_files(git_repo)

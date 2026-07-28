@@ -6,10 +6,8 @@ Analyzes parsed TC data to identify patterns for test generation.
 Framework-agnostic - identifies what's common without prescribing implementation.
 """
 
-from typing import Dict, List
 
-
-def identify_common_setup_requirements(test_cases: List[Dict]) -> List[Dict]:
+def identify_common_setup_requirements(test_cases: list[dict]) -> list[dict]:
     """
     Identify preconditions used by multiple test cases.
 

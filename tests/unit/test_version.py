@@ -9,10 +9,10 @@ from pathlib import Path
 
 import pytest
 
-from tests.constants import VALID_TEST_PLAN_DATA
 from scripts import version
+from scripts.utils.frontmatter_utils import read_frontmatter, write_frontmatter
 from scripts.version import bump_version
-from scripts.utils.frontmatter_utils import write_frontmatter, read_frontmatter
+from tests.constants import VALID_TEST_PLAN_DATA
 
 
 def _create_test_plan(tmpdir, ver="1.0.0", body="# Test Plan\n\nBody content.\n"):

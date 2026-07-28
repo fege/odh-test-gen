@@ -7,6 +7,7 @@ TC file content strings for testing tc_parser.py
 VALID_COMPLETE_TC = """---
 test_case_id: TC-E2E-001
 source_key: RHAISTRAT-1262
+objectives: [1]
 priority: P0
 status: Draft
 ---
@@ -200,9 +201,6 @@ feature: Test
 ---
 ### 1.2 Scope
 Test scope
-
-## 4. Interfaces Under Test
-| /api/v1/config | GET | Read config |
 """
 
 TC_WITH_COMPONENT_MENTIONS = """---

@@ -46,3 +46,16 @@ def parse_table_rows(section_lines: list) -> list:
             continue
         rows.append(cells)
     return rows
+
+
+def extract_headings(content: str) -> list[str]:
+    """Return all markdown heading lines (lines starting with ``#`` followed by a space)."""
+    return [line for line in content.splitlines() if re.match(r"^#{1,6}\s", line)]
+
+
+_TABLE_CELL_PLACEHOLDERS = {"-", "n/a", "tbd"}
+
+
+def is_filled_cell(value: str) -> bool:
+    """True if a table cell holds real content, not blank or a placeholder marker (-, N/A, TBD)."""
+    return bool(value) and value.casefold() not in _TABLE_CELL_PLACEHOLDERS

@@ -7,16 +7,18 @@ and label merging. Mocks HTTP layer to avoid actual API calls.
 
 import os
 import sys
-import pytest
 from unittest.mock import Mock, patch
+
+import pytest
 import requests
+
 from scripts.jira_utils import (
-    require_env,
-    make_request,
+    add_labels,
     api_call,
     api_call_with_retry,
     get_issue,
-    add_labels,
+    make_request,
+    require_env,
 )
 
 
@@ -30,9 +32,8 @@ class TestRequireEnv:
 
     def test_require_env_missing(self):
         """Test that require_env exits when variable is missing."""
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(SystemExit):
-                require_env("MISSING_VAR")
+        with patch.dict(os.environ, {}, clear=True), pytest.raises(SystemExit):
+            require_env("MISSING_VAR")
 
 
 class TestMakeRequest:
@@ -71,9 +72,8 @@ class TestMakeRequest:
             "JIRA_TOKEN": "test_token",
         }
 
-        with patch.dict(os.environ, env_vars):
-            with pytest.raises(requests.HTTPError):
-                make_request("GET", "/rest/api/2/issue/MISSING-123")
+        with patch.dict(os.environ, env_vars), pytest.raises(requests.HTTPError):
+            make_request("GET", "/rest/api/2/issue/MISSING-123")
 
 
 class TestApiCall:

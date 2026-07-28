@@ -11,6 +11,7 @@ Usage:
 
 import json
 import sys
+
 from paths import TMP_DIR
 
 ctx_path = TMP_DIR / "ui_context.json"

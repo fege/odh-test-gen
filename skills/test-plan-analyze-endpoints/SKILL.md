@@ -70,7 +70,8 @@ Return your findings in this exact structure:
 
 ### Test Objectives
 {At least one objective per STRAT acceptance criterion — every AC must
-be covered. Each objective cites the AC it validates: (AC: #N)}
+be covered. Each objective cites the AC it validates: (AC: [quoted or
+paraphrased AC text])}
 
 ## Interfaces Under Test
 

@@ -9,14 +9,13 @@ Non-interactive utilities - all user interaction handled by calling skill.
 """
 
 import re
-from typing import Dict, List
 
 from .component_map import COMPONENT_REPO_MAP
 from .frontmatter_utils import read_frontmatter
 from .tc_parser import parse_tc_file
 
 
-def extract_repo_indicators(testplan_path: str, tc_files: List[str]) -> Dict[str, List[str]]:
+def extract_repo_indicators(testplan_path: str, tc_files: list[str]) -> dict[str, list[str]]:
     """
     Extract repository indicators from TestPlan.md and TC files.
 

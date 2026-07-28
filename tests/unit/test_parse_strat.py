@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-
 from scripts.utils.strat_utils import (
     parse_acceptance_criteria,
     parse_nfr,

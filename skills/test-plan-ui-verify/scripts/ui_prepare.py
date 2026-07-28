@@ -30,10 +30,11 @@ except ImportError:
     print("ERROR: pyyaml required. Run: pip install pyyaml")
     sys.exit(1)
 
-from paths import SKILL_DIR, TMP_DIR  # defined once in paths.py
 from browser_common import do_oauth_login  # scripts/ is a package; import works directly
-from helpers import is_ui_test as _is_ui_test, matches_tc_filter as _matches_tc_filter
 from github_utils import fetch_meta, fetch_tc_files
+from helpers import is_ui_test as _is_ui_test
+from helpers import matches_tc_filter as _matches_tc_filter
+from paths import SKILL_DIR, TMP_DIR  # defined once in paths.py
 
 
 def _ensure_repo_on_path() -> None:
@@ -201,8 +202,8 @@ def phase1_load_tcs(args):
     import tempfile
 
     _ensure_repo_on_path()
-    from utils.tc_parser import parse_tc_file
     from utils.frontmatter_utils import read_frontmatter
+    from utils.tc_parser import parse_tc_file
 
     tc_patterns = [p.strip() for p in args.tc.split(",") if p.strip()] if args.tc else []
 
@@ -718,6 +719,7 @@ def setup_session(feature_name):
 def launch_browser(target_url: str, tv: dict) -> dict:
     """Start a persistent Chromium browser via CDP, log in, and return connection info."""
     import subprocess as _sp
+
     from playwright.sync_api import sync_playwright
 
     section("Phase 7: Browser Launch & Login")

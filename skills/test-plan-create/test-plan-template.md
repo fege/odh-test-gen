@@ -20,7 +20,8 @@
 
 ### 1.3 Test Objectives
 {Numbered list (1. 2. 3. ...) — at least one objective per STRAT
-acceptance criterion. Each cites the AC it validates: (AC: #N)}
+acceptance criterion. Each cites the AC it validates: (AC: [quoted or
+paraphrased AC text])}
 
 ---
 

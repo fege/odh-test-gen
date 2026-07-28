@@ -14,6 +14,9 @@ import datetime
 import os
 import re
 import sys
+from pathlib import Path
+
+from scripts.utils.markdown_utils import extract_headings
 
 try:
     import yaml
@@ -289,23 +292,49 @@ SCHEMAS = {
 
 # ─── Test Plan Structure Schema ───────────────────────────────────────────────────
 
+_TEMPLATE_PATH = Path(__file__).resolve().parent.parent.parent / "skills" / "test-plan-create" / "test-plan-template.md"
+
+_VALIDATED_SECTION_NUMBERS = {
+    "1",
+    "1.1",
+    "1.2",
+    "1.3",
+    "2",
+    "2.1",
+    "2.2",
+    "2.3",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+}
+
+_OPTIONAL_SECTION_NUMBERS = {"5", "6"}
+
+_SECTION_NUMBER_RE = re.compile(r"^(#{2,3})\s+(\d+(?:\.\d+)?)[.\s]")
+
+
+def _parse_template_headings():
+    content = _TEMPLATE_PATH.read_text()
+    headings = {}
+    for h in extract_headings(content):
+        m = _SECTION_NUMBER_RE.match(h)
+        if m:
+            headings[m.group(2)] = h
+    return headings
+
+
+TEMPLATE_HEADINGS = _parse_template_headings()
+
+
 TESTPLAN_STRUCTURE = {
     "sections": [
-        {"heading": "## 1. Executive Summary", "required": True},
-        {"heading": "### 1.1 Purpose", "required": True},
-        {"heading": "### 1.2 Scope", "required": True},
-        {"heading": "### 1.3 Test Objectives", "required": True},
-        {"heading": "## 2. Test Strategy", "required": True},
-        {"heading": "### 2.1 Test Levels", "required": True},
-        {"heading": "### 2.2 Test Types", "required": True},
-        {"heading": "### 2.3 Test Priorities", "required": True},
-        {"heading": "## 3. Test Environment", "required": True},
-        {"heading": "## 4. Interfaces Under Test", "required": True},
-        {"heading": "## 5. Test Cases", "required": False},
-        {"heading": "## 6. E2E Test Scenarios", "required": False},
-        {"heading": "## 7. Non-Functional Requirements", "required": True},
-        {"heading": "## 8. Risks and Mitigation", "required": True},
-        {"heading": "## 9. Appendix", "required": True},
+        {"heading": TEMPLATE_HEADINGS[num], "required": num not in _OPTIONAL_SECTION_NUMBERS}
+        for num in sorted(_VALIDATED_SECTION_NUMBERS, key=lambda x: [int(p) for p in x.split(".")])
+        if num in TEMPLATE_HEADINGS
     ],
     "disallowed_test_levels": [
         "Unit Testing",
@@ -329,10 +358,7 @@ TESTPLAN_STRUCTURE = {
         "npm install",
         "yarn install",
     ],
-    "infra_sections": [
-        "### 3.1 Infrastructure & Configuration",
-        "### 3.4 Test Tools",
-    ],
+    "infra_sections": [TEMPLATE_HEADINGS["3.1"], TEMPLATE_HEADINGS["3.4"]],
 }
 
 
@@ -358,8 +384,6 @@ def detect_schema_type(path):
 
 class ValidationError(Exception):
     """Raised when frontmatter fails schema validation."""
-
-    pass
 
 
 def _validate_field(name, value, spec):

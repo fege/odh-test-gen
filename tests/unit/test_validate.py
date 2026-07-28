@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from scripts.utils.frontmatter_utils import write_frontmatter
 from scripts.validate import (
     check_interactive,
     validate_ac_citations,
@@ -21,7 +22,6 @@ from scripts.validate import (
     validate_tc_traceability,
     validate_test_cases,
 )
-from scripts.utils.frontmatter_utils import write_frontmatter
 from tests.constants import (
     TESTPLAN_AC_BULLET_FORMAT,
     TESTPLAN_AC_CITED,
@@ -33,19 +33,23 @@ from tests.constants import (
     TESTPLAN_DEV_TOOLING_INFRA,
     TESTPLAN_E2E_ONLY,
     TESTPLAN_FEATURE_CATEGORIES,
+    TESTPLAN_INTERFACE_COVERAGE_EMPTY_6_2_CELL,
+    TESTPLAN_INTERFACE_COVERAGE_EMPTY_9_2_CELL,
     TESTPLAN_INTERFACE_COVERAGE_FULL,
     TESTPLAN_INTERFACE_COVERAGE_MISSING_6_2,
     TESTPLAN_INTERFACE_COVERAGE_MISSING_9_2,
     TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_6_2,
+    TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_SCENARIO_CELL,
+    TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_TC_CELL,
     TESTPLAN_MISSING_SECTIONS,
     TESTPLAN_NO_SECTION_13,
     TESTPLAN_NO_SECTION_21,
     TESTPLAN_NO_SECTION_52,
     TESTPLAN_VALID_CATEGORIES,
     TESTPLAN_VALID_INTERFACES,
+    VALID_TC_CONTENT,
     VALID_TEST_GAPS_DATA,
     VALID_TEST_PLAN_DATA,
-    VALID_TC_CONTENT,
     VALID_TESTPLAN_CONTENT,
 )
 from tests.helpers import write_valid_testplan
@@ -502,6 +506,34 @@ class TestValidateInterfaceCoverage:
 
         assert result["valid"] is False
         assert "error" in result
+
+    @pytest.mark.parametrize(
+        "fixture",
+        [TESTPLAN_INTERFACE_COVERAGE_EMPTY_9_2_CELL, TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_TC_CELL],
+        ids=["blank-cell", "placeholder-cell"],
+    )
+    def test_uncovered_tc_cell_in_9_2_fails(self, tmp_path, fixture):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(fixture)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is False
+        assert result["missing_in_9_2"] == ["`/v1/models`"]
+
+    @pytest.mark.parametrize(
+        "fixture",
+        [TESTPLAN_INTERFACE_COVERAGE_EMPTY_6_2_CELL, TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_SCENARIO_CELL],
+        ids=["blank-cell", "placeholder-cell"],
+    )
+    def test_uncovered_scenario_cell_in_6_2_fails(self, tmp_path, fixture):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(fixture)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is False
+        assert result["missing_in_6_2"] == ["`/v1/models`"]
 
 
 class TestValidateInfraScope:

@@ -332,7 +332,7 @@ After generating the test plan, collect all gaps reported by the three sub-agent
    - **Exit 0 (non-interactive):** Skip the gaps menu. Proceed directly to Step 3.6.
    - **Exit 1 (interactive):** Continue to Step 5.
 
-5. **Interactive gaps menu** (only reached when Step 4 exits 1 AND gaps exist):
+5. **Interactive gaps menu** (only reached when item 4 exits 1 AND gaps exist):
 
    Present the user with a structured action menu via AskUserQuestion. List the gaps first, then offer numbered options. Example:
 

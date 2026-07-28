@@ -19,8 +19,7 @@ except ImportError:
 
 from pymarkdown.api import PyMarkdownApi
 
-from .schemas import ValidationError, validate, apply_defaults
-
+from .schemas import ValidationError, apply_defaults, validate
 
 # ─── Frontmatter Read/Write ────────────────────────────────────────────────────
 

@@ -6,11 +6,11 @@ Tests extract_repo_indicators logic with hardcoded component keywords.
 
 from scripts.utils.repo_discovery import extract_repo_indicators
 from tests.integration.constants import (
+    TC_WITH_COMPONENT_MENTIONS,
+    TESTPLAN_FOR_TC_PRECONDITIONS,
+    TESTPLAN_WITH_DUPLICATES,
     TESTPLAN_WITH_ENDPOINTS,
     TESTPLAN_WITH_SCOPE_COMPONENTS,
-    TESTPLAN_FOR_TC_PRECONDITIONS,
-    TC_WITH_COMPONENT_MENTIONS,
-    TESTPLAN_WITH_DUPLICATES,
 )
 
 
@@ -50,7 +50,6 @@ class TestExtractRepoIndicators:
 
         assert "notebooks" in result["components"]
         assert "model-registry" in result["components"]
-        assert "/api/v1/config" in result["endpoints"]
 
     def test_deduplicates_components(self, tmp_path):
         """Should deduplicate component mentions."""

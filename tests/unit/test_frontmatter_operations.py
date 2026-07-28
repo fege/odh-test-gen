@@ -9,8 +9,8 @@ from pathlib import Path
 
 from scripts.utils.frontmatter_utils import (
     read_frontmatter,
-    write_frontmatter,
     update_frontmatter,
+    write_frontmatter,
 )
 from tests.constants import VALID_TEST_PLAN_DATA
 
@@ -27,7 +27,7 @@ class TestFrontmatterReadWrite:
             write_frontmatter(test_file, VALID_TEST_PLAN_DATA, "test-plan")
 
             # Read it back (returns tuple: data, body)
-            read_data, body = read_frontmatter(test_file)
+            read_data, _ = read_frontmatter(test_file)
 
             # Should match original data
             assert read_data == VALID_TEST_PLAN_DATA, "Roundtrip should preserve all data"
@@ -55,7 +55,7 @@ class TestFrontmatterUpdate:
             update_frontmatter(test_file, updates, "test-plan")
 
             # Read updated data
-            updated_data, body = read_frontmatter(test_file)
+            updated_data, _ = read_frontmatter(test_file)
 
             # Version should be updated
             assert updated_data["version"] == "2.0.0", "Version should be updated"

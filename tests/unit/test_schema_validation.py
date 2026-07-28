@@ -8,8 +8,8 @@ schema type detection from filenames.
 
 import pytest
 
-from scripts.utils.schemas import validate, apply_defaults, detect_schema_type, get_schema_yaml
-from tests.constants import VALID_TEST_PLAN_DATA, VALID_TEST_CASE_DATA, VALID_TEST_GAPS_DATA
+from scripts.utils.schemas import apply_defaults, detect_schema_type, get_schema_yaml, validate
+from tests.constants import VALID_TEST_CASE_DATA, VALID_TEST_GAPS_DATA, VALID_TEST_PLAN_DATA
 
 
 class TestSchemaDetection:

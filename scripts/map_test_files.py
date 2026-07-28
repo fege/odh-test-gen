@@ -32,7 +32,6 @@ import json
 import sys
 from functools import partial
 from pathlib import Path
-from typing import Dict, List
 
 from scripts.utils.tc_parser import extract_category_from_tc_id, extract_title_from_tc_file
 from scripts.utils.text_utils import sanitize_to_snake_case
@@ -53,7 +52,7 @@ def _generate_function_name(tc_file: Path) -> str:
     return f"test_{sanitized}"
 
 
-def _map_one_per_tc(tc_dir: Path, tc_ids: List[str], test_dir: str, _feature_name: str = None) -> List[Dict]:
+def _map_one_per_tc(tc_dir: Path, tc_ids: list[str], test_dir: str, _feature_name: str = None) -> list[dict]:
     """Strategy: One file per test case."""
     # Validate all files first
     for tc_id in tc_ids:
@@ -71,10 +70,10 @@ def _map_one_per_tc(tc_dir: Path, tc_ids: List[str], test_dir: str, _feature_nam
 
 
 def _map_by_category(
-    tc_dir: Path, tc_ids: List[str], test_dir: str, feature_name: str, use_subdirs: bool = False
-) -> List[Dict]:
+    tc_dir: Path, tc_ids: list[str], test_dir: str, feature_name: str, use_subdirs: bool = False
+) -> list[dict]:
     """Strategy: Group by category, optionally with subdirectories."""
-    category_groups: Dict[str, List[str]] = {}
+    category_groups: dict[str, list[str]] = {}
 
     # Group and validate TCs
     for tc_id in tc_ids:
@@ -113,7 +112,7 @@ _STRATEGIES = {
 
 
 def map_test_files(
-    feature_dir: str, tc_ids: List[str], strategy: str, test_dir: str = "tests", feature_name: str = "feature"
+    feature_dir: str, tc_ids: list[str], strategy: str, test_dir: str = "tests", feature_name: str = "feature"
 ) -> str:
     """
     Map test cases to test files based on organization strategy.

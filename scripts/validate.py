@@ -28,13 +28,13 @@ import json
 import os
 import re
 import sys
-import yaml
 from pathlib import Path
 
+import yaml
 
 from scripts.utils.frontmatter_utils import read_frontmatter, read_frontmatter_validated
-from scripts.utils.markdown_utils import extract_section, parse_table_rows
-from scripts.utils.schemas import TESTPLAN_STRUCTURE, detect_schema_type
+from scripts.utils.markdown_utils import extract_section, is_filled_cell, parse_table_rows
+from scripts.utils.schemas import TEMPLATE_HEADINGS, TESTPLAN_STRUCTURE, detect_schema_type
 
 
 def validate_feature_dir(feature_dir: str) -> str:
@@ -182,7 +182,7 @@ def validate_scope(testplan_path: str) -> dict:
         return {"valid": False, "error": f"File not found: {testplan_path}"}
 
     content = path.read_text()
-    section_lines, start_line = extract_section(content, "### 2.1 Test Levels")
+    section_lines, start_line = extract_section(content, TEMPLATE_HEADINGS["2.1"])
     if not section_lines:
         return {"valid": True, "violations": []}
 
@@ -203,7 +203,7 @@ def validate_ac_citations(testplan_path: str) -> dict:
         return {"valid": False, "error": f"File not found: {testplan_path}"}
 
     content = path.read_text()
-    section_lines, start_line = extract_section(content, "### 1.3 Test Objectives")
+    section_lines, start_line = extract_section(content, TEMPLATE_HEADINGS["1.3"])
     if not section_lines:
         return {"valid": True, "total": 0, "cited": 0, "uncited": []}
 
@@ -265,7 +265,7 @@ def validate_category_prefixes(testplan_path: str) -> dict:
         return {"valid": False, "error": f"File not found: {testplan_path}"}
 
     content = path.read_text()
-    section_lines, start_line = extract_section(content, "### 5.2 Test Case Naming Convention")
+    section_lines, start_line = extract_section(content, TEMPLATE_HEADINGS["5.2"])
     if not section_lines:
         return {"valid": True, "disallowed": []}
 
@@ -294,7 +294,7 @@ def validate_interface_types(testplan_path: str) -> dict:
         return {"valid": False, "error": f"File not found: {testplan_path}"}
 
     content = path.read_text()
-    section_lines, start_line = extract_section(content, "## 4. Interfaces Under Test")
+    section_lines, start_line = extract_section(content, TEMPLATE_HEADINGS["4"])
     if not section_lines:
         return {"valid": True, "config_entries": [], "header": None}
 
@@ -333,7 +333,7 @@ def validate_interface_coverage(testplan_path: str) -> dict:
 
     content = path.read_text()
 
-    section4_lines, _ = extract_section(content, "## 4. Interfaces Under Test")
+    section4_lines, _ = extract_section(content, TEMPLATE_HEADINGS["4"])
     interfaces = [row[0] for row in parse_table_rows(section4_lines) if row and row[0]]
 
     if not interfaces:
@@ -345,14 +345,18 @@ def validate_interface_coverage(testplan_path: str) -> dict:
             "section_6_2_populated": False,
         }
 
-    section92_lines, _ = extract_section(content, "### 9.2 Interface Coverage")
-    covered_92 = {row[0] for row in parse_table_rows(section92_lines) if row and row[0]}
+    section92_lines, _ = extract_section(content, TEMPLATE_HEADINGS["9.2"])
+    covered_92 = {
+        row[0]
+        for row in parse_table_rows(section92_lines)
+        if row and row[0] and len(row) > 1 and is_filled_cell(row[1])
+    }
     missing_in_9_2 = [i for i in interfaces if i not in covered_92]
 
-    section62_lines, _ = extract_section(content, "### 6.2 E2E Coverage Matrix")
+    section62_lines, _ = extract_section(content, TEMPLATE_HEADINGS["6.2"])
     rows_62 = parse_table_rows(section62_lines)
     populated_62 = any(row and row[0] for row in rows_62)
-    covered_62 = {row[0] for row in rows_62 if row and row[0]}
+    covered_62 = {row[0] for row in rows_62 if row and row[0] and len(row) > 1 and is_filled_cell(row[1])}
     missing_in_6_2 = [i for i in interfaces if i not in covered_62] if populated_62 else []
 
     return {
@@ -411,7 +415,7 @@ def validate_tc_counts(feature_dir: str) -> dict:
     actual_count = len(list(tc_dir.glob("TC-*.md")))
 
     content = testplan_path.read_text()
-    section_lines, _ = extract_section(content, "### 9.1 Test Case Summary")
+    section_lines, _ = extract_section(content, TEMPLATE_HEADINGS["9.1"])
     if not section_lines:
         return {"valid": True, "file_count": actual_count, "table_total": 0, "mismatches": []}
 
@@ -502,7 +506,7 @@ def validate_tc_traceability(feature_dir: str) -> dict:
         return {"valid": True, "checked": 0, "objectives_found": 0, "errors": []}
 
     content = testplan_path.read_text()
-    section_lines, _ = extract_section(content, "### 1.3 Test Objectives")
+    section_lines, _ = extract_section(content, TEMPLATE_HEADINGS["1.3"])
 
     objective_re = re.compile(r"^(\d+)\.\s+")
     ac_re = re.compile(r"\(AC:\s*")

@@ -186,7 +186,7 @@ Return structured output for the parent skill:
 
 - Do NOT invent new interfaces not present in the new analyzer findings
 - Do NOT remove existing content unless explicitly contradicted by new findings
-- Do NOT modify test case sections (5, 6, 10) — they're owned by other skills
+- Do NOT modify test case sections (5, 6, 9) — they're owned by other skills
 - If unsure whether to keep or update a section → keep it (preserve user intent)
 - Always prefer additive changes over destructive changes
 

@@ -7,10 +7,9 @@ Extracts mandatory sections reliably using regex patterns.
 """
 
 import re
-from typing import Dict, List
 
 
-def parse_tc_file(tc_file_path: str, read_frontmatter_func) -> Dict:
+def parse_tc_file(tc_file_path: str, read_frontmatter_func) -> dict:
     """
     Parse a test case file (TC-*.md) into structured data.
 
@@ -89,7 +88,7 @@ def parse_tc_file(tc_file_path: str, read_frontmatter_func) -> Dict:
     }
 
 
-def _parse_sections(body: str) -> Dict[str, str]:
+def _parse_sections(body: str) -> dict[str, str]:
     """
     Parse TC body into sections by **SectionName**: pattern.
 
@@ -150,7 +149,7 @@ def _extract_objective_text(objective_content: str) -> str:
     return objective_content.strip()
 
 
-def _extract_bullet_list(section_content: str) -> List[str]:
+def _extract_bullet_list(section_content: str) -> list[str]:
     """
     Extract items from markdown bullet list.
 
@@ -204,7 +203,7 @@ def _extract_bullet_list(section_content: str) -> List[str]:
     return items
 
 
-def _extract_numbered_list(section_content: str) -> List[str]:
+def _extract_numbered_list(section_content: str) -> list[str]:
     """
     Extract items from markdown numbered list.
 

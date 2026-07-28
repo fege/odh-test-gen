@@ -33,9 +33,8 @@ except ImportError as e:
     print(f"ERROR: {e} — run: pip install playwright pyyaml && playwright install chromium")
     sys.exit(1)
 
+from browser_common import do_oauth_login, get_page, release  # shared CDP connection logic
 from paths import SKILL_DIR
-
-from browser_common import get_page, release, do_oauth_login  # shared CDP connection logic
 
 ELEMENT_MAP = SKILL_DIR / "element-map.yaml"
 _MAP_CACHE: dict = {}

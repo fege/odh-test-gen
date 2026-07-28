@@ -1,9 +1,9 @@
 """Tests for PR operations — pr_create, pr_comments."""
 
 import json
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
-from scripts.repo import pr_create, pr_comments
+from scripts.repo import pr_comments, pr_create
 
 
 def test_creates_pr_when_none_exists():

@@ -9,15 +9,15 @@ import pytest
 from scripts.utils.frontmatter_utils import read_frontmatter
 from scripts.utils.tc_parser import parse_tc_file
 from tests.integration.constants import (
-    VALID_COMPLETE_TC,
-    TC_WITH_MULTILINE_ITEMS,
-    TC_WITH_EMPTY_LINES,
-    TC_MISSING_OBJECTIVE,
     TC_EMPTY_PRECONDITIONS,
-    TC_MISSING_TEST_STEPS,
     TC_MISSING_EXPECTED_RESULTS,
-    TC_WITH_OPTIONAL_SECTIONS,
+    TC_MISSING_OBJECTIVE,
+    TC_MISSING_TEST_STEPS,
     TC_WITH_BULLET_TEST_STEPS,
+    TC_WITH_EMPTY_LINES,
+    TC_WITH_MULTILINE_ITEMS,
+    TC_WITH_OPTIONAL_SECTIONS,
+    VALID_COMPLETE_TC,
 )
 
 
@@ -33,6 +33,7 @@ class TestParseTcFile:
 
         # Frontmatter
         assert result["test_case_id"] == "TC-E2E-001"
+        assert result["objectives"] == [1]
         assert result["priority"] == "P0"
 
         # Mandatory sections

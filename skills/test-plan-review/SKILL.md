@@ -81,7 +81,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 5. Compute interface coverage deterministically (Section 9.2 and Section 6.2 vs Section 4 are a mechanical table diff, not an LLM judgment call):
    ```bash
    interface_coverage_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
-       uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md 2>/dev/null || true)
+       uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md || true)
    ```
    `valid: false` here is expected pre-create-cases (Section 6.2 not yet populated) — this is not a failure, just data for the score agent.
 

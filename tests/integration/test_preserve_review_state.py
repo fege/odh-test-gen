@@ -4,8 +4,8 @@ import shutil
 import tempfile
 import unittest
 
-from scripts.utils.frontmatter_utils import read_frontmatter_validated, write_frontmatter
 from scripts import preserve_review_state
+from scripts.utils.frontmatter_utils import read_frontmatter_validated, write_frontmatter
 
 
 def _base_review_payload():

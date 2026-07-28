@@ -18,12 +18,11 @@ Output (JSON):
 import json
 import sys
 from pathlib import Path
-from typing import List
 
 from scripts.utils.frontmatter_utils import read_frontmatter
 
 
-def filter_test_cases(feature_dir: str, tc_ids: List[str]) -> str:
+def filter_test_cases(feature_dir: str, tc_ids: list[str]) -> str:
     """
     Filter test cases by automation status.
 

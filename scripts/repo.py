@@ -87,12 +87,12 @@ import sys
 from pathlib import Path
 
 from scripts.utils.repo_utils import (
-    find_repo_in_common_locations,
-    find_known_repo,
-    find_target_repo,
     clone_repo,
-    get_git_root,
+    find_known_repo,
+    find_repo_in_common_locations,
+    find_target_repo,
     get_git_remote,
+    get_git_root,
 )
 
 
@@ -632,7 +632,7 @@ def _find_testplan_in_repo(repo_path, branch_hint=None):
     print(f"ERROR: Multiple TestPlan.md files found in {repo_path}:", file=sys.stderr)
     for path in sorted(relative_paths):
         print(f"  - {path}", file=sys.stderr)
-    print("", file=sys.stderr)
+    print(file=sys.stderr)
     print("Please specify the feature directory explicitly:", file=sys.stderr)
     print(f"  Example: {repo_path}/{Path(relative_paths[0]).parent}", file=sys.stderr)
     return None
@@ -671,7 +671,7 @@ def cmd_validate_local_path(args):
         # If we get here, path is inside skill repo
         print(f"❌ ERROR: Cannot create artifacts in skill repository ({skill_root})", file=sys.stderr)
         print("Please specify a different directory.", file=sys.stderr)
-        print("", file=sys.stderr)
+        print(file=sys.stderr)
         print("Tip: Use --output-dir flag to force creation in current directory if needed.", file=sys.stderr)
         return 1
     except ValueError:

@@ -28,12 +28,11 @@ Output (JSON):
 import json
 import sys
 from pathlib import Path
-from typing import List, Dict
 
 from scripts.utils.frontmatter_utils import update_frontmatter
 
 
-def update_tc_frontmatter(feature_dir: str, updates: List[Dict]) -> str:
+def update_tc_frontmatter(feature_dir: str, updates: list[dict]) -> str:
     """
     Update TC frontmatter fields in bulk.
 
@@ -68,7 +67,7 @@ def update_tc_frontmatter(feature_dir: str, updates: List[Dict]) -> str:
             updated_tcs.append(tc_id)
 
         except Exception as e:
-            errors.append(f"{tc_id}: {str(e)}")
+            errors.append(f"{tc_id}: {e!s}")
 
     return json.dumps(
         {

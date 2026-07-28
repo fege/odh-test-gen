@@ -1,6 +1,6 @@
 """Test safe_checkout_branch utility."""
 
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from scripts.repo import safe_checkout_branch
 
@@ -48,9 +48,7 @@ def test_safe_checkout_detects_stale_local_branch():
                     return MagicMock(returncode=0, stdout="abc123\n")  # Remote SHA
                 else:
                     return MagicMock(returncode=0, stdout="def456\n")  # Local SHA (different = stale)
-            elif cmd[:2] == ["git", "checkout"]:
-                return MagicMock(returncode=0)
-            elif cmd[:2] == ["git", "pull"]:
+            elif cmd[:2] == ["git", "checkout"] or cmd[:2] == ["git", "pull"]:
                 return MagicMock(returncode=0)
             return MagicMock(returncode=0, stdout="")
 

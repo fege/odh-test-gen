@@ -24,6 +24,7 @@ Exit codes:
 
 import argparse
 import sys
+
 from scripts.jira_utils import add_labels
 
 

@@ -19,6 +19,7 @@ Examples:
 import argparse
 import sys
 from typing import Any
+
 from scripts.jira_utils import get_issue
 
 

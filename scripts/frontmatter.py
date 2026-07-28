@@ -45,12 +45,6 @@ import os
 import sys
 from datetime import date
 
-from scripts.utils.schemas import (
-    SCHEMAS,
-    ValidationError,
-    detect_schema_type,
-    get_schema_yaml,
-)
 from scripts.utils.frontmatter_utils import (
     fix_markdown_body,
     lint_markdown_body,
@@ -58,6 +52,12 @@ from scripts.utils.frontmatter_utils import (
     read_frontmatter_validated,
     update_frontmatter,
     write_frontmatter,
+)
+from scripts.utils.schemas import (
+    SCHEMAS,
+    ValidationError,
+    detect_schema_type,
+    get_schema_yaml,
 )
 
 
