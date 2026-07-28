@@ -52,7 +52,7 @@ def _generate_function_name(tc_file: Path) -> str:
     return f"test_{sanitized}"
 
 
-def _map_one_per_tc(tc_dir: Path, tc_ids: list[str], test_dir: str, _feature_name: str = None) -> list[dict]:
+def _map_one_per_tc(tc_dir: Path, tc_ids: list[str], test_dir: str, _feature_name: str | None = None) -> list[dict]:
     """Strategy: One file per test case."""
     # Validate all files first
     for tc_id in tc_ids:

@@ -314,6 +314,8 @@ _VALIDATED_SECTION_NUMBERS = {
 
 _OPTIONAL_SECTION_NUMBERS = {"5", "6"}
 
+_TEST_CASE_SUBSECTION_NUMBERS = {"3.1", "3.4", "5.2", "6.2", "9.1", "9.2"}
+
 _SECTION_NUMBER_RE = re.compile(r"^(#{2,3})\s+(\d+(?:\.\d+)?)[.\s]")
 
 
@@ -327,14 +329,24 @@ def _parse_template_headings():
     return headings
 
 
+def _require_headings(headings):
+    """Fail closed if the parsed template omits any heading the code depends on."""
+    missing = sorted(
+        (_VALIDATED_SECTION_NUMBERS | _TEST_CASE_SUBSECTION_NUMBERS) - headings.keys(),
+        key=lambda x: [int(p) for p in x.split(".")],
+    )
+    if missing:
+        raise ValueError(f"Test plan template {_TEMPLATE_PATH} is missing required section headings: {missing}")
+
+
 TEMPLATE_HEADINGS = _parse_template_headings()
+_require_headings(TEMPLATE_HEADINGS)
 
 
 TESTPLAN_STRUCTURE = {
     "sections": [
         {"heading": TEMPLATE_HEADINGS[num], "required": num not in _OPTIONAL_SECTION_NUMBERS}
         for num in sorted(_VALIDATED_SECTION_NUMBERS, key=lambda x: [int(p) for p in x.split(".")])
-        if num in TEMPLATE_HEADINGS
     ],
     "disallowed_test_levels": [
         "Unit Testing",

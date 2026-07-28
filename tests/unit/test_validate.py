@@ -38,6 +38,7 @@ from tests.constants import (
     TESTPLAN_INTERFACE_COVERAGE_FULL,
     TESTPLAN_INTERFACE_COVERAGE_MISSING_6_2,
     TESTPLAN_INTERFACE_COVERAGE_MISSING_9_2,
+    TESTPLAN_INTERFACE_COVERAGE_PENDING,
     TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_6_2,
     TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_SCENARIO_CELL,
     TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_TC_CELL,
@@ -501,6 +502,18 @@ class TestValidateInterfaceCoverage:
         assert result["valid"] is True
         assert result["interfaces"] == []
 
+    def test_pending_interfaces_excluded_from_missing(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_INTERFACE_COVERAGE_PENDING)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is True
+        assert result["missing_in_9_2"] == []
+        assert result["missing_in_6_2"] == []
+        assert result["pending"] == ["`/v1/models`"]
+        assert "`/v1/models`" in result["interfaces"]
+
     def test_file_not_found(self):
         result = validate_interface_coverage("/nonexistent/TestPlan.md")
 
@@ -716,6 +729,15 @@ class TestValidateTcScope:
 
         assert result["valid"] is True
         assert result["id_mismatches"] == []
+
+    def test_malformed_filename_flagged(self, tmp_path):
+        self._make_tc_dir(tmp_path, ["TC-e2e-001", "TC-E2E-abc"])
+
+        result = validate_tc_scope(str(tmp_path))
+
+        assert result["valid"] is False
+        assert sorted(result["malformed"]) == ["TC-E2E-abc.md", "TC-e2e-001.md"]
+        assert result["disallowed"] == []
 
 
 class TestValidateTcTraceability:

@@ -890,6 +890,43 @@ author: QE Team
 | `/v1/models` | TC-E2E-002 | |
 """
 
+# TestPlan.md where an interface is marked "pending details" in Section 4 and is
+# absent from both Section 6.2 and 9.2 — it must be excluded from the missing lists.
+TESTPLAN_INTERFACE_COVERAGE_PENDING = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | pending details |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+"""
+
 # TestPlan.md where Section 9.2 lists the interface but its Test Cases cell is blank
 TESTPLAN_INTERFACE_COVERAGE_EMPTY_9_2_CELL = """---
 feature: Test Feature

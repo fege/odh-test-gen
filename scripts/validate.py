@@ -334,12 +334,19 @@ def validate_interface_coverage(testplan_path: str) -> dict:
     content = path.read_text()
 
     section4_lines, _ = extract_section(content, TEMPLATE_HEADINGS["4"])
-    interfaces = [row[0] for row in parse_table_rows(section4_lines) if row and row[0]]
+    section4_rows = parse_table_rows(section4_lines)
+    interfaces = [row[0] for row in section4_rows if row and row[0]]
+
+    pending = [
+        row[0] for row in section4_rows if row and row[0] and any("pending details" in cell.lower() for cell in row)
+    ]
+    pending_set = set(pending)
 
     if not interfaces:
         return {
             "valid": True,
             "interfaces": [],
+            "pending": [],
             "missing_in_9_2": [],
             "missing_in_6_2": [],
             "section_6_2_populated": False,
@@ -351,17 +358,18 @@ def validate_interface_coverage(testplan_path: str) -> dict:
         for row in parse_table_rows(section92_lines)
         if row and row[0] and len(row) > 1 and is_filled_cell(row[1])
     }
-    missing_in_9_2 = [i for i in interfaces if i not in covered_92]
+    missing_in_9_2 = [i for i in interfaces if i not in covered_92 and i not in pending_set]
 
     section62_lines, _ = extract_section(content, TEMPLATE_HEADINGS["6.2"])
     rows_62 = parse_table_rows(section62_lines)
     populated_62 = any(row and row[0] for row in rows_62)
     covered_62 = {row[0] for row in rows_62 if row and row[0] and len(row) > 1 and is_filled_cell(row[1])}
-    missing_in_6_2 = [i for i in interfaces if i not in covered_62] if populated_62 else []
+    missing_in_6_2 = [i for i in interfaces if i not in covered_62 and i not in pending_set] if populated_62 else []
 
     return {
         "valid": not missing_in_9_2 and not missing_in_6_2,
         "interfaces": interfaces,
+        "pending": pending,
         "missing_in_9_2": missing_in_9_2,
         "missing_in_6_2": missing_in_6_2,
         "section_6_2_populated": populated_62,
@@ -453,23 +461,27 @@ def validate_tc_counts(feature_dir: str) -> dict:
 
 
 def validate_tc_scope(feature_dir: str) -> dict:
-    """Check TC-*.md filenames use allowed categories and match frontmatter test_case_id."""
+    """Check TC-*.md filenames follow TC-<CATEGORY>-<id>.md with allowed categories and matching test_case_id."""
     tc_dir = Path(feature_dir) / "test_cases"
     if not tc_dir.exists():
-        return {"valid": True, "checked": 0, "disallowed": [], "id_mismatches": []}
+        return {"valid": True, "checked": 0, "disallowed": [], "id_mismatches": [], "malformed": []}
 
     tc_files = sorted(tc_dir.glob("TC-*.md"))
     if not tc_files:
-        return {"valid": True, "checked": 0, "disallowed": [], "id_mismatches": []}
+        return {"valid": True, "checked": 0, "disallowed": [], "id_mismatches": [], "malformed": []}
 
     allowed = set(TESTPLAN_STRUCTURE["allowed_tc_categories"])
     tc_re = re.compile(r"^TC-([A-Z0-9]+)-\d+\.md$")
 
     disallowed = []
     id_mismatches = []
+    malformed = []
     for f in tc_files:
         match = tc_re.match(f.name)
-        if match and match.group(1) not in allowed:
+        if not match:
+            malformed.append(f.name)
+            continue
+        if match.group(1) not in allowed:
             disallowed.append({"file": f.name, "category": match.group(1)})
 
         try:
@@ -483,10 +495,11 @@ def validate_tc_scope(feature_dir: str) -> dict:
             id_mismatches.append({"file": f.name, "frontmatter_test_case_id": test_case_id})
 
     return {
-        "valid": not disallowed and not id_mismatches,
+        "valid": not disallowed and not id_mismatches and not malformed,
         "checked": len(tc_files),
         "disallowed": disallowed,
         "id_mismatches": id_mismatches,
+        "malformed": malformed,
     }
 
 

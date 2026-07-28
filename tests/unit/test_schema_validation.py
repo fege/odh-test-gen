@@ -169,6 +169,14 @@ class TestCaseSchemaValidation:
                 f"Expected {field_name}={field_value} to fail with {field_name} error, got: {errors}"
             )
 
+    def test_missing_objectives_fails(self):
+        data = VALID_TEST_CASE_DATA.copy()
+        del data["objectives"]
+
+        errors = validate(data, "test-case")
+
+        assert any("objectives" in err for err in errors), f"Expected a missing-objectives error, got: {errors}"
+
 
 class TestGapsSchemaValidation:
     """Test the test-gaps schema validation rules."""
