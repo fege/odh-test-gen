@@ -83,7 +83,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    interface_coverage_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
        uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md || true)
    ```
-   `valid: false` here is expected pre-create-cases (Section 6.2 not yet populated) — this is not a failure, just data for the score agent.
+   With the pre-create-cases guards, `valid: true` is expected before test cases exist — both Section 9.2 (Test Cases column blank) and Section 6.2 are recognized as not-yet-populated and skipped. A `valid: false` here signals a genuine coverage gap; pass it as data to the score agent.
 
 ### Step 2: Score (fork)
 

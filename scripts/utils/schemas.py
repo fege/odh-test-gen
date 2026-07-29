@@ -105,6 +105,7 @@ SCHEMAS = {
         "objectives": {
             "type": "list",
             "required": True,
+            "min_length": 1,
         },
         "priority": {
             "type": "string",
@@ -320,7 +321,10 @@ _SECTION_NUMBER_RE = re.compile(r"^(#{2,3})\s+(\d+(?:\.\d+)?)[.\s]")
 
 
 def _parse_template_headings():
-    content = _TEMPLATE_PATH.read_text()
+    try:
+        content = _TEMPLATE_PATH.read_text()
+    except OSError as e:
+        raise ValueError(f"Test plan template not found at {_TEMPLATE_PATH}; scripts require the repo layout.") from e
     headings = {}
     for h in extract_headings(content):
         m = _SECTION_NUMBER_RE.match(h)
@@ -438,6 +442,8 @@ def _validate_field(name, value, spec):
     elif expected_type == "list":
         if not isinstance(value, list):
             errors.append(f"{name}: expected list, got {type(value).__name__}")
+        elif "min_length" in spec and len(value) < spec["min_length"]:
+            errors.append(f"{name}: expected at least {spec['min_length']} item(s), got {len(value)}")
 
     elif expected_type == "dict":
         if not isinstance(value, dict):

@@ -322,6 +322,8 @@ author: QE Team
 """
 
 # TestPlan.md with all AC citations present (valid)
+# Objective 1's (AC: ...) is wrapped onto a continuation line — the parser must join
+# continuation lines before checking, or it reads objective 1 as uncited.
 TESTPLAN_AC_CITED = """---
 feature: Test Feature
 source_key: RHAISTRAT-400
@@ -337,7 +339,8 @@ author: QE Team
 
 ### 1.3 Test Objectives
 
-1. Verify model deployment works end-to-end (AC: "Users can deploy models from the catalog")
+1. Verify model deployment works end-to-end
+   (AC: "Users can deploy models from the catalog")
 2. Verify dashboard shows status (AC: "Model status is visible in the dashboard")
 3. Verify RBAC enforcement (AC: "Non-admin users cannot delete models")
 
@@ -440,11 +443,23 @@ In scope items.
 
 ## 4. Interfaces Under Test
 
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
 ## 7. Non-Functional Requirements
 
 ## 8. Risks and Mitigation
 
 ## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | | |
+| `/v1/models` | | |
 """
 
 # TestPlan.md with bold-text pseudo-headings (invalid structure)
@@ -615,6 +630,7 @@ STRAT_NFR_WRAPPED_BULLET = (
     "* *Security*: Registration is namespace-scoped; the gen-ai BFF enforces\n"
     "namespace isolation via the user token's RBAC permissions, consistent\n"
     "with all other BFF endpoints.\n"
+    "* a stray bullet with no category\n"  # not the "* *Cat*: text" form → must not merge into Security
     "* *Performance*: Connectivity validation enforces a configurable timeout.\n"
     "\nh3. Out-of-Scope\n"
 )
@@ -720,6 +736,26 @@ author: QE Team
 | Dashboard model page | UI | Model management |
 """
 
+# Section 4 header row has a blank cell — the validator must report the real header row
+# (above the separator), not silently promote the first data row to "header".
+TESTPLAN_INTERFACE_TYPES_BLANK_HEADER_CELL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type |  |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+"""
+
 # TestPlan.md with Config-type entries in Section 4 (invalid)
 TESTPLAN_CONFIG_INTERFACES = """---
 feature: Test Feature
@@ -743,6 +779,8 @@ author: QE Team
 """
 
 # TestPlan.md where Section 9.2 and 6.2 fully cover Section 4 interfaces
+# Full coverage, but Section 4 uses bold/plain formatting while 6.2/9.2 use backticks —
+# normalization must still match them (regression for exact-string-equality false failures).
 TESTPLAN_INTERFACE_COVERAGE_FULL = """---
 feature: Test Feature
 source_key: RHAISTRAT-400
@@ -758,8 +796,8 @@ author: QE Team
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
-| `/v1/chat/completions` | REST | Chat inference |
-| `/v1/models` | REST | List models |
+| **/v1/chat/completions** | REST | Chat inference |
+| /v1/models | REST | List models |
 
 ## 6. E2E Test Scenarios
 

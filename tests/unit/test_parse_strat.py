@@ -134,6 +134,8 @@ class TestParseNfr:
         security = next(nfr for nfr in result["requirements"] if nfr["category"] == "Security")
         assert "namespace isolation" in security["text"]
         assert "with all other BFF endpoints" in security["text"]
+        # A stray "*" bullet that is not a "* *Cat*: text" NFR must not be merged into Security.
+        assert "stray bullet" not in security["text"]
 
 
 class TestParseOutOfScope:

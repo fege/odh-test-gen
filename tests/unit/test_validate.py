@@ -42,6 +42,7 @@ from tests.constants import (
     TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_6_2,
     TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_SCENARIO_CELL,
     TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_TC_CELL,
+    TESTPLAN_INTERFACE_TYPES_BLANK_HEADER_CELL,
     TESTPLAN_MISSING_SECTIONS,
     TESTPLAN_NO_SECTION_13,
     TESTPLAN_NO_SECTION_21,
@@ -204,6 +205,10 @@ class TestValidateAll:
 
         assert result["valid"] is True
         assert result["test_cases"]["checked"] == 0
+        # Populated Section 4 + blank 9.2 Test Cases + no test_cases/ is the publish-before-cases
+        # state — coverage must be skipped, not flagged missing.
+        assert result["interface_coverage"]["section_9_2_populated"] is False
+        assert result["interface_coverage"]["missing_in_9_2"] == []
 
     def test_stops_on_missing_testplan(self, tmp_path):
         result = validate_all(str(tmp_path))
@@ -444,6 +449,17 @@ class TestValidateInterfaceTypes:
 
         assert result["valid"] is True
         assert result["config_entries"] == []
+
+    def test_blank_header_cell_reports_real_header(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_INTERFACE_TYPES_BLANK_HEADER_CELL)
+
+        result = validate_interface_types(str(testplan))
+
+        # The real header row (with its blank cell) must be reported — not the first data row.
+        assert result["header"] == ["Interface", "Type", ""]
+        assert result["valid"] is False
+        assert result["header_error"]["found"] == ["Interface", "Type", ""]
 
     def test_file_not_found(self):
         result = validate_interface_types("/nonexistent/TestPlan.md")
@@ -754,7 +770,8 @@ class TestValidateTcTraceability:
         return tmp_path
 
     def test_valid_traceability_passes(self, tmp_path):
-        section = "1. Verify login flow (AC: users can log in)\n2. Verify logout flow (AC: users can log out)\n"
+        # Objective 1's AC citation is wrapped onto a continuation line.
+        section = "1. Verify login flow\n   (AC: users can log in)\n2. Verify logout flow (AC: users can log out)\n"
         self._make_feature_dir(
             tmp_path,
             section,

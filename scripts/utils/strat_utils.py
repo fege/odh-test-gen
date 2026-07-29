@@ -73,7 +73,8 @@ def parse_nfr(content: str) -> dict:
                     "text": match.group(2).strip(),
                 }
             )
-        elif requirements:
+        elif requirements and not line.startswith("*"):
+            # Merge wrapped continuation text, but not a new "*" bullet that failed nfr_re.
             requirements[-1]["text"] = f"{requirements[-1]['text']} {line}"
 
     return {"found": True, "requirements": requirements}

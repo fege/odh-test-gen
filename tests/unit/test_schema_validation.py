@@ -146,11 +146,12 @@ class TestCaseSchemaValidation:
             ("priority", "P2", True),
             ("priority", "P3", False),
             ("priority", "High", False),
-            # objectives validation (type: list)
+            # objectives validation (type: list, non-empty)
             ("objectives", [1, 3], True),
             ("objectives", [1], True),
             ("objectives", "1", False),
             ("objectives", 1, False),
+            ("objectives", [], False),
         ],
     )
     def test_field_validation(self, field_name, field_value, should_pass):

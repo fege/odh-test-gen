@@ -33,7 +33,13 @@ from pathlib import Path
 import yaml
 
 from scripts.utils.frontmatter_utils import read_frontmatter, read_frontmatter_validated
-from scripts.utils.markdown_utils import extract_section, is_filled_cell, parse_table_rows
+from scripts.utils.markdown_utils import (
+    extract_section,
+    is_filled_cell,
+    normalize_interface,
+    parse_numbered_objectives,
+    parse_table_rows,
+)
 from scripts.utils.schemas import TEMPLATE_HEADINGS, TESTPLAN_STRUCTURE, detect_schema_type
 
 
@@ -207,13 +213,11 @@ def validate_ac_citations(testplan_path: str) -> dict:
     if not section_lines:
         return {"valid": True, "total": 0, "cited": 0, "uncited": []}
 
-    objective_re = re.compile(r"^\d+\.\s+")
     ac_re = re.compile(r"\(AC:\s*")
 
     objectives = [
-        {"text": line.strip(), "line_number": start_line + i}
-        for i, line in enumerate(section_lines)
-        if objective_re.match(line.strip())
+        {"text": obj["text"], "line_number": start_line + obj["line_index"]}
+        for obj in parse_numbered_objectives(section_lines)
     ]
 
     has_content = any(line.strip() for line in section_lines)
@@ -302,22 +306,27 @@ def validate_interface_types(testplan_path: str) -> dict:
     config_entries = []
     header = None
     header_error = None
+    prev_row = None  # most recent non-separator pipe row: (columns, line_number)
     for i, line in enumerate(section_lines):
         match = table_re.match(line)
         if match:
             config_entries.append({"interface": match.group(1).strip(), "line_number": start_line + i})
 
         stripped = line.strip()
-        if header is None and stripped.startswith("|") and stripped.endswith("|") and "---" not in stripped:
-            columns = [c.strip() for c in stripped.strip("|").split("|")]
-            if all(columns):
-                header = columns
-                if columns != INTERFACE_TABLE_COLUMNS:
+        if not (stripped.startswith("|") and stripped.endswith("|")):
+            continue
+        if "---" in stripped:
+            # The header is the pipe row immediately above the separator, even if it has a blank cell.
+            if header is None and prev_row is not None:
+                header, header_line = prev_row
+                if header != INTERFACE_TABLE_COLUMNS:
                     header_error = {
                         "expected": INTERFACE_TABLE_COLUMNS,
-                        "found": columns,
-                        "line_number": start_line + i,
+                        "found": header,
+                        "line_number": header_line,
                     }
+        else:
+            prev_row = ([c.strip() for c in stripped.strip("|").split("|")], start_line + i)
 
     result = {"valid": not config_entries and header_error is None, "config_entries": config_entries, "header": header}
     if header_error:
@@ -340,7 +349,7 @@ def validate_interface_coverage(testplan_path: str) -> dict:
     pending = [
         row[0] for row in section4_rows if row and row[0] and any("pending details" in cell.lower() for cell in row)
     ]
-    pending_set = set(pending)
+    pending_set = {normalize_interface(p) for p in pending}
 
     if not interfaces:
         return {
@@ -349,22 +358,30 @@ def validate_interface_coverage(testplan_path: str) -> dict:
             "pending": [],
             "missing_in_9_2": [],
             "missing_in_6_2": [],
+            "section_9_2_populated": False,
             "section_6_2_populated": False,
         }
 
+    # 9.2 is populated by the Test Cases column: /test-plan-create fills the Interface column
+    # but leaves Test Cases blank until /test-plan-create-cases runs, so key the guard on col 1.
     section92_lines, _ = extract_section(content, TEMPLATE_HEADINGS["9.2"])
+    rows_92 = parse_table_rows(section92_lines)
+    populated_92 = any(row and row[0] and len(row) > 1 and is_filled_cell(row[1]) for row in rows_92)
     covered_92 = {
-        row[0]
-        for row in parse_table_rows(section92_lines)
-        if row and row[0] and len(row) > 1 and is_filled_cell(row[1])
+        normalize_interface(row[0]) for row in rows_92 if row and row[0] and len(row) > 1 and is_filled_cell(row[1])
     }
-    missing_in_9_2 = [i for i in interfaces if i not in covered_92 and i not in pending_set]
+    skip_92 = covered_92 | pending_set
+    missing_in_9_2 = [i for i in interfaces if normalize_interface(i) not in skip_92] if populated_92 else []
 
+    # 6.2 is empty pre-create-cases (no interface names either), so its guard keys on col 0.
     section62_lines, _ = extract_section(content, TEMPLATE_HEADINGS["6.2"])
     rows_62 = parse_table_rows(section62_lines)
     populated_62 = any(row and row[0] for row in rows_62)
-    covered_62 = {row[0] for row in rows_62 if row and row[0] and len(row) > 1 and is_filled_cell(row[1])}
-    missing_in_6_2 = [i for i in interfaces if i not in covered_62 and i not in pending_set] if populated_62 else []
+    covered_62 = {
+        normalize_interface(row[0]) for row in rows_62 if row and row[0] and len(row) > 1 and is_filled_cell(row[1])
+    }
+    skip_62 = covered_62 | pending_set
+    missing_in_6_2 = [i for i in interfaces if normalize_interface(i) not in skip_62] if populated_62 else []
 
     return {
         "valid": not missing_in_9_2 and not missing_in_6_2,
@@ -372,6 +389,7 @@ def validate_interface_coverage(testplan_path: str) -> dict:
         "pending": pending,
         "missing_in_9_2": missing_in_9_2,
         "missing_in_6_2": missing_in_6_2,
+        "section_9_2_populated": populated_92,
         "section_6_2_populated": populated_62,
     }
 
@@ -521,15 +539,12 @@ def validate_tc_traceability(feature_dir: str) -> dict:
     content = testplan_path.read_text()
     section_lines, _ = extract_section(content, TEMPLATE_HEADINGS["1.3"])
 
-    objective_re = re.compile(r"^(\d+)\.\s+")
     ac_re = re.compile(r"\(AC:\s*")
 
-    objectives = {}
-    for line in section_lines:
-        match = objective_re.match(line.strip())
-        if match:
-            num = int(match.group(1))
-            objectives[num] = {"text": line.strip(), "has_ac": bool(ac_re.search(line))}
+    objectives = {
+        obj["num"]: {"text": obj["text"], "has_ac": bool(ac_re.search(obj["text"]))}
+        for obj in parse_numbered_objectives(section_lines)
+    }
 
     errors = []
     for f in tc_files:

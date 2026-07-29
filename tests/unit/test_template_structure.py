@@ -7,7 +7,7 @@ the deterministic validators that check LLM-generated output against it.
 
 import pytest
 
-from scripts.utils.schemas import _require_headings
+from scripts.utils.schemas import _parse_template_headings, _require_headings
 from scripts.validate import validate_interface_types
 from tests.constants import REPO_ROOT
 
@@ -30,3 +30,8 @@ class TestTemplateHeadingsFailClosed:
     def test_missing_heading_raises(self):
         with pytest.raises(ValueError, match="missing required section headings"):
             _require_headings({"1": "## 1. Overview"})
+
+    def test_missing_template_file_raises_clear_error(self, monkeypatch, tmp_path):
+        monkeypatch.setattr("scripts.utils.schemas._TEMPLATE_PATH", tmp_path / "nonexistent-template.md")
+        with pytest.raises(ValueError, match="template"):
+            _parse_template_headings()
