@@ -10,20 +10,19 @@ Usage:
 
 Output (JSON):
     {
-        "to_implement": ["TC-API-002", "TC-API-003"],
-        "already_implemented": ["TC-API-001"]
+        "to_implement": ["TC-E2E-002", "TC-E2E-003"],
+        "already_implemented": ["TC-E2E-001"]
     }
 """
 
 import json
 import sys
 from pathlib import Path
-from typing import List
 
 from scripts.utils.frontmatter_utils import read_frontmatter
 
 
-def filter_test_cases(feature_dir: str, tc_ids: List[str]) -> str:
+def filter_test_cases(feature_dir: str, tc_ids: list[str]) -> str:
     """
     Filter test cases by automation status.
 

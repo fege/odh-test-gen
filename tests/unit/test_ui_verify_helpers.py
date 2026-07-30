@@ -137,8 +137,8 @@ class TestClassifyFile:
 
 # ui_assert.py imports playwright at module level (exits if missing).
 # Stub the playwright module so it can be imported in the test environment.
-from unittest.mock import MagicMock
 import sys as _sys
+from unittest.mock import MagicMock
 
 _pw_stub = MagicMock()
 _pw_stub.sync_api.TimeoutError = TimeoutError  # map to built-in for isinstance checks

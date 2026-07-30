@@ -16,12 +16,12 @@ class TestIdentifyCommonSetupRequirements:
         """Should find preconditions used by 2+ TCs with case-insensitive matching."""
         test_cases = [
             {
-                "test_case_id": "TC-API-001",
+                "test_case_id": "TC-NEG-001",
                 "priority": "P0",
                 "preconditions": ["  RHOAI cluster deployed  ", "API available"],
             },
             {
-                "test_case_id": "TC-API-002",
+                "test_case_id": "TC-NEG-002",
                 "priority": "P1",
                 "preconditions": ["rhoai cluster deployed", "Test data loaded"],
             },
@@ -37,7 +37,7 @@ class TestIdentifyCommonSetupRequirements:
         assert len(result) == 1
         assert result[0]["requirement"] == "RHOAI cluster deployed"
         assert result[0]["count"] == 3
-        assert set(result[0]["used_by_tcs"]) == {"TC-API-001", "TC-API-002", "TC-E2E-001"}
+        assert set(result[0]["used_by_tcs"]) == {"TC-NEG-001", "TC-NEG-002", "TC-E2E-001"}
         assert result[0]["tc_priorities"] == ["P0", "P1", "P0"]
 
     def test_returns_empty_for_unique_preconditions(self):

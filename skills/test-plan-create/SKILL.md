@@ -156,16 +156,24 @@ If environment variables are set, proceed to Step 0.3.
 
 ### Step 1: Gather Information
 
-1. **Strategy**: If a Jira key was provided, fetch it using the `fetch_issue.py` script. The strategy contains both the technical approach (HOW) and the business need (WHAT/WHY). If auto-detected, read the local file from `artifacts/strat-tasks/`.
+1. **Strategy**: If a Jira key was provided, fetch it using the `fetch_issue.py` script. The strategy contains both the technical approach (HOW) and the business need (WHAT/WHY). If auto-detected, read the local file from `artifacts/strat-tasks/` instead — do NOT fetch.
+
+   **Fetching from Jira:**
    ```bash
-   # Fetch strategy and save to temporary file
    strategy_file=$(mktemp)
+   strategy_is_temp=true
    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
     uv run python scripts/fetch_issue.py <JIRA_KEY> --output "$strategy_file")
-
-   # Read the saved strategy
    strategy_content=$(cat "$strategy_file")
    ```
+
+   **Auto-detected from `artifacts/strat-tasks/<JIRA_KEY>.md`** (shared cache, other skills use it as a Jira-outage fallback — never delete, see Step 1.5):
+   ```bash
+   strategy_file="$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)/artifacts/strat-tasks/<JIRA_KEY>.md"
+   strategy_is_temp=false
+   strategy_content=$(cat "$strategy_file")
+   ```
+
    - Extract `components` from the Jira response by parsing the markdown output (list of RHOAI product component names, e.g., `["AI Hub", "Model Serving"]`)
    - If Components field is empty or missing, set `components = []`
    - Store for use in frontmatter (Step 3.1)
@@ -178,15 +186,16 @@ Run the STRAT parser on the fetched strategy file to extract structured data det
 ```bash
 repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
 ac_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py acceptance-criteria "$strategy_file")
+ac_exit=$?
 nfr_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py nfr "$strategy_file") || nfr_json=""
 oos_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py out-of-scope "$strategy_file") || oos_json=""
-rm "$strategy_file"
+[ "$strategy_is_temp" = "true" ] && rm "$strategy_file"
 strat_gaps=""
 [ -z "$nfr_json" ] && strat_gaps="${strat_gaps}- Strategy has no Non-Functional Requirements section.\n"
 [ -z "$oos_json" ] && strat_gaps="${strat_gaps}- Strategy has no Out-of-Scope section.\n"
 ```
 
-**If `acceptance-criteria` exits non-zero** (no ACs found or count is 0), **STOP immediately**:
+**If `$ac_exit` is non-zero** (no ACs found or count is 0), **STOP immediately**:
 1. Create `mkdir -p <feature_name>` and write a lowest-score review:
    ```bash
    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set \
@@ -323,7 +332,7 @@ After generating the test plan, collect all gaps reported by the three sub-agent
    - **Exit 0 (non-interactive):** Skip the gaps menu. Proceed directly to Step 3.6.
    - **Exit 1 (interactive):** Continue to Step 5.
 
-5. **Interactive gaps menu** (only reached when Step 4 exits 1 AND gaps exist):
+5. **Interactive gaps menu** (only reached when item 4 exits 1 AND gaps exist):
 
    Present the user with a structured action menu via AskUserQuestion. List the gaps first, then offer numbered options. Example:
 

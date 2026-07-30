@@ -6,11 +6,11 @@ Tests extract_repo_indicators logic with hardcoded component keywords.
 
 from scripts.utils.repo_discovery import extract_repo_indicators
 from tests.integration.constants import (
+    TC_WITH_COMPONENT_MENTIONS,
+    TESTPLAN_FOR_TC_PRECONDITIONS,
+    TESTPLAN_WITH_DUPLICATES,
     TESTPLAN_WITH_ENDPOINTS,
     TESTPLAN_WITH_SCOPE_COMPONENTS,
-    TESTPLAN_FOR_TC_PRECONDITIONS,
-    TC_WITH_COMPONENT_MENTIONS,
-    TESTPLAN_WITH_DUPLICATES,
 )
 
 
@@ -43,7 +43,7 @@ class TestExtractRepoIndicators:
         testplan = tmp_path / "TestPlan.md"
         testplan.write_text(TESTPLAN_FOR_TC_PRECONDITIONS)
 
-        tc_file = tmp_path / "TC-API-001.md"
+        tc_file = tmp_path / "TC-E2E-001.md"
         tc_file.write_text(TC_WITH_COMPONENT_MENTIONS)
 
         result = extract_repo_indicators(str(testplan), [str(tc_file)])

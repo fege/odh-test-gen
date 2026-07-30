@@ -225,7 +225,7 @@ def test_validate_remote_blocks_skill_repo():
         os.environ["CLAUDE_SKILL_DIR"] = TEST_SKILL_DIR
 
         # Get actual skill repo remote
-        from scripts.utils.repo_utils import get_git_root, get_git_remote
+        from scripts.utils.repo_utils import get_git_remote, get_git_root
 
         skill_parent = Path(TEST_SKILL_DIR).parent.parent
         skill_root = get_git_root(str(skill_parent))

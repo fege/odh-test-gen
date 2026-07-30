@@ -15,8 +15,8 @@ import argparse
 import re
 import subprocess
 import sys
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 try:
     import yaml

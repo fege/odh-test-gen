@@ -7,10 +7,9 @@ Extracts mandatory sections reliably using regex patterns.
 """
 
 import re
-from typing import Dict, List
 
 
-def parse_tc_file(tc_file_path: str, read_frontmatter_func) -> Dict:
+def parse_tc_file(tc_file_path: str, read_frontmatter_func) -> dict:
     """
     Parse a test case file (TC-*.md) into structured data.
 
@@ -89,7 +88,7 @@ def parse_tc_file(tc_file_path: str, read_frontmatter_func) -> Dict:
     }
 
 
-def _parse_sections(body: str) -> Dict[str, str]:
+def _parse_sections(body: str) -> dict[str, str]:
     """
     Parse TC body into sections by **SectionName**: pattern.
 
@@ -150,7 +149,7 @@ def _extract_objective_text(objective_content: str) -> str:
     return objective_content.strip()
 
 
-def _extract_bullet_list(section_content: str) -> List[str]:
+def _extract_bullet_list(section_content: str) -> list[str]:
     """
     Extract items from markdown bullet list.
 
@@ -204,7 +203,7 @@ def _extract_bullet_list(section_content: str) -> List[str]:
     return items
 
 
-def _extract_numbered_list(section_content: str) -> List[str]:
+def _extract_numbered_list(section_content: str) -> list[str]:
     """
     Extract items from markdown numbered list.
 
@@ -264,15 +263,15 @@ def extract_category_from_tc_id(tc_id: str) -> str:
     Extract category from TC ID.
 
     Args:
-        tc_id: Test case ID (e.g., 'TC-API-001', 'TC-E2E-042')
+        tc_id: Test case ID (e.g., 'TC-NEG-001', 'TC-E2E-042')
 
     Returns:
-        Category name in lowercase (e.g., 'api', 'e2e')
+        Category name in lowercase (e.g., 'neg', 'e2e')
         Returns 'other' if format is invalid
 
     Examples:
-        >>> extract_category_from_tc_id("TC-API-001")
-        'api'
+        >>> extract_category_from_tc_id("TC-NEG-001")
+        'neg'
         >>> extract_category_from_tc_id("TC-E2E-042")
         'e2e'
         >>> extract_category_from_tc_id("INVALID")

@@ -5,8 +5,8 @@ import json
 import sys
 from pathlib import Path
 
-from scripts.utils.test_analyzer import identify_common_setup_requirements
 from scripts.parse_test_cases import parse_test_cases
+from scripts.utils.test_analyzer import identify_common_setup_requirements
 
 
 def analyze_common_setup(feature_dir: str) -> str:

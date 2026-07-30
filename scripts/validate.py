@@ -15,8 +15,11 @@ Usage:
     uv run python scripts/validate.py structure <testplan_path>
     uv run python scripts/validate.py category-prefixes <testplan_path>
     uv run python scripts/validate.py interface-types <testplan_path>
+    uv run python scripts/validate.py interface-coverage <testplan_path>
     uv run python scripts/validate.py infra-scope <testplan_path>
     uv run python scripts/validate.py tc-counts <feature_dir>
+    uv run python scripts/validate.py tc-scope <feature_dir>
+    uv run python scripts/validate.py tc-traceability <feature_dir>
     uv run python scripts/validate.py check-interactive
 """
 
@@ -25,13 +28,19 @@ import json
 import os
 import re
 import sys
-import yaml
 from pathlib import Path
 
+import yaml
 
 from scripts.utils.frontmatter_utils import read_frontmatter, read_frontmatter_validated
-from scripts.utils.markdown_utils import extract_section
-from scripts.utils.schemas import TESTPLAN_STRUCTURE, detect_schema_type
+from scripts.utils.markdown_utils import (
+    extract_section,
+    is_filled_cell,
+    normalize_interface,
+    parse_numbered_objectives,
+    parse_table_rows,
+)
+from scripts.utils.schemas import TEMPLATE_HEADINGS, TESTPLAN_STRUCTURE, detect_schema_type
 
 
 def validate_feature_dir(feature_dir: str) -> str:
@@ -179,7 +188,7 @@ def validate_scope(testplan_path: str) -> dict:
         return {"valid": False, "error": f"File not found: {testplan_path}"}
 
     content = path.read_text()
-    section_lines, start_line = extract_section(content, "### 2.1 Test Levels")
+    section_lines, start_line = extract_section(content, TEMPLATE_HEADINGS["2.1"])
     if not section_lines:
         return {"valid": True, "violations": []}
 
@@ -200,17 +209,15 @@ def validate_ac_citations(testplan_path: str) -> dict:
         return {"valid": False, "error": f"File not found: {testplan_path}"}
 
     content = path.read_text()
-    section_lines, start_line = extract_section(content, "### 1.3 Test Objectives")
+    section_lines, start_line = extract_section(content, TEMPLATE_HEADINGS["1.3"])
     if not section_lines:
         return {"valid": True, "total": 0, "cited": 0, "uncited": []}
 
-    objective_re = re.compile(r"^\d+\.\s+")
     ac_re = re.compile(r"\(AC:\s*")
 
     objectives = [
-        {"text": line.strip(), "line_number": start_line + i}
-        for i, line in enumerate(section_lines)
-        if objective_re.match(line.strip())
+        {"text": obj["text"], "line_number": start_line + obj["line_index"]}
+        for obj in parse_numbered_objectives(section_lines)
     ]
 
     has_content = any(line.strip() for line in section_lines)
@@ -262,7 +269,7 @@ def validate_category_prefixes(testplan_path: str) -> dict:
         return {"valid": False, "error": f"File not found: {testplan_path}"}
 
     content = path.read_text()
-    section_lines, start_line = extract_section(content, "### 5.2 Test Case Naming Convention")
+    section_lines, start_line = extract_section(content, TEMPLATE_HEADINGS["5.2"])
     if not section_lines:
         return {"valid": True, "disallowed": []}
 
@@ -281,25 +288,110 @@ def validate_category_prefixes(testplan_path: str) -> dict:
     return {"valid": not disallowed, "disallowed": disallowed}
 
 
+INTERFACE_TABLE_COLUMNS = ["Interface", "Type", "Purpose"]
+
+
 def validate_interface_types(testplan_path: str) -> dict:
-    """Check Section 4 for Config-type interface entries."""
+    """Check Section 4 for Config-type entries and correct table columns (no Priority)."""
     path = Path(testplan_path)
     if not path.exists():
         return {"valid": False, "error": f"File not found: {testplan_path}"}
 
     content = path.read_text()
-    section_lines, start_line = extract_section(content, "## 4. Interfaces Under Test")
+    section_lines, start_line = extract_section(content, TEMPLATE_HEADINGS["4"])
     if not section_lines:
-        return {"valid": True, "config_entries": []}
+        return {"valid": True, "config_entries": [], "header": None}
 
     table_re = re.compile(r"^\|\s*(.+?)\s*\|\s*Config\s*\|", re.IGNORECASE)
     config_entries = []
+    header = None
+    header_error = None
+    prev_row = None  # most recent non-separator pipe row: (columns, line_number)
     for i, line in enumerate(section_lines):
         match = table_re.match(line)
         if match:
             config_entries.append({"interface": match.group(1).strip(), "line_number": start_line + i})
 
-    return {"valid": not config_entries, "config_entries": config_entries}
+        stripped = line.strip()
+        if not (stripped.startswith("|") and stripped.endswith("|")):
+            continue
+        if "---" in stripped:
+            # The header is the pipe row immediately above the separator, even if it has a blank cell.
+            if header is None and prev_row is not None:
+                header, header_line = prev_row
+                if header != INTERFACE_TABLE_COLUMNS:
+                    header_error = {
+                        "expected": INTERFACE_TABLE_COLUMNS,
+                        "found": header,
+                        "line_number": header_line,
+                    }
+        else:
+            prev_row = ([c.strip() for c in stripped.strip("|").split("|")], start_line + i)
+
+    result = {"valid": not config_entries and header_error is None, "config_entries": config_entries, "header": header}
+    if header_error:
+        result["header_error"] = header_error
+    return result
+
+
+def validate_interface_coverage(testplan_path: str) -> dict:
+    """Check Section 9.2 and Section 6.2 tables list every interface from Section 4."""
+    path = Path(testplan_path)
+    if not path.exists():
+        return {"valid": False, "error": f"File not found: {testplan_path}"}
+
+    content = path.read_text()
+
+    section4_lines, _ = extract_section(content, TEMPLATE_HEADINGS["4"])
+    section4_rows = parse_table_rows(section4_lines)
+    interfaces = [row[0] for row in section4_rows if row and row[0]]
+
+    pending = [
+        row[0] for row in section4_rows if row and row[0] and any("pending details" in cell.lower() for cell in row)
+    ]
+    pending_set = {normalize_interface(p) for p in pending}
+
+    if not interfaces:
+        return {
+            "valid": True,
+            "interfaces": [],
+            "pending": [],
+            "missing_in_9_2": [],
+            "missing_in_6_2": [],
+            "section_9_2_populated": False,
+            "section_6_2_populated": False,
+        }
+
+    # 9.2 is populated by the Test Cases column: /test-plan-create fills the Interface column
+    # but leaves Test Cases blank until /test-plan-create-cases runs, so key the guard on col 1.
+    section92_lines, _ = extract_section(content, TEMPLATE_HEADINGS["9.2"])
+    rows_92 = parse_table_rows(section92_lines)
+    populated_92 = any(row and row[0] and len(row) > 1 and is_filled_cell(row[1]) for row in rows_92)
+    covered_92 = {
+        normalize_interface(row[0]) for row in rows_92 if row and row[0] and len(row) > 1 and is_filled_cell(row[1])
+    }
+    skip_92 = covered_92 | pending_set
+    missing_in_9_2 = [i for i in interfaces if normalize_interface(i) not in skip_92] if populated_92 else []
+
+    # 6.2 is empty pre-create-cases (no interface names either), so its guard keys on col 0.
+    section62_lines, _ = extract_section(content, TEMPLATE_HEADINGS["6.2"])
+    rows_62 = parse_table_rows(section62_lines)
+    populated_62 = any(row and row[0] for row in rows_62)
+    covered_62 = {
+        normalize_interface(row[0]) for row in rows_62 if row and row[0] and len(row) > 1 and is_filled_cell(row[1])
+    }
+    skip_62 = covered_62 | pending_set
+    missing_in_6_2 = [i for i in interfaces if normalize_interface(i) not in skip_62] if populated_62 else []
+
+    return {
+        "valid": not missing_in_9_2 and not missing_in_6_2,
+        "interfaces": interfaces,
+        "pending": pending,
+        "missing_in_9_2": missing_in_9_2,
+        "missing_in_6_2": missing_in_6_2,
+        "section_9_2_populated": populated_92,
+        "section_6_2_populated": populated_62,
+    }
 
 
 def validate_infra_scope(testplan_path: str) -> dict:
@@ -314,6 +406,7 @@ def validate_infra_scope(testplan_path: str) -> dict:
 
     warnings = []
     seen = set()
+    boundary_res = {ind: re.compile(r"(?<![\w-])" + re.escape(ind.casefold()) + r"(?![\w-])") for ind in indicators}
     for heading in section_headings:
         section_lines, start_line = extract_section(content, heading)
         if not section_lines:
@@ -321,7 +414,7 @@ def validate_infra_scope(testplan_path: str) -> dict:
         for i, line in enumerate(section_lines):
             normalized_line = line.casefold()
             for indicator in indicators:
-                if indicator.casefold() in normalized_line and indicator not in seen:
+                if boundary_res[indicator].search(normalized_line) and indicator not in seen:
                     seen.add(indicator)
                     warnings.append(
                         {
@@ -348,7 +441,7 @@ def validate_tc_counts(feature_dir: str) -> dict:
     actual_count = len(list(tc_dir.glob("TC-*.md")))
 
     content = testplan_path.read_text()
-    section_lines, _ = extract_section(content, "### 9.1 Test Case Summary")
+    section_lines, _ = extract_section(content, TEMPLATE_HEADINGS["9.1"])
     if not section_lines:
         return {"valid": True, "file_count": actual_count, "table_total": 0, "mismatches": []}
 
@@ -382,6 +475,112 @@ def validate_tc_counts(feature_dir: str) -> dict:
         "table_total": table_total,
         "row_sum": row_sum,
         "mismatches": mismatches,
+    }
+
+
+def validate_tc_scope(feature_dir: str) -> dict:
+    """Check TC-*.md filenames follow TC-<CATEGORY>-<id>.md with allowed categories and matching test_case_id."""
+    tc_dir = Path(feature_dir) / "test_cases"
+    if not tc_dir.exists():
+        return {"valid": True, "checked": 0, "disallowed": [], "id_mismatches": [], "malformed": []}
+
+    tc_files = sorted(tc_dir.glob("TC-*.md"))
+    if not tc_files:
+        return {"valid": True, "checked": 0, "disallowed": [], "id_mismatches": [], "malformed": []}
+
+    allowed = set(TESTPLAN_STRUCTURE["allowed_tc_categories"])
+    tc_re = re.compile(r"^TC-([A-Z0-9]+)-\d+\.md$")
+
+    disallowed = []
+    id_mismatches = []
+    malformed = []
+    for f in tc_files:
+        match = tc_re.match(f.name)
+        if not match:
+            malformed.append(f.name)
+            continue
+        if match.group(1) not in allowed:
+            disallowed.append({"file": f.name, "category": match.group(1)})
+
+        try:
+            frontmatter, _ = read_frontmatter(str(f))
+        except (OSError, yaml.YAMLError, ValueError) as e:
+            id_mismatches.append({"file": f.name, "error": f"Failed to read frontmatter: {e}"})
+            continue
+
+        test_case_id = frontmatter.get("test_case_id")
+        if test_case_id != f.stem:
+            id_mismatches.append({"file": f.name, "frontmatter_test_case_id": test_case_id})
+
+    return {
+        "valid": not disallowed and not id_mismatches and not malformed,
+        "checked": len(tc_files),
+        "disallowed": disallowed,
+        "id_mismatches": id_mismatches,
+        "malformed": malformed,
+    }
+
+
+def validate_tc_traceability(feature_dir: str) -> dict:
+    """Check TC objectives frontmatter traces to Section 1.3 objectives with AC citations."""
+    feature_path = Path(feature_dir)
+    testplan_path = feature_path / "TestPlan.md"
+    if not testplan_path.exists():
+        return {"valid": False, "error": f"TestPlan.md not found at {testplan_path}"}
+
+    tc_dir = feature_path / "test_cases"
+    if not tc_dir.exists():
+        return {"valid": True, "checked": 0, "objectives_found": 0, "errors": []}
+
+    tc_files = sorted(tc_dir.glob("TC-*.md"))
+    if not tc_files:
+        return {"valid": True, "checked": 0, "objectives_found": 0, "errors": []}
+
+    content = testplan_path.read_text()
+    section_lines, _ = extract_section(content, TEMPLATE_HEADINGS["1.3"])
+
+    ac_re = re.compile(r"\(AC:\s*")
+
+    objectives = {
+        obj["num"]: {"text": obj["text"], "has_ac": bool(ac_re.search(obj["text"]))}
+        for obj in parse_numbered_objectives(section_lines)
+    }
+
+    errors = []
+    for f in tc_files:
+        try:
+            frontmatter, _ = read_frontmatter(str(f))
+        except (OSError, yaml.YAMLError, ValueError) as e:
+            errors.append({"file": f.name, "error": f"Failed to read frontmatter: {e}"})
+            continue
+
+        raw_objectives = frontmatter.get("objectives")
+        if not raw_objectives:
+            errors.append({"file": f.name, "error": "Missing or empty 'objectives' field"})
+            continue
+        if not isinstance(raw_objectives, list):
+            type_name = type(raw_objectives).__name__
+            errors.append({"file": f.name, "error": f"'objectives' field must be a list, got {type_name}"})
+            continue
+
+        for raw_num in raw_objectives:
+            try:
+                num = int(raw_num)
+            except (TypeError, ValueError):
+                errors.append({"file": f.name, "error": f"Invalid objective reference: {raw_num!r}"})
+                continue
+
+            obj = objectives.get(num)
+            if obj is None:
+                errors.append({"file": f.name, "error": f"References nonexistent objective {num}"})
+            elif not obj["has_ac"]:
+                errors.append({"file": f.name, "error": f"Objective {num} has no AC citation"})
+
+    return {
+        "valid": not errors,
+        "checked": len(tc_files),
+        "objectives_found": len(objectives),
+        "errors": errors,
     }
 
 
@@ -431,8 +630,11 @@ def validate_all(feature_dir: str) -> dict:
     structure_result = validate_structure(str(testplan_path))
     category_result = validate_category_prefixes(str(testplan_path))
     interface_result = validate_interface_types(str(testplan_path))
+    interface_coverage_result = validate_interface_coverage(str(testplan_path))
     infra_result = validate_infra_scope(str(testplan_path))
     tc_counts_result = validate_tc_counts(feature_dir)
+    tc_scope_result = validate_tc_scope(feature_dir)
+    tc_traceability_result = validate_tc_traceability(feature_dir)
 
     valid = (
         all(f["valid"] for f in frontmatter_results)
@@ -442,8 +644,11 @@ def validate_all(feature_dir: str) -> dict:
         and structure_result["valid"]
         and category_result["valid"]
         and interface_result["valid"]
+        and interface_coverage_result["valid"]
         and infra_result["valid"]
         and tc_counts_result["valid"]
+        and tc_scope_result["valid"]
+        and tc_traceability_result["valid"]
     )
 
     return {
@@ -455,8 +660,11 @@ def validate_all(feature_dir: str) -> dict:
         "structure": structure_result,
         "category_prefixes": category_result,
         "interface_types": interface_result,
+        "interface_coverage": interface_coverage_result,
         "infra_scope": infra_result,
         "tc_counts": tc_counts_result,
+        "tc_scope": tc_scope_result,
+        "tc_traceability": tc_traceability_result,
     }
 
 
@@ -515,6 +723,12 @@ def cmd_interface_types(args):
     sys.exit(0 if result["valid"] else 1)
 
 
+def cmd_interface_coverage(args):
+    result = validate_interface_coverage(args.testplan_path)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
 def cmd_infra_scope(args):
     result = validate_infra_scope(args.testplan_path)
     print(json.dumps(result, indent=2))
@@ -523,6 +737,18 @@ def cmd_infra_scope(args):
 
 def cmd_tc_counts(args):
     result = validate_tc_counts(args.feature_dir)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
+def cmd_tc_scope(args):
+    result = validate_tc_scope(args.feature_dir)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
+def cmd_tc_traceability(args):
+    result = validate_tc_traceability(args.feature_dir)
     print(json.dumps(result, indent=2))
     sys.exit(0 if result["valid"] else 1)
 
@@ -579,6 +805,10 @@ def main():
     p_iface.add_argument("testplan_path", help="Path to TestPlan.md")
     p_iface.set_defaults(func=cmd_interface_types)
 
+    p_iface_cov = subparsers.add_parser("interface-coverage", help="Check Section 9.2/6.2 cover Section 4 interfaces")
+    p_iface_cov.add_argument("testplan_path", help="Path to TestPlan.md")
+    p_iface_cov.set_defaults(func=cmd_interface_coverage)
+
     p_infra = subparsers.add_parser("infra-scope", help="Check Sections 3.1/3.4 for dev tooling")
     p_infra.add_argument("testplan_path", help="Path to TestPlan.md")
     p_infra.set_defaults(func=cmd_infra_scope)
@@ -586,6 +816,14 @@ def main():
     p_tc_counts = subparsers.add_parser("tc-counts", help="Check Section 9.1 TC totals match file count")
     p_tc_counts.add_argument("feature_dir", help="Path to feature directory")
     p_tc_counts.set_defaults(func=cmd_tc_counts)
+
+    p_tc_scope = subparsers.add_parser("tc-scope", help="Check TC filenames use allowed categories")
+    p_tc_scope.add_argument("feature_dir", help="Path to feature directory")
+    p_tc_scope.set_defaults(func=cmd_tc_scope)
+
+    p_tc_trace = subparsers.add_parser("tc-traceability", help="Check TC objectives trace to Section 1.3 + AC")
+    p_tc_trace.add_argument("feature_dir", help="Path to feature directory")
+    p_tc_trace.set_defaults(func=cmd_tc_traceability)
 
     p_check_interactive = subparsers.add_parser("check-interactive", help="Check if session is non-interactive (CI)")
     p_check_interactive.set_defaults(func=cmd_check_interactive)

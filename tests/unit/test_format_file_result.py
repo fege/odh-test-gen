@@ -24,8 +24,8 @@ def test_example():
         metadata = {
             "file_index": 0,
             "file_path": "tests/test_api.py",
-            "tc_ids": ["TC-API-001"],
-            "functions": [{"tc_id": "TC-API-001", "name": "test_create", "score": 9, "verdict": "Ready"}],
+            "tc_ids": ["TC-E2E-001"],
+            "functions": [{"tc_id": "TC-E2E-001", "name": "test_create", "score": 9, "verdict": "Ready"}],
             "quality_summary": {"ready_count": 1, "good_count": 0, "avg_score": 9.0},
         }
 
@@ -35,7 +35,7 @@ def test_example():
         assert data["file_path"] == "tests/test_api.py"
         assert "import pytest" in data["content"]
         assert "def test_example():" in data["content"]
-        assert data["test_cases"] == ["TC-API-001"]
+        assert data["test_cases"] == ["TC-E2E-001"]
         assert len(data["functions"]) == 1
         assert data["draft_files"] == []
         assert data["errors"] == []
@@ -57,10 +57,10 @@ def test_includes_draft_files_and_errors(tmp_path):
         metadata = {
             "file_index": 0,
             "file_path": "tests/test_api.py",
-            "tc_ids": ["TC-API-001", "TC-API-002"],
-            "functions": [{"tc_id": "TC-API-001", "name": "test_create", "score": 8, "verdict": "Good"}],
+            "tc_ids": ["TC-E2E-001", "TC-E2E-002"],
+            "functions": [{"tc_id": "TC-E2E-001", "name": "test_create", "score": 8, "verdict": "Good"}],
             "quality_summary": {"ready_count": 0, "good_count": 1, "flagged_count": 1, "avg_score": 5.0},
-            "draft_files": [{"tc_id": "TC-API-002", "reason": "Score 2/10", "score": 2}],
+            "draft_files": [{"tc_id": "TC-E2E-002", "reason": "Score 2/10", "score": 2}],
             "errors": [],
         }
 
@@ -69,6 +69,6 @@ def test_includes_draft_files_and_errors(tmp_path):
 
         assert len(data["functions"]) == 1
         assert len(data["draft_files"]) == 1
-        assert data["draft_files"][0]["tc_id"] == "TC-API-002"
+        assert data["draft_files"][0]["tc_id"] == "TC-E2E-002"
     finally:
         scripts.format_file_result.Path = original_path

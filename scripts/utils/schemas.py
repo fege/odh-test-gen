@@ -14,6 +14,9 @@ import datetime
 import os
 import re
 import sys
+from pathlib import Path
+
+from scripts.utils.markdown_utils import extract_headings
 
 try:
     import yaml
@@ -98,6 +101,11 @@ SCHEMAS = {
             "type": "string",
             "required": True,
             "pattern": r"^(RHAISTRAT|RHOAIENG|RHAIRFE)-\d+$",
+        },
+        "objectives": {
+            "type": "list",
+            "required": True,
+            "min_length": 1,
         },
         "priority": {
             "type": "string",
@@ -285,23 +293,64 @@ SCHEMAS = {
 
 # ─── Test Plan Structure Schema ───────────────────────────────────────────────────
 
+_TEMPLATE_PATH = Path(__file__).resolve().parent.parent.parent / "skills" / "test-plan-create" / "test-plan-template.md"
+
+_VALIDATED_SECTION_NUMBERS = {
+    "1",
+    "1.1",
+    "1.2",
+    "1.3",
+    "2",
+    "2.1",
+    "2.2",
+    "2.3",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+}
+
+_OPTIONAL_SECTION_NUMBERS = {"5", "6"}
+
+_TEST_CASE_SUBSECTION_NUMBERS = {"3.1", "3.4", "5.2", "6.2", "9.1", "9.2"}
+
+_SECTION_NUMBER_RE = re.compile(r"^(#{2,3})\s+(\d+(?:\.\d+)?)[.\s]")
+
+
+def _parse_template_headings():
+    try:
+        content = _TEMPLATE_PATH.read_text()
+    except OSError as e:
+        raise ValueError(f"Test plan template not found at {_TEMPLATE_PATH}; scripts require the repo layout.") from e
+    headings = {}
+    for h in extract_headings(content):
+        m = _SECTION_NUMBER_RE.match(h)
+        if m:
+            headings[m.group(2)] = h
+    return headings
+
+
+def _require_headings(headings):
+    """Fail closed if the parsed template omits any heading the code depends on."""
+    missing = sorted(
+        (_VALIDATED_SECTION_NUMBERS | _TEST_CASE_SUBSECTION_NUMBERS) - headings.keys(),
+        key=lambda x: [int(p) for p in x.split(".")],
+    )
+    if missing:
+        raise ValueError(f"Test plan template {_TEMPLATE_PATH} is missing required section headings: {missing}")
+
+
+TEMPLATE_HEADINGS = _parse_template_headings()
+_require_headings(TEMPLATE_HEADINGS)
+
+
 TESTPLAN_STRUCTURE = {
     "sections": [
-        {"heading": "## 1. Executive Summary", "required": True},
-        {"heading": "### 1.1 Purpose", "required": True},
-        {"heading": "### 1.2 Scope", "required": True},
-        {"heading": "### 1.3 Test Objectives", "required": True},
-        {"heading": "## 2. Test Strategy", "required": True},
-        {"heading": "### 2.1 Test Levels", "required": True},
-        {"heading": "### 2.2 Test Types", "required": True},
-        {"heading": "### 2.3 Test Priorities", "required": True},
-        {"heading": "## 3. Test Environment", "required": True},
-        {"heading": "## 4. Interfaces Under Test", "required": True},
-        {"heading": "## 5. Test Cases", "required": False},
-        {"heading": "## 6. E2E Test Scenarios", "required": False},
-        {"heading": "## 7. Non-Functional Requirements", "required": True},
-        {"heading": "## 8. Risks and Mitigation", "required": True},
-        {"heading": "## 9. Appendix", "required": True},
+        {"heading": TEMPLATE_HEADINGS[num], "required": num not in _OPTIONAL_SECTION_NUMBERS}
+        for num in sorted(_VALIDATED_SECTION_NUMBERS, key=lambda x: [int(p) for p in x.split(".")])
     ],
     "disallowed_test_levels": [
         "Unit Testing",
@@ -325,10 +374,7 @@ TESTPLAN_STRUCTURE = {
         "npm install",
         "yarn install",
     ],
-    "infra_sections": [
-        "### 3.1 Infrastructure & Configuration",
-        "### 3.4 Test Tools",
-    ],
+    "infra_sections": [TEMPLATE_HEADINGS["3.1"], TEMPLATE_HEADINGS["3.4"]],
 }
 
 
@@ -354,8 +400,6 @@ def detect_schema_type(path):
 
 class ValidationError(Exception):
     """Raised when frontmatter fails schema validation."""
-
-    pass
 
 
 def _validate_field(name, value, spec):
@@ -398,6 +442,8 @@ def _validate_field(name, value, spec):
     elif expected_type == "list":
         if not isinstance(value, list):
             errors.append(f"{name}: expected list, got {type(value).__name__}")
+        elif "min_length" in spec and len(value) < spec["min_length"]:
+            errors.append(f"{name}: expected at least {spec['min_length']} item(s), got {len(value)}")
 
     elif expected_type == "dict":
         if not isinstance(value, dict):

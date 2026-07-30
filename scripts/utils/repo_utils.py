@@ -6,13 +6,11 @@ NON-INTERACTIVE utilities - no user prompts, no LLM calls.
 Skills orchestrate: find → ask user → clone (if needed).
 """
 
-import os
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
-
 
 # Known repository configurations
 KNOWN_REPOS = {
@@ -29,7 +27,7 @@ KNOWN_REPOS = {
 }
 
 
-def find_repo_in_common_locations(repo_name: str, verify_func=None) -> Optional[str]:
+def find_repo_in_common_locations(repo_name: str, verify_func=None) -> str | None:
     """
     Find repository in common locations.
 
@@ -62,7 +60,7 @@ def find_repo_in_common_locations(repo_name: str, verify_func=None) -> Optional[
     return None
 
 
-def find_known_repo(repo_type: str) -> Tuple[Optional[str], str]:
+def find_known_repo(repo_type: str) -> tuple[str | None, str]:
     """
     Find a known repository (odh-test-context, tiger-team).
 
@@ -81,7 +79,7 @@ def find_known_repo(repo_type: str) -> Tuple[Optional[str], str]:
     return (path, config["url"])
 
 
-def find_target_repo(repo_name: str) -> Optional[str]:
+def find_target_repo(repo_name: str) -> str | None:
     """
     Find target code repository (e.g., 'odh-dashboard' or 'opendatahub-io/odh-dashboard').
 
@@ -111,7 +109,7 @@ def find_target_repo(repo_name: str) -> Optional[str]:
     return find_repo_in_common_locations(repo)
 
 
-def clone_repo(repo_url: str, target_path: str) -> Optional[str]:
+def clone_repo(repo_url: str, target_path: str) -> str | None:
     """
     Clone Git repository.
 
@@ -133,7 +131,7 @@ def clone_repo(repo_url: str, target_path: str) -> Optional[str]:
         return None
 
 
-def map_components_to_repos(components: List[str], odh_test_context_path: Optional[str] = None) -> Dict[str, str]:
+def map_components_to_repos(components: list[str], odh_test_context_path: str | None = None) -> dict[str, str]:
     """
     Map component names to GitHub repos.
 
@@ -165,7 +163,7 @@ def map_components_to_repos(components: List[str], odh_test_context_path: Option
                     # Alias: "odh-dashboard" → "dashboard"
                     if repo_name.startswith("odh-"):
                         component_repo_map[repo_name[4:].lower()] = repo_full
-                except (json.JSONDecodeError, IOError):
+                except (OSError, json.JSONDecodeError):
                     continue
 
     # Fallback map
@@ -201,7 +199,7 @@ def map_components_to_repos(components: List[str], odh_test_context_path: Option
     return matched
 
 
-def load_repo_test_context(repo_name: str, odh_test_context_path: str) -> Optional[Dict]:
+def load_repo_test_context(repo_name: str, odh_test_context_path: str) -> dict | None:
     """
     Load test context from odh-test-context.
 
@@ -220,12 +218,12 @@ def load_repo_test_context(repo_name: str, odh_test_context_path: str) -> Option
     try:
         with open(context_file, "r") as f:
             return json.load(f)
-    except (json.JSONDecodeError, IOError) as e:
+    except (OSError, json.JSONDecodeError) as e:
         print(f"Error loading {context_file}: {e}")
         return None
 
 
-def extract_conventions_from_context(test_context: Dict) -> Dict:
+def extract_conventions_from_context(test_context: dict) -> dict:
     """Extract test conventions from odh-test-context."""
     return {
         "framework": test_context.get("testing", {}).get("framework", "unknown"),
@@ -240,7 +238,7 @@ def extract_conventions_from_context(test_context: Dict) -> Dict:
     }
 
 
-def get_framework(test_context: Optional[Dict] = None) -> Optional[str]:
+def get_framework(test_context: dict | None = None) -> str | None:
     """
     Get framework from odh-test-context data.
 
@@ -260,7 +258,7 @@ def get_framework(test_context: Optional[Dict] = None) -> Optional[str]:
     return None
 
 
-def get_git_root(path: str) -> Optional[str]:
+def get_git_root(path: str) -> str | None:
     """
     Get git repository root directory.
 
@@ -279,7 +277,7 @@ def get_git_root(path: str) -> Optional[str]:
         return None
 
 
-def get_git_remote(path: str) -> Optional[str]:
+def get_git_remote(path: str) -> str | None:
     """
     Get git repository remote in owner/repo format.
 

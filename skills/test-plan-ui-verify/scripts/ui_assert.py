@@ -40,9 +40,8 @@ except ImportError:
     print("ERROR: playwright not installed — run: pip install playwright && playwright install chromium")
     sys.exit(1)
 
-from paths import TMP_DIR
-
 from browser_common import get_page, release  # shared CDP connection logic
+from paths import TMP_DIR
 
 TC_LOG = TMP_DIR / "ui_tc_log.json"
 SESSION = TMP_DIR / ".ui-session"

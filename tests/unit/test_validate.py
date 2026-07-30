@@ -4,6 +4,7 @@ import json
 
 import pytest
 
+from scripts.utils.frontmatter_utils import write_frontmatter
 from scripts.validate import (
     check_interactive,
     validate_ac_citations,
@@ -12,13 +13,15 @@ from scripts.validate import (
     validate_feature_dir,
     validate_gap_counts,
     validate_infra_scope,
+    validate_interface_coverage,
     validate_interface_types,
     validate_scope,
     validate_structure,
     validate_tc_counts,
+    validate_tc_scope,
+    validate_tc_traceability,
     validate_test_cases,
 )
-from scripts.utils.frontmatter_utils import write_frontmatter
 from tests.constants import (
     TESTPLAN_AC_BULLET_FORMAT,
     TESTPLAN_AC_CITED,
@@ -30,15 +33,25 @@ from tests.constants import (
     TESTPLAN_DEV_TOOLING_INFRA,
     TESTPLAN_E2E_ONLY,
     TESTPLAN_FEATURE_CATEGORIES,
+    TESTPLAN_INTERFACE_COVERAGE_EMPTY_6_2_CELL,
+    TESTPLAN_INTERFACE_COVERAGE_EMPTY_9_2_CELL,
+    TESTPLAN_INTERFACE_COVERAGE_FULL,
+    TESTPLAN_INTERFACE_COVERAGE_MISSING_6_2,
+    TESTPLAN_INTERFACE_COVERAGE_MISSING_9_2,
+    TESTPLAN_INTERFACE_COVERAGE_PENDING,
+    TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_6_2,
+    TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_SCENARIO_CELL,
+    TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_TC_CELL,
+    TESTPLAN_INTERFACE_TYPES_BLANK_HEADER_CELL,
     TESTPLAN_MISSING_SECTIONS,
     TESTPLAN_NO_SECTION_13,
     TESTPLAN_NO_SECTION_21,
     TESTPLAN_NO_SECTION_52,
     TESTPLAN_VALID_CATEGORIES,
     TESTPLAN_VALID_INTERFACES,
+    VALID_TC_CONTENT,
     VALID_TEST_GAPS_DATA,
     VALID_TEST_PLAN_DATA,
-    VALID_TC_CONTENT,
     VALID_TESTPLAN_CONTENT,
 )
 from tests.helpers import write_valid_testplan
@@ -81,7 +94,7 @@ class TestValidateFeatureDir:
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
         (tc_dir / "INDEX.md").write_text("# Index")
-        (tc_dir / "TC-API-001.md").write_text(VALID_TC_CONTENT)
+        (tc_dir / "TC-E2E-001.md").write_text(VALID_TC_CONTENT)
 
         result = json.loads(validate_feature_dir(str(tmp_path)))
 
@@ -139,7 +152,7 @@ class TestValidateTestCases:
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
         (tc_dir / "INDEX.md").write_text("# Index")
-        (tc_dir / "TC-API-001.md").write_text("---\ntest_case_id: TC-API-001\n---\n")
+        (tc_dir / "TC-E2E-001.md").write_text("---\ntest_case_id: TC-E2E-001\n---\n")
 
         result = validate_test_cases(str(tmp_path))
 
@@ -150,7 +163,7 @@ class TestValidateTestCases:
     def test_missing_index_with_tc_files(self, tmp_path):
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
-        (tc_dir / "TC-API-001.md").write_text(VALID_TC_CONTENT)
+        (tc_dir / "TC-E2E-001.md").write_text(VALID_TC_CONTENT)
 
         result = validate_test_cases(str(tmp_path))
 
@@ -173,7 +186,7 @@ class TestValidateAll:
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
         (tc_dir / "INDEX.md").write_text("# Index")
-        (tc_dir / "TC-API-001.md").write_text(VALID_TC_CONTENT)
+        (tc_dir / "TC-E2E-001.md").write_text(VALID_TC_CONTENT)
 
         result = validate_all(str(tmp_path))
 
@@ -181,6 +194,9 @@ class TestValidateAll:
         assert len(result["frontmatter"]) == 2
         assert all(f["valid"] for f in result["frontmatter"])
         assert result["test_cases"]["valid"] is True
+        assert result["tc_scope"]["valid"] is True
+        assert result["tc_traceability"]["valid"] is True
+        assert result["interface_coverage"]["valid"] is True
 
     def test_valid_without_test_cases(self, tmp_path):
         write_valid_testplan(tmp_path / "TestPlan.md")
@@ -189,6 +205,10 @@ class TestValidateAll:
 
         assert result["valid"] is True
         assert result["test_cases"]["checked"] == 0
+        # Populated Section 4 + blank 9.2 Test Cases + no test_cases/ is the publish-before-cases
+        # state — coverage must be skipped, not flagged missing.
+        assert result["interface_coverage"]["section_9_2_populated"] is False
+        assert result["interface_coverage"]["missing_in_9_2"] == []
 
     def test_stops_on_missing_testplan(self, tmp_path):
         result = validate_all(str(tmp_path))
@@ -201,7 +221,7 @@ class TestValidateAll:
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
         (tc_dir / "INDEX.md").write_text("# Index")
-        (tc_dir / "TC-API-001.md").write_text(VALID_TC_CONTENT)
+        (tc_dir / "TC-E2E-001.md").write_text(VALID_TC_CONTENT)
 
         result = validate_all(str(tmp_path))
 
@@ -213,7 +233,7 @@ class TestValidateAll:
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
         (tc_dir / "INDEX.md").write_text("# Index")
-        (tc_dir / "TC-API-001.md").write_text("---\ntest_case_id: TC-API-001\n---\n")
+        (tc_dir / "TC-E2E-001.md").write_text("---\ntest_case_id: TC-E2E-001\n---\n")
 
         result = validate_all(str(tmp_path))
 
@@ -430,11 +450,119 @@ class TestValidateInterfaceTypes:
         assert result["valid"] is True
         assert result["config_entries"] == []
 
+    def test_blank_header_cell_reports_real_header(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_INTERFACE_TYPES_BLANK_HEADER_CELL)
+
+        result = validate_interface_types(str(testplan))
+
+        # The real header row (with its blank cell) must be reported — not the first data row.
+        assert result["header"] == ["Interface", "Type", ""]
+        assert result["valid"] is False
+        assert result["header_error"]["found"] == ["Interface", "Type", ""]
+
     def test_file_not_found(self):
         result = validate_interface_types("/nonexistent/TestPlan.md")
 
         assert result["valid"] is False
         assert "error" in result
+
+
+class TestValidateInterfaceCoverage:
+    """Tests for validate_interface_coverage — Section 4 interfaces vs Section 9.2/6.2 tables."""
+
+    def test_full_coverage_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_INTERFACE_COVERAGE_FULL)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is True
+        assert result["missing_in_9_2"] == []
+        assert result["missing_in_6_2"] == []
+
+    def test_missing_in_9_2_fails(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_INTERFACE_COVERAGE_MISSING_9_2)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is False
+        assert result["missing_in_9_2"] == ["`/v1/models`"]
+
+    def test_missing_in_6_2_fails_when_populated(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_INTERFACE_COVERAGE_MISSING_6_2)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is False
+        assert result["missing_in_6_2"] == ["`/v1/models`"]
+
+    def test_placeholder_6_2_skipped(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_6_2)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is True
+        assert result["section_6_2_populated"] is False
+        assert result["missing_in_6_2"] == []
+
+    def test_no_section_4_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_NO_SECTION_52)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is True
+        assert result["interfaces"] == []
+
+    def test_pending_interfaces_excluded_from_missing(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_INTERFACE_COVERAGE_PENDING)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is True
+        assert result["missing_in_9_2"] == []
+        assert result["missing_in_6_2"] == []
+        assert result["pending"] == ["`/v1/models`"]
+        assert "`/v1/models`" in result["interfaces"]
+
+    def test_file_not_found(self):
+        result = validate_interface_coverage("/nonexistent/TestPlan.md")
+
+        assert result["valid"] is False
+        assert "error" in result
+
+    @pytest.mark.parametrize(
+        "fixture",
+        [TESTPLAN_INTERFACE_COVERAGE_EMPTY_9_2_CELL, TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_TC_CELL],
+        ids=["blank-cell", "placeholder-cell"],
+    )
+    def test_uncovered_tc_cell_in_9_2_fails(self, tmp_path, fixture):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(fixture)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is False
+        assert result["missing_in_9_2"] == ["`/v1/models`"]
+
+    @pytest.mark.parametrize(
+        "fixture",
+        [TESTPLAN_INTERFACE_COVERAGE_EMPTY_6_2_CELL, TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_SCENARIO_CELL],
+        ids=["blank-cell", "placeholder-cell"],
+    )
+    def test_uncovered_scenario_cell_in_6_2_fails(self, tmp_path, fixture):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(fixture)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is False
+        assert result["missing_in_6_2"] == ["`/v1/models`"]
 
 
 class TestValidateInfraScope:
@@ -554,6 +682,190 @@ class TestValidateTcCounts:
         assert result["valid"] is False
         assert result["file_count"] == 2
         assert any("no parseable" in m for m in result["mismatches"])
+
+
+class TestValidateTcScope:
+    """Tests for validate_tc_scope — TC filename categories vs allowed set."""
+
+    def _make_tc_dir(self, tmp_path, names):
+        tc_dir = tmp_path / "test_cases"
+        tc_dir.mkdir()
+        for name in names:
+            (tc_dir / f"{name}.md").write_text(f"---\ntest_case_id: {name}\n---\n")
+        return tmp_path
+
+    def test_allowed_categories_pass(self, tmp_path):
+        self._make_tc_dir(tmp_path, ["TC-E2E-001", "TC-UI-001"])
+
+        result = validate_tc_scope(str(tmp_path))
+
+        assert result["valid"] is True
+        assert result["checked"] == 2
+        assert result["disallowed"] == []
+
+    def test_disallowed_category_fails(self, tmp_path):
+        self._make_tc_dir(tmp_path, ["TC-E2E-001", "TC-AUTH-001"])
+
+        result = validate_tc_scope(str(tmp_path))
+
+        assert result["valid"] is False
+        assert result["checked"] == 2
+        assert result["disallowed"] == [{"file": "TC-AUTH-001.md", "category": "AUTH"}]
+
+    def test_no_test_cases_dir(self, tmp_path):
+        result = validate_tc_scope(str(tmp_path))
+
+        assert result["valid"] is True
+        assert result["checked"] == 0
+        assert result["disallowed"] == []
+
+    def test_no_tc_files(self, tmp_path):
+        (tmp_path / "test_cases").mkdir()
+
+        result = validate_tc_scope(str(tmp_path))
+
+        assert result["valid"] is True
+        assert result["checked"] == 0
+        assert result["disallowed"] == []
+
+    def test_frontmatter_id_mismatch_fails(self, tmp_path):
+        tc_dir = tmp_path / "test_cases"
+        tc_dir.mkdir()
+        (tc_dir / "TC-E2E-001.md").write_text("---\ntest_case_id: TC-E2E-999\n---\n")
+
+        result = validate_tc_scope(str(tmp_path))
+
+        assert result["valid"] is False
+        assert result["id_mismatches"] == [{"file": "TC-E2E-001.md", "frontmatter_test_case_id": "TC-E2E-999"}]
+
+    def test_frontmatter_id_matches_filename_passes(self, tmp_path):
+        self._make_tc_dir(tmp_path, ["TC-E2E-001"])
+
+        result = validate_tc_scope(str(tmp_path))
+
+        assert result["valid"] is True
+        assert result["id_mismatches"] == []
+
+    def test_malformed_filename_flagged(self, tmp_path):
+        self._make_tc_dir(tmp_path, ["TC-e2e-001", "TC-E2E-abc"])
+
+        result = validate_tc_scope(str(tmp_path))
+
+        assert result["valid"] is False
+        assert sorted(result["malformed"]) == ["TC-E2E-abc.md", "TC-e2e-001.md"]
+        assert result["disallowed"] == []
+
+
+class TestValidateTcTraceability:
+    """Tests for validate_tc_traceability — TC objectives -> Section 1.3 -> AC citations."""
+
+    def _make_feature_dir(self, tmp_path, section_13, tc_data):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(f"---\nfeature: Test\n---\n\n### 1.3 Test Objectives\n\n{section_13}")
+        tc_dir = tmp_path / "test_cases"
+        tc_dir.mkdir()
+        for name, frontmatter_extra in tc_data.items():
+            fm_lines = "\n".join(f"{k}: {v}" for k, v in frontmatter_extra.items())
+            (tc_dir / f"{name}.md").write_text(f"---\ntest_case_id: {name}\n{fm_lines}\n---\n")
+        return tmp_path
+
+    def test_valid_traceability_passes(self, tmp_path):
+        # Objective 1's AC citation is wrapped onto a continuation line.
+        section = "1. Verify login flow\n   (AC: users can log in)\n2. Verify logout flow (AC: users can log out)\n"
+        self._make_feature_dir(
+            tmp_path,
+            section,
+            {"TC-E2E-001": {"objectives": "[1]"}, "TC-E2E-002": {"objectives": "[2]"}},
+        )
+
+        result = validate_tc_traceability(str(tmp_path))
+
+        assert result["valid"] is True
+        assert result["checked"] == 2
+        assert result["objectives_found"] == 2
+        assert result["errors"] == []
+
+    def test_missing_objectives_field_fails(self, tmp_path):
+        section = "1. Verify login flow (AC: users can log in)\n"
+        self._make_feature_dir(tmp_path, section, {"TC-E2E-001": {}})
+
+        result = validate_tc_traceability(str(tmp_path))
+
+        assert result["valid"] is False
+        assert len(result["errors"]) == 1
+        assert "objectives" in result["errors"][0]["error"]
+
+    def test_nonexistent_objective_fails(self, tmp_path):
+        section = "1. Verify login flow (AC: users can log in)\n"
+        self._make_feature_dir(tmp_path, section, {"TC-E2E-001": {"objectives": "[9]"}})
+
+        result = validate_tc_traceability(str(tmp_path))
+
+        assert result["valid"] is False
+        assert len(result["errors"]) == 1
+        assert "9" in result["errors"][0]["error"]
+
+    def test_uncited_objective_fails(self, tmp_path):
+        section = "1. Verify login flow (no AC cited)\n"
+        self._make_feature_dir(tmp_path, section, {"TC-E2E-001": {"objectives": "[1]"}})
+
+        result = validate_tc_traceability(str(tmp_path))
+
+        assert result["valid"] is False
+        assert len(result["errors"]) == 1
+        assert "AC" in result["errors"][0]["error"]
+
+    def test_no_test_cases_dir_passes(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text("---\nfeature: Test\n---\n\n### 1.3 Test Objectives\n\n1. Verify login flow (AC: x)\n")
+
+        result = validate_tc_traceability(str(tmp_path))
+
+        assert result["valid"] is True
+        assert result["checked"] == 0
+
+    def test_no_testplan_fails(self, tmp_path):
+        (tmp_path / "test_cases").mkdir()
+
+        result = validate_tc_traceability(str(tmp_path))
+
+        assert result["valid"] is False
+        assert "error" in result
+
+    def test_string_objectives_field_char_iterates_silently(self, tmp_path):
+        """A malformed string objectives field must not be silently char-iterated into valid-looking refs."""
+        section = "1. Verify login flow (AC: users can log in)\n2. Verify logout flow (AC: users can log out)\n"
+        self._make_feature_dir(
+            tmp_path,
+            section,
+            {"TC-E2E-001": {"objectives": '"12"'}},
+        )
+
+        result = validate_tc_traceability(str(tmp_path))
+
+        assert result["valid"] is False
+        assert len(result["errors"]) == 1
+        assert "list" in result["errors"][0]["error"].lower()
+
+    def test_mixed_valid_and_invalid(self, tmp_path):
+        section = "1. Verify login flow (AC: users can log in)\n2. Verify logout flow (no AC cited)\n"
+        self._make_feature_dir(
+            tmp_path,
+            section,
+            {
+                "TC-E2E-001": {"objectives": "[1]"},
+                "TC-E2E-002": {"objectives": "[2]"},
+                "TC-E2E-003": {"objectives": "[1, 2]"},
+            },
+        )
+
+        result = validate_tc_traceability(str(tmp_path))
+
+        assert result["valid"] is False
+        assert result["checked"] == 3
+        assert len(result["errors"]) == 2
+        error_files = {e["file"] for e in result["errors"]}
+        assert error_files == {"TC-E2E-002.md", "TC-E2E-003.md"}
 
 
 class TestCheckInteractive:

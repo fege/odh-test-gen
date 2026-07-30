@@ -5,8 +5,8 @@ import json
 import sys
 from pathlib import Path
 
-from scripts.utils.tc_parser import parse_tc_file
 from scripts.utils.frontmatter_utils import read_frontmatter
+from scripts.utils.tc_parser import parse_tc_file
 
 
 def parse_test_cases(feature_dir: str, tc_ids: list[str]) -> str:

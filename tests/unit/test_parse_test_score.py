@@ -6,7 +6,6 @@ Tests parsing test score assessment files.
 
 import json
 
-
 from scripts.parse_test_score import parse_test_score
 from tests.constants import SCORE_FILE_READY, SCORE_FILE_REVISE
 

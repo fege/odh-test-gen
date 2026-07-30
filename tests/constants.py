@@ -23,8 +23,9 @@ VALID_TEST_PLAN_DATA = {
 }
 
 VALID_TEST_CASE_DATA = {
-    "test_case_id": "TC-API-001",
+    "test_case_id": "TC-E2E-001",
     "source_key": "RHAISTRAT-400",
+    "objectives": [1],
     "priority": "P0",
     "status": "Draft",
     "last_updated": "2026-04-14",
@@ -57,7 +58,7 @@ VALID_TEST_GAPS_DATA = {
 
 # TC file content templates for parser tests
 TC_WITH_FRONTMATTER_TITLE = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 priority: P0
 title: Create notebook via API
 ---
@@ -67,7 +68,7 @@ Test API endpoint.
 """
 
 TC_WITH_TITLE_SECTION = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 priority: P0
 ---
 
@@ -79,7 +80,7 @@ Test deletion.
 """
 
 TC_WITHOUT_TITLE = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 priority: P0
 ---
 
@@ -107,7 +108,7 @@ This feature enables users to spawn Jupyter notebooks.
 
 # Minimal valid TC file
 MINIMAL_TC_CONTENT = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 priority: P0
 ---
 
@@ -321,6 +322,8 @@ author: QE Team
 """
 
 # TestPlan.md with all AC citations present (valid)
+# Objective 1's (AC: ...) is wrapped onto a continuation line — the parser must join
+# continuation lines before checking, or it reads objective 1 as uncited.
 TESTPLAN_AC_CITED = """---
 feature: Test Feature
 source_key: RHAISTRAT-400
@@ -336,7 +339,8 @@ author: QE Team
 
 ### 1.3 Test Objectives
 
-1. Verify model deployment works end-to-end (AC: "Users can deploy models from the catalog")
+1. Verify model deployment works end-to-end
+   (AC: "Users can deploy models from the catalog")
 2. Verify dashboard shows status (AC: "Model status is visible in the dashboard")
 3. Verify RBAC enforcement (AC: "Non-admin users cannot delete models")
 
@@ -439,11 +443,23 @@ In scope items.
 
 ## 4. Interfaces Under Test
 
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
 ## 7. Non-Functional Requirements
 
 ## 8. Risks and Mitigation
 
 ## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | | |
+| `/v1/models` | | |
 """
 
 # TestPlan.md with bold-text pseudo-headings (invalid structure)
@@ -593,6 +609,32 @@ STRAT_OOS_MIXED = (
     "\nh3. Acceptance Criteria\n"
 )
 
+STRAT_AC_NUMBERED_NO_BLANK_LINES = (
+    "h3. Acceptance Criteria\n\n"
+    "# Given a user opens a session, when the page loads, then a tile is visible.\n"
+    "# Given a user clicks the tile, when the dialog opens, then samples are shown.\n"
+    "# Given the dialog is open, when the user selects a filter, then results update.\n"
+    "\nh3. Effort Estimate\n"
+)
+
+STRAT_AC_STAR_BULLETS_NO_BLANK_LINES = (
+    "h3. Acceptance Criteria (Proposed -- requires PM/Engineering validation)\n\n"
+    "* Given a user opens the form, when they submit valid input, then the entry is created\n"
+    "* Given a user submits invalid input, when validation runs, then an error is shown\n"
+    "* Given a duplicate name is submitted, when validation runs, then the request is rejected\n"
+    "\nh3. Effort Estimate\n"
+)
+
+STRAT_NFR_WRAPPED_BULLET = (
+    "h3. Non-Functional Requirements\n\n"
+    "* *Security*: Registration is namespace-scoped; the gen-ai BFF enforces\n"
+    "namespace isolation via the user token's RBAC permissions, consistent\n"
+    "with all other BFF endpoints.\n"
+    "* a stray bullet with no category\n"  # not the "* *Cat*: text" form → must not merge into Security
+    "* *Performance*: Connectivity validation enforces a configurable timeout.\n"
+    "\nh3. Out-of-Scope\n"
+)
+
 # TestPlan.md with allowed TC categories in Section 5.2 (valid)
 TESTPLAN_VALID_CATEGORIES = """---
 feature: Test Feature
@@ -687,11 +729,31 @@ author: QE Team
 
 ## 4. Interfaces Under Test
 
-| Interface | Type | Purpose | Priority |
-|-----------|------|---------|----------|
-| `/v1/chat/completions` | REST | Chat inference | P0 |
-| NemoGuardrails CRD | CRD | Guardrail configuration | P1 |
-| Dashboard model page | UI | Model management | P0 |
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| NemoGuardrails CRD | CRD | Guardrail configuration |
+| Dashboard model page | UI | Model management |
+"""
+
+# Section 4 header row has a blank cell — the validator must report the real header row
+# (above the separator), not silently promote the first data row to "header".
+TESTPLAN_INTERFACE_TYPES_BLANK_HEADER_CELL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type |  |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
 """
 
 # TestPlan.md with Config-type entries in Section 4 (invalid)
@@ -708,12 +770,351 @@ author: QE Team
 
 ## 4. Interfaces Under Test
 
-| Interface | Type | Purpose | Priority |
-|-----------|------|---------|----------|
-| `/v1/chat/completions` | REST | Chat inference | P0 |
-| `config.yaml` | Config | Runtime configuration | P1 |
-| `BASE_URL` env var | Config | Service endpoint | P1 |
-| Dashboard model page | UI | Model management | P0 |
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `config.yaml` | Config | Runtime configuration |
+| `BASE_URL` env var | Config | Service endpoint |
+| Dashboard model page | UI | Model management |
+"""
+
+# TestPlan.md where Section 9.2 and 6.2 fully cover Section 4 interfaces
+# Full coverage, but Section 4 uses bold/plain formatting while 6.2/9.2 use backticks —
+# normalization must still match them (regression for exact-string-equality false failures).
+TESTPLAN_INTERFACE_COVERAGE_FULL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| **/v1/chat/completions** | REST | Chat inference |
+| /v1/models | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+| `/v1/models` | TC-E2E-002 |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+| `/v1/models` | TC-E2E-002 | |
+"""
+
+# TestPlan.md where Section 9.2 is missing an interface from Section 4
+TESTPLAN_INTERFACE_COVERAGE_MISSING_9_2 = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| | |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+"""
+
+# TestPlan.md where Section 6.2 is populated but missing an interface from Section 4
+TESTPLAN_INTERFACE_COVERAGE_MISSING_6_2 = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | | |
+| `/v1/models` | | |
+"""
+
+# TestPlan.md where Section 6.2 is still the pre-create-cases placeholder (skip check)
+TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_6_2 = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| | |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+| `/v1/models` | TC-E2E-002 | |
+"""
+
+# TestPlan.md where an interface is marked "pending details" in Section 4 and is
+# absent from both Section 6.2 and 9.2 — it must be excluded from the missing lists.
+TESTPLAN_INTERFACE_COVERAGE_PENDING = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | pending details |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+"""
+
+# TestPlan.md where Section 9.2 lists the interface but its Test Cases cell is blank
+TESTPLAN_INTERFACE_COVERAGE_EMPTY_9_2_CELL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+| `/v1/models` | TC-E2E-002 |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+| `/v1/models` | | |
+"""
+
+# TestPlan.md where Section 6.2 lists the interface but its E2E Scenarios cell is blank
+TESTPLAN_INTERFACE_COVERAGE_EMPTY_6_2_CELL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+| `/v1/models` | |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+| `/v1/models` | TC-E2E-002 | |
+"""
+
+# TestPlan.md where Section 9.2's Test Cases cell is a non-informative placeholder, not a real TC ID
+TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_TC_CELL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+| `/v1/models` | TC-E2E-002 |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+| `/v1/models` | TBD | |
+"""
+
+# TestPlan.md where Section 6.2's E2E Scenarios cell is a non-informative placeholder, not a real TC ID
+TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_SCENARIO_CELL = """---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+## 4. Interfaces Under Test
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+## 6. E2E Test Scenarios
+
+### 6.2 E2E Coverage Matrix
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-E2E-001 |
+| `/v1/models` | - |
+
+## 9. Appendix
+
+### 9.2 Interface Coverage
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-E2E-001 | |
+| `/v1/models` | TC-E2E-002 | |
 """
 
 # TestPlan.md with clean test infra (no SUT/dev tooling)
@@ -766,15 +1167,16 @@ author: QE Team
 """
 
 VALID_TC_CONTENT = """---
-test_case_id: TC-API-001
-source_key: RHAISTRAT-1519
+test_case_id: TC-E2E-001
+source_key: RHAISTRAT-400
+objectives: [1]
 priority: P0
 status: Draft
 last_updated: "2026-05-05"
 automation_status: Not Started
 ---
 
-# TC-API-001: Test title
+# TC-E2E-001: Test title
 
 **Objective**: Test objective
 

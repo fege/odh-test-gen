@@ -12,7 +12,6 @@ from scripts.utils.frontmatter_utils import (
     load_markdownlint_config,
 )
 
-
 CLEAN_MARKDOWN = """\
 # Heading
 

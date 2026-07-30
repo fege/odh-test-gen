@@ -5,8 +5,8 @@ import json
 import sys
 from pathlib import Path
 
-from scripts.utils.repo_utils import load_repo_test_context, extract_conventions_from_context
 from scripts.format_conventions import format_conventions
+from scripts.utils.repo_utils import extract_conventions_from_context, load_repo_test_context
 
 
 def extract_and_format_conventions(feature_dir: str, repo_name: str, odh_test_context_path: str) -> str:

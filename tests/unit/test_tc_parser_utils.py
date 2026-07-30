@@ -18,7 +18,7 @@ class TestExtractCategoryFromTcId:
 
     def test_standard_tc_id(self):
         """Should extract category from standard TC ID format."""
-        assert extract_category_from_tc_id("TC-API-001") == "api"
+        assert extract_category_from_tc_id("TC-NEG-001") == "neg"
         assert extract_category_from_tc_id("TC-E2E-042") == "e2e"
         assert extract_category_from_tc_id("TC-UNIT-123") == "unit"
 
@@ -43,7 +43,7 @@ class TestExtractTitleFromTcFile:
 
     def test_extracts_from_frontmatter_title(self, tmp_path):
         """Should extract title from frontmatter if present."""
-        tc_file = tmp_path / "TC-API-001.md"
+        tc_file = tmp_path / "TC-E2E-001.md"
         tc_file.write_text(TC_WITH_FRONTMATTER_TITLE)
 
         result = extract_title_from_tc_file(str(tc_file))
@@ -51,7 +51,7 @@ class TestExtractTitleFromTcFile:
 
     def test_extracts_from_title_section(self, tmp_path):
         """Should extract from ## Title section if no frontmatter title."""
-        tc_file = tmp_path / "TC-API-001.md"
+        tc_file = tmp_path / "TC-E2E-001.md"
         tc_file.write_text(TC_WITH_TITLE_SECTION)
 
         result = extract_title_from_tc_file(str(tc_file))
@@ -59,8 +59,8 @@ class TestExtractTitleFromTcFile:
 
     def test_fallback_to_test_case_id(self, tmp_path):
         """Should fallback to test_case_id if no title found."""
-        tc_file = tmp_path / "TC-API-001.md"
+        tc_file = tmp_path / "TC-E2E-001.md"
         tc_file.write_text(TC_WITHOUT_TITLE)
 
         result = extract_title_from_tc_file(str(tc_file))
-        assert result == "TC-API-001"
+        assert result == "TC-E2E-001"

@@ -11,8 +11,8 @@ from pathlib import Path
 import pytest
 
 from scripts import frontmatter
-from tests.constants import VALID_TEST_PLAN_DATA, VALID_TEST_PLAN_REVIEW_DATA
 from scripts.utils.frontmatter_utils import write_frontmatter
+from tests.constants import VALID_TEST_PLAN_DATA, VALID_TEST_PLAN_REVIEW_DATA
 
 
 class TestReadFieldArgument:

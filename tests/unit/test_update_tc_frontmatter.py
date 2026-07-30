@@ -18,11 +18,11 @@ def test_preserves_frontmatter_field_order(tmp_path):
     tc_dir = tmp_path / "test_cases"
     tc_dir.mkdir()
 
-    tc_file = tc_dir / "TC-API-001.md"
+    tc_file = tc_dir / "TC-E2E-001.md"
     tc_file.write_text(VALID_TC_CONTENT)
 
     # Update automation_status field (must use valid enum value from schema)
-    updates = [{"tc_id": "TC-API-001", "automation_status": "Complete"}]
+    updates = [{"tc_id": "TC-E2E-001", "automation_status": "Complete"}]
 
     result_json = update_tc_frontmatter(str(tmp_path), updates)
     result = json.loads(result_json)
@@ -57,8 +57,9 @@ def test_updates_automation_status(tmp_path):
 
     # Create TC with all required fields for validation
     tc_content = """---
-test_case_id: TC-API-001
+test_case_id: TC-E2E-001
 source_key: RHAISTRAT-1519
+objectives: [1]
 priority: P0
 status: Draft
 last_updated: "2026-05-05"
@@ -76,11 +77,11 @@ Test something.
 ## Expected Results
 - Something happens
 """
-    (tc_dir / "TC-API-001.md").write_text(tc_content)
+    (tc_dir / "TC-E2E-001.md").write_text(tc_content)
 
     updates = [
         {
-            "tc_id": "TC-API-001",
+            "tc_id": "TC-E2E-001",
             "automation_status": "Complete",
             "automation_file": "tests/test_api.py",
             "automation_function": "test_create_notebook",
@@ -91,10 +92,10 @@ Test something.
     data = json.loads(result)
 
     assert data["updated_count"] == 1
-    assert "TC-API-001" in data["updated_tcs"]
+    assert "TC-E2E-001" in data["updated_tcs"]
 
     # Verify file was actually updated
-    fm, _ = read_frontmatter(str(tc_dir / "TC-API-001.md"))
+    fm, _ = read_frontmatter(str(tc_dir / "TC-E2E-001.md"))
     assert fm["automation_status"] == "Complete"
     assert fm["automation_file"] == "tests/test_api.py"
     assert fm["automation_function"] == "test_create_notebook"
