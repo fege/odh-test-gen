@@ -86,9 +86,9 @@ def parse_numbered_objectives(lines: list) -> list:
 # Objective citation patterns (Section 1.3): (AC: #N — text) and (NFR: category — text). Both
 # require the em-dash separator and non-empty explanatory text before a closing paren — a bare
 # (AC: #N) / (NFR: category), or a citation with no closing paren at all, is not recognized.
-CITATION_RE = re.compile(r"\((?:AC:\s*(?:#\d+)?|NFR:\s*[^—)]*)\s*—\s*[^)]+\)")
-_AC_CITATION_RE = re.compile(r"\(AC:\s*(?:#(\d+))?\s*—\s*[^)]+\)")
-_NFR_CITATION_RE = re.compile(r"\(NFR:\s*([^—)]*)\s*—\s*[^)]+\)")
+CITATION_RE = re.compile(r"\((?:AC:\s*(?:#\d+)?|NFR:\s*[^\s—)][^—)]*)\s*—\s*[^\s)][^)]*\)")
+_AC_CITATION_RE = re.compile(r"\(AC:\s*(?:#(\d+))?\s*—\s*[^\s)][^)]*\)")
+_NFR_CITATION_RE = re.compile(r"\(NFR:\s*([^\s—)][^—)]*)\s*—\s*[^\s)][^)]*\)")
 
 
 def has_citation(text: str) -> bool:

@@ -12,6 +12,7 @@ import os
 import sys
 import time
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
@@ -180,7 +181,7 @@ def get_issue(issue_key: str, fields: str | None = None) -> dict[str, Any]:
     if fields:
         params["fields"] = fields
 
-    endpoint = f"/rest/api/2/issue/{issue_key}"
+    endpoint = f"/rest/api/2/issue/{quote(issue_key, safe='')}"
     return api_call_with_retry(endpoint, params=params)
 
 
@@ -214,7 +215,7 @@ def add_labels(issue_key: str, labels: list[str]) -> None:
         return
 
     # Update the issue (returns None for 204 No Content)
-    endpoint = f"/rest/api/2/issue/{issue_key}"
+    endpoint = f"/rest/api/2/issue/{quote(issue_key, safe='')}"
     update_data = {"fields": {"labels": all_labels}}
 
     api_call_with_retry(endpoint, method="PUT", json_data=update_data)

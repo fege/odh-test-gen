@@ -26,8 +26,8 @@ class TestStratToCitationFlow:
     def test_strat_derived_ac_count_matches_generated_citations(self, tmp_path):
         inputs = gate_inputs(STRAT_CONTENT)
         assert inputs["ac_count"] == 3  # 2 main ACs + 1 folded-in Testability edge case
-        assert inputs["nfr_categories"] == "Security"
-        nfr_categories = inputs["nfr_categories"].split(",")
+        assert inputs["nfr_categories"] == ["Security"]
+        nfr_categories = inputs["nfr_categories"]
 
         body = objectives_citing_every_ac(inputs["ac_count"], nfr_categories)
         testplan = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
@@ -43,7 +43,7 @@ class TestStratToCitationFlow:
     def test_citation_beyond_strat_derived_ac_count_fails(self, tmp_path):
         # Simulates an analyzer fabricating a 4th AC that doesn't exist in the STRAT.
         inputs = gate_inputs(STRAT_CONTENT)
-        nfr_categories = inputs["nfr_categories"].split(",")
+        nfr_categories = inputs["nfr_categories"]
         body = (
             "1. Verify AC 1 (AC: #1 — placeholder)\n"
             "2. Verify AC 2 (AC: #2 — placeholder)\n"

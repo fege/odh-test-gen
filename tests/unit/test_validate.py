@@ -1,9 +1,11 @@
 """Unit tests for scripts/validate.py — unified validation CLI."""
 
 import json
+import sys
 
 import pytest
 
+from scripts import validate as validate_module
 from scripts.utils.frontmatter_utils import write_frontmatter
 from scripts.utils.schemas import TEMPLATE_HEADINGS
 from scripts.validate import (
@@ -455,6 +457,25 @@ class TestValidateAcCoverage:
 
         assert result["valid"] is False
         assert "error" in result
+
+    def test_negative_ac_count_is_rejected(self, tmp_path):
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", "")
+
+        result = validate_ac_coverage(path, ac_count=-1)
+
+        assert result["valid"] is False
+        assert "error" in result
+        assert "non-negative" in result["error"].lower()
+
+    def test_zero_ac_count_is_valid_with_empty_missing(self, tmp_path):
+        # ac_count=0 is the "no ACs" edge case — valid, nothing to cover.
+        # This is existing behaviour; the test pins it so the negative-ac fix cannot regress it.
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", "")
+
+        result = validate_ac_coverage(path, ac_count=0)
+
+        assert result["valid"] is True
+        assert result["missing"] == []
 
 
 class TestValidateStructure:
@@ -1027,3 +1048,97 @@ class TestCheckInteractive:
 
         assert result["interactive"] is expected_interactive
         assert expected_reason_contains in result["reason"]
+
+
+class TestAcCitationsCliArgparse:
+    """
+    Drives the real validate.main() / cmd_ac_citations via sys.argv so that any divergence
+    between the argparse definition (action="append", dest="nfr_category") and what
+    cmd_ac_citations consumes is caught here against the real production parser.
+    """
+
+    def test_comma_containing_category_is_valid_citation(self, tmp_path, monkeypatch, capsys):
+        # "Security, Privacy" passed as ONE --nfr-category flag must NOT be split on the comma;
+        # the plan objective citing (NFR: Security, Privacy — ...) must be VALID.
+        testplan = write_testplan_with_objectives(
+            tmp_path / "TestPlan.md",
+            "1. Verify data stays in namespace (NFR: Security, Privacy — data must not leave namespace)\n",
+        )
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["validate.py", "ac-citations", testplan, "--ac-count", "0", "--nfr-category", "Security, Privacy"],
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            validate_module.main()
+
+        assert exc_info.value.code == 0
+        result = json.loads(capsys.readouterr().out)
+        unknown = [c for c in result["invalid_citations"] if c["reason"] == "unknown_nfr_category"]
+        assert unknown == [], f"Category was split or not matched; invalid_citations={result['invalid_citations']}"
+
+    def test_comma_containing_category_fails_without_matching_flag(self, tmp_path, monkeypatch, capsys):
+        # Same plan, but a *different* category flag is supplied — proves the name had to match.
+        testplan = write_testplan_with_objectives(
+            tmp_path / "TestPlan.md",
+            "1. Verify data stays in namespace (NFR: Security, Privacy — data must not leave namespace)\n",
+        )
+
+        monkeypatch.setattr(
+            sys, "argv", ["validate.py", "ac-citations", testplan, "--ac-count", "0", "--nfr-category", "Upgrade"]
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            validate_module.main()
+
+        assert exc_info.value.code == 1
+        result = json.loads(capsys.readouterr().out)
+        reasons = [c["reason"] for c in result["invalid_citations"]]
+        assert "unknown_nfr_category" in reasons
+
+    def test_repeated_nfr_category_flags_both_register(self, tmp_path, monkeypatch, capsys):
+        # --nfr-category Security --nfr-category Upgrade must register BOTH; a plan citing
+        # Upgrade must be valid, proving the list is not collapsed to just the last value.
+        testplan = write_testplan_with_objectives(
+            tmp_path / "TestPlan.md",
+            "1. Verify upgrade path (NFR: Upgrade — GET endpoints keep their shape)\n",
+        )
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "validate.py",
+                "ac-citations",
+                testplan,
+                "--ac-count",
+                "0",
+                "--nfr-category",
+                "Security",
+                "--nfr-category",
+                "Upgrade",
+            ],
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            validate_module.main()
+
+        assert exc_info.value.code == 0
+        result = json.loads(capsys.readouterr().out)
+        assert result["invalid_citations"] == []
+
+    def test_no_nfr_category_flag_presence_only_mode_exits_0(self, tmp_path, monkeypatch, capsys):
+        # When --nfr-category is omitted entirely (args.nfr_category stays None),
+        # cmd_ac_citations must not error; a valid (AC: #1 — text) with --ac-count 1 exits 0.
+        testplan = write_testplan_with_objectives(
+            tmp_path / "TestPlan.md",
+            "1. Verify login flow (AC: #1 — users can authenticate)\n",
+        )
+
+        monkeypatch.setattr(sys, "argv", ["validate.py", "ac-citations", testplan, "--ac-count", "1"])
+        with pytest.raises(SystemExit) as exc_info:
+            validate_module.main()
+
+        assert exc_info.value.code == 0
+        result = json.loads(capsys.readouterr().out)
+        assert result["valid"] is True
+        assert result["cited"] == 1

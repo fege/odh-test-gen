@@ -11,7 +11,7 @@ Usage:
     uv run python scripts/validate.py test-cases <feature_dir>
     uv run python scripts/validate.py all <feature_dir>
     uv run python scripts/validate.py scope-check <testplan_path>
-    uv run python scripts/validate.py ac-citations <testplan_path> [--ac-count N] [--nfr-categories "Upgrade,..."]
+    uv run python scripts/validate.py ac-citations <testplan_path> [--ac-count N] [--nfr-category CATEGORY ...]
     uv run python scripts/validate.py ac-coverage <testplan_path> --ac-count N
     uv run python scripts/validate.py structure <testplan_path>
     uv run python scripts/validate.py category-prefixes <testplan_path>
@@ -282,6 +282,8 @@ def validate_ac_citations(testplan_path: str, ac_count: int | None = None, nfr_c
 
 def validate_ac_coverage(testplan_path: str, ac_count: int) -> dict:
     """Check every AC number 1..ac_count is cited by at least one Section 1.3 objective."""
+    if ac_count < 0:
+        return {"valid": False, "error": "ac_count must be non-negative"}
     path = Path(testplan_path)
     if not path.exists():
         return {"valid": False, "error": f"File not found: {testplan_path}"}
@@ -765,7 +767,7 @@ def cmd_scope_check(args):
 
 
 def cmd_ac_citations(args):
-    nfr_categories = [c.strip() for c in args.nfr_categories.split(",") if c.strip()] if args.nfr_categories else []
+    nfr_categories = [c.strip() for c in (args.nfr_category or []) if c.strip()]
     result = validate_ac_citations(args.testplan_path, ac_count=args.ac_count, nfr_categories=nfr_categories)
     print(json.dumps(result, indent=2))
     sys.exit(0 if result["valid"] else 1)
@@ -867,7 +869,12 @@ def main():
         "--ac-count", type=int, default=None, help="STRAT acceptance-criteria count; enables (AC: #N) bounds-checking"
     )
     p_ac.add_argument(
-        "--nfr-categories", default=None, help="Comma-separated NFR category names to validate (NFR: category) against"
+        "--nfr-category",
+        action="append",
+        dest="nfr_category",
+        default=None,
+        metavar="CATEGORY",
+        help="NFR category name to validate (NFR: category) against; repeat for multiple",
     )
     p_ac.set_defaults(func=cmd_ac_citations)
 

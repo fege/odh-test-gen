@@ -227,6 +227,27 @@ class TestGetIssue:
         assert result == expected
         mock_api_call.assert_called_once_with("/rest/api/2/issue/TEST-123", params={"fields": "summary,labels"})
 
+    @patch("scripts.jira_utils.api_call_with_retry")
+    def test_get_issue_url_encodes_crafted_key(self, mock_api_call):
+        mock_api_call.return_value = {}
+        crafted_key = "PROJ-1/injected?x=y"
+
+        get_issue(crafted_key)
+
+        actual_endpoint = mock_api_call.call_args[0][0]
+        assert actual_endpoint == "/rest/api/2/issue/PROJ-1%2Finjected%3Fx%3Dy"
+
+    @patch("scripts.jira_utils.api_call_with_retry")
+    def test_get_issue_normal_key_is_unchanged(self, mock_api_call):
+        # A well-formed key like "RHOAIENG-123" contains no special characters; URL-encoding
+        # must leave it identical so the happy path is unaffected.
+        mock_api_call.return_value = {}
+
+        get_issue("RHOAIENG-123")
+
+        actual_endpoint = mock_api_call.call_args[0][0]
+        assert actual_endpoint == "/rest/api/2/issue/RHOAIENG-123"
+
 
 class TestAddLabels:
     """Tests for add_labels function."""
@@ -318,3 +339,15 @@ class TestAddLabels:
 
         # Verify exact order (not set-based which would be random)
         assert labels == ["z", "a", "m", "b", "y"]
+
+    @patch("scripts.jira_utils.api_call_with_retry")
+    @patch("scripts.jira_utils.get_issue")
+    def test_add_labels_url_encodes_crafted_key(self, mock_get_issue, mock_api_call):
+        mock_get_issue.return_value = {"key": "PROJ-1/injected?x=y", "fields": {"labels": []}}
+        mock_api_call.return_value = None  # 204 No Content
+        crafted_key = "PROJ-1/injected?x=y"
+
+        add_labels(crafted_key, ["new-label"])
+
+        actual_endpoint = mock_api_call.call_args[0][0]
+        assert actual_endpoint == "/rest/api/2/issue/PROJ-1%2Finjected%3Fx%3Dy"

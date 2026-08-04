@@ -113,16 +113,16 @@ def parse_nfr(content: str) -> dict:
 def gate_inputs(content: str) -> dict:
     """Derive the citation gate's deterministic inputs from STRAT content.
 
-    Returns ``{"ac_count": int, "nfr_categories": str}`` where ``ac_count`` is the acceptance-criteria
-    count and ``nfr_categories`` is the comma-joined, order-preserving, de-duplicated list of NFR
-    category names — the exact ``--ac-count`` / ``--nfr-categories`` values the Step 3.2
-    ``validate.py ac-citations`` gate consumes, so the create skill threads them without any further
-    parsing or joining in shell.
+    Returns ``{"ac_count": int, "nfr_categories": [str, ...]}`` where ``ac_count`` is the
+    acceptance-criteria count and ``nfr_categories`` is the order-preserving, de-duplicated list of
+    NFR category names.  Downstream: ``parse_strat.py`` prints it as JSON; the shell iterates it
+    with ``jq -r '.nfr_categories[]'`` and builds repeated ``--nfr-category`` flags for
+    ``validate.py ac-citations``.
     """
     ac = parse_acceptance_criteria(content)
     nfr = parse_nfr(content)
     categories = list(dict.fromkeys(r["category"] for r in nfr["requirements"]))
-    return {"ac_count": ac["count"], "nfr_categories": ",".join(categories)}
+    return {"ac_count": ac["count"], "nfr_categories": categories}
 
 
 def _parse_bullet_item(text: str) -> dict:

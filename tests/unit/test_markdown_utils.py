@@ -50,3 +50,45 @@ class TestCitationParsing:
 
         assert has_citation(text) is True
         assert parse_citation(text) == {"kind": "AC", "number": 2, "category": None}
+
+
+class TestCitationRejectsIncompleteFields:
+    """
+    The documented format requires:
+      - AC: a non-empty #N reference, the em-dash U+2014, non-whitespace explanatory text, and ')'
+      - NFR: a non-empty category name (not just whitespace), the em-dash, non-whitespace text, ')'
+    A rationale composed only of whitespace, or an NFR with no category at all, is NOT a valid
+    citation even though the em-dash and closing paren are structurally present.
+    """
+
+    def test_ac_whitespace_only_rationale_has_citation_is_false(self):
+        # The rationale after the em-dash is three spaces — structurally complete but semantically
+        # empty.  has_citation must return False.
+        text = "Verify something (AC: #1 —   )"
+        assert has_citation(text) is False
+
+    def test_ac_whitespace_only_rationale_parse_citation_is_none(self):
+        text = "Verify something (AC: #1 —   )"
+        assert parse_citation(text) is None
+
+    def test_nfr_empty_category_has_citation_is_false(self):
+        # Category field is absent between "NFR:" and the em-dash.
+        # has_citation must return False — an NFR with no category is not a valid citation.
+        text = "Verify something (NFR: — some rationale)"
+        assert has_citation(text) is False
+
+    def test_nfr_empty_category_parse_citation_is_none(self):
+        text = "Verify something (NFR: — some rationale)"
+        assert parse_citation(text) is None
+
+    # ---- Positive controls: valid citations still parse correctly after the regex tightening ----
+
+    def test_complete_ac_citation_still_recognized(self):
+        text = "Verify deployment (AC: #3 — users can deploy the model)"
+        assert has_citation(text) is True
+        assert parse_citation(text) == {"kind": "AC", "number": 3, "category": None}
+
+    def test_complete_nfr_citation_still_recognized(self):
+        text = "Verify upgrade path (NFR: Security — namespace isolation enforced)"
+        assert has_citation(text) is True
+        assert parse_citation(text) == {"kind": "NFR", "number": None, "category": "Security"}

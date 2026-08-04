@@ -186,7 +186,8 @@ class TestGateInputs:
         result = gate_inputs(content)
 
         assert result["ac_count"] == 10
-        cats = result["nfr_categories"].split(",")
+        cats = result["nfr_categories"]
+        assert isinstance(cats, list)
         assert "Performance" in cats
         assert "Security" in cats
         assert len(cats) == len(set(cats))  # de-duplicated
@@ -205,7 +206,7 @@ class TestGateInputs:
         result = gate_inputs(content)
 
         assert result["ac_count"] == 2
-        assert result["nfr_categories"] == "Upgrade,Security"
+        assert result["nfr_categories"] == ["Upgrade", "Security"]
 
     def test_no_nfr_section_yields_empty_categories(self):
         content = (
@@ -217,7 +218,19 @@ class TestGateInputs:
         result = gate_inputs(content)
 
         assert result["ac_count"] == 1
-        assert result["nfr_categories"] == ""
+        assert result["nfr_categories"] == []
+
+    def test_category_containing_comma_is_one_element_not_split(self):
+        content = (
+            "h3. Acceptance Criteria\n\n"
+            "# Given a user opens the form, then it is shown\n\n"
+            "h3. Non-Functional Requirements\n\n"
+            "* *Security, Privacy*: data must not leave the namespace\n"
+        )
+
+        result = gate_inputs(content)
+
+        assert result["nfr_categories"] == ["Security, Privacy"]
 
 
 class TestParseOutOfScope:
