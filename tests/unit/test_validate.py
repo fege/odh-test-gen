@@ -8,6 +8,7 @@ from scripts.utils.frontmatter_utils import write_frontmatter
 from scripts.validate import (
     check_interactive,
     validate_ac_citations,
+    validate_ac_coverage,
     validate_all,
     validate_category_prefixes,
     validate_feature_dir,
@@ -54,7 +55,7 @@ from tests.constants import (
     VALID_TEST_PLAN_DATA,
     VALID_TESTPLAN_CONTENT,
 )
-from tests.helpers import write_valid_testplan
+from tests.helpers import write_testplan_with_objectives, write_valid_testplan
 
 
 @pytest.fixture
@@ -328,6 +329,128 @@ class TestValidateAcCitations:
 
     def test_file_not_found(self):
         result = validate_ac_citations("/nonexistent/TestPlan.md")
+
+        assert result["valid"] is False
+        assert "error" in result
+
+
+class TestValidateAcCitationsNumbered:
+    """(AC: #N — text) / (NFR: category — text) machine-checkable citation validation."""
+
+    @pytest.mark.parametrize(
+        "citation, ac_count, nfr_categories, expected_reason",
+        [
+            ("(AC: #1 — first)", 2, [], None),
+            ("(NFR: upgrade — shape kept)", 0, ["Upgrade"], None),
+            ("(AC: #5 — beyond count)", 2, [], "out_of_range"),
+            ("(AC: #0 — below one)", 2, [], "out_of_range"),
+            ("(AC: users can deploy)", 2, [], "missing_number"),
+            ("(NFR: Performance — responsive)", 1, ["Upgrade"], "unknown_nfr_category"),
+        ],
+        ids=["valid-ac", "valid-nfr-caseless", "ac-too-high", "ac-too-low", "ac-no-number", "unknown-nfr"],
+    )
+    def test_single_citation_validation(self, tmp_path, citation, ac_count, nfr_categories, expected_reason):
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", f"1. Verify something {citation}\n")
+
+        result = validate_ac_citations(path, ac_count=ac_count, nfr_categories=nfr_categories)
+
+        if expected_reason is None:
+            assert result["valid"] is True
+            assert result["cited"] == 1
+            assert result["invalid_citations"] == []
+        else:
+            assert result["valid"] is False
+            assert result["cited"] == 0
+            assert len(result["invalid_citations"]) == 1
+            assert result["invalid_citations"][0]["reason"] == expected_reason
+            assert result["invalid_citations"][0]["line_number"] > 0
+
+    def test_counts_split_across_buckets(self, tmp_path):
+        body = (
+            "1. Verify a (AC: #1 — first)\n"
+            "2. Verify b (NFR: Upgrade — GET endpoints keep their shape)\n"
+            "3. Verify c (AC: #9 — beyond count)\n"
+            "4. Verify d with no citation at all\n"
+        )
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path, ac_count=2, nfr_categories=["Upgrade"])
+
+        assert result["valid"] is False
+        assert result["total"] == 4
+        assert result["cited"] == 2
+        assert len(result["uncited"]) == 1
+        assert len(result["invalid_citations"]) == 1
+        assert result["invalid_citations"][0]["reason"] == "out_of_range"
+
+    def test_presence_only_mode_accepts_nfr_marker(self, tmp_path):
+        # No ac_count -> presence-only (the validate_all path); an NFR marker counts as cited.
+        body = (
+            "1. Verify deployment (AC: #1 — users can deploy)\n"
+            "2. Verify upgrade (NFR: Upgrade — GET endpoints keep their shape)\n"
+        )
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path)
+
+        assert result["valid"] is True
+        assert result["total"] == 2
+        assert result["cited"] == 2
+        assert result["uncited"] == []
+        assert result["invalid_citations"] == []
+
+
+class TestValidateAcCoverage:
+    """Tests for validate_ac_coverage — every AC number 1..ac_count cited by some objective.
+
+    This is the inverse of validate_ac_citations: that checks each *objective's* citation is
+    well-formed; this checks each *AC number* got covered at all, catching an analyzer that
+    silently drops or conflates an AC even when every citation it did write is individually valid.
+    """
+
+    @pytest.mark.parametrize(
+        "body, ac_count, expected_valid, expected_covered, expected_missing",
+        [
+            (
+                "1. Verify a (AC: #1 — first)\n2. Verify b (AC: #2 — second)\n3. Verify c (AC: #3 — third)\n",
+                3,
+                True,
+                [1, 2, 3],
+                [],
+            ),
+            ("1. Verify a (AC: #1 — first)\n2. Verify c (AC: #3 — third)\n", 3, False, [1, 3], [2]),
+            ("1. Verify a (AC: #1 — first)\n2. Verify upgrade (NFR: Upgrade — shape kept)\n", 2, False, [1], [2]),
+            ("1. Verify a (AC: #1 — first)\n2. Verify a again (AC: #1 — first)\n", 2, False, [1], [2]),
+            ("", 0, True, [], []),
+        ],
+        ids=[
+            "all-covered",
+            "one-missing",
+            "nfr-does-not-count",
+            "duplicate-collapses-other-still-missing",
+            "zero-ac-count",
+        ],
+    )
+    def test_coverage(self, tmp_path, body, ac_count, expected_valid, expected_covered, expected_missing):
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_coverage(path, ac_count=ac_count)
+
+        assert result["valid"] is expected_valid
+        assert result["covered"] == expected_covered
+        assert result["missing"] == expected_missing
+
+    def test_no_section_with_positive_ac_count_fails(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_NO_SECTION_13)
+
+        result = validate_ac_coverage(str(testplan), ac_count=2)
+
+        assert result["valid"] is False
+        assert result["missing"] == [1, 2]
+
+    def test_file_not_found(self):
+        result = validate_ac_coverage("/nonexistent/TestPlan.md", ac_count=2)
 
         assert result["valid"] is False
         assert "error" in result
@@ -866,6 +989,16 @@ class TestValidateTcTraceability:
         assert len(result["errors"]) == 2
         error_files = {e["file"] for e in result["errors"]}
         assert error_files == {"TC-E2E-002.md", "TC-E2E-003.md"}
+
+    def test_nfr_cited_objective_traces_successfully(self, tmp_path):
+        # An objective grounded in an NFR (not a numbered AC) is still a valid trace target.
+        section = "1. Verify upgrade path (NFR: Upgrade — endpoints keep response shape)\n"
+        self._make_feature_dir(tmp_path, section, {"TC-UPG-001": {"objectives": "[1]"}})
+
+        result = validate_tc_traceability(str(tmp_path))
+
+        assert result["valid"] is True
+        assert result["errors"] == []
 
 
 class TestCheckInteractive:

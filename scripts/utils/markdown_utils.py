@@ -83,6 +83,34 @@ def parse_numbered_objectives(lines: list) -> list:
     return items
 
 
+# Objective citation patterns (Section 1.3): (AC: #N — text) and (NFR: category — text).
+CITATION_RE = re.compile(r"\((?:AC|NFR):\s*")
+_AC_NUM_RE = re.compile(r"\(AC:\s*#(\d+)")
+_NFR_CAT_RE = re.compile(r"\(NFR:\s*(.+?)\s*(?:—|\))")
+
+
+def has_citation(text: str) -> bool:
+    """True if the objective text carries an ``(AC: ...)`` or ``(NFR: ...)`` citation marker."""
+    return bool(CITATION_RE.search(text))
+
+
+def parse_citation(text: str) -> dict | None:
+    """Extract the AC/NFR citation from an objective line.
+
+    Returns ``{"kind": "AC"|"NFR", "number": int|None, "category": str|None}`` or ``None`` when
+    no citation marker is present. ``number`` is the parsed ``#N`` for AC citations (``None`` when
+    absent); ``category`` is the text between ``NFR:`` and the em-dash for NFR citations. Applying
+    count/category bounds to these fields is the caller's policy, not this parser's job.
+    """
+    if not CITATION_RE.search(text):
+        return None
+    if "(AC:" in text:
+        match = _AC_NUM_RE.search(text)
+        return {"kind": "AC", "number": int(match.group(1)) if match else None, "category": None}
+    match = _NFR_CAT_RE.search(text)
+    return {"kind": "NFR", "number": None, "category": match.group(1).strip() if match else ""}
+
+
 def normalize_interface(name: str) -> str:
     """Normalize an interface/table-cell name for tolerant matching across sections.
 

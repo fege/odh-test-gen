@@ -12,6 +12,12 @@ def write_valid_testplan(path):
     write_frontmatter(str(path), {**VALID_TEST_PLAN_DATA}, "test-plan")
 
 
+def write_testplan_with_objectives(path, objectives_body):
+    """Write a minimal TestPlan.md whose Section 1.3 holds the given objective lines."""
+    Path(path).write_text("---\nfeature: Test\n---\n\n### 1.3 Test Objectives\n\n" + objectives_body)
+    return str(path)
+
+
 def add_feature(repo_path, feature_name, files):
     """Add a feature directory with specified files to a repo."""
     feature = Path(repo_path) / feature_name

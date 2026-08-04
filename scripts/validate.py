@@ -11,7 +11,8 @@ Usage:
     uv run python scripts/validate.py test-cases <feature_dir>
     uv run python scripts/validate.py all <feature_dir>
     uv run python scripts/validate.py scope-check <testplan_path>
-    uv run python scripts/validate.py ac-citations <testplan_path>
+    uv run python scripts/validate.py ac-citations <testplan_path> [--ac-count N] [--nfr-categories "Upgrade,..."]
+    uv run python scripts/validate.py ac-coverage <testplan_path> --ac-count N
     uv run python scripts/validate.py structure <testplan_path>
     uv run python scripts/validate.py category-prefixes <testplan_path>
     uv run python scripts/validate.py interface-types <testplan_path>
@@ -35,8 +36,10 @@ import yaml
 from scripts.utils.frontmatter_utils import read_frontmatter, read_frontmatter_validated
 from scripts.utils.markdown_utils import (
     extract_section,
+    has_citation,
     is_filled_cell,
     normalize_interface,
+    parse_citation,
     parse_numbered_objectives,
     parse_table_rows,
 )
@@ -202,8 +205,38 @@ def validate_scope(testplan_path: str) -> dict:
     return {"valid": not violations, "violations": violations}
 
 
-def validate_ac_citations(testplan_path: str) -> dict:
-    """Check Section 1.3 objectives for (AC: ...) citations."""
+def _citation_reason(citation: dict, ac_count: int, nfr_categories: list) -> str | None:
+    """Return an invalid-citation reason, or None when the citation is in bounds.
+
+    Presence-only mode (``ac_count is None``) never flags anything — any recognized ``(AC:...)`` or
+    ``(NFR:...)`` marker counts as cited, preserving the pre-machine-checkable behavior for callers
+    that have no STRAT counts to check against (e.g. ``validate_all``). When ``ac_count`` is given,
+    an AC citation's ``#N`` must be present and within ``1..ac_count``, and an NFR citation's
+    category must match one of ``nfr_categories`` case-insensitively.
+    """
+    if ac_count is None:
+        return None
+    if citation["kind"] == "AC":
+        number = citation["number"]
+        if number is None:
+            return "missing_number"
+        if number < 1 or number > ac_count:
+            return "out_of_range"
+        return None
+    known = {c.casefold() for c in (nfr_categories or [])}
+    if (citation["category"] or "").casefold() not in known:
+        return "unknown_nfr_category"
+    return None
+
+
+def validate_ac_citations(testplan_path: str, ac_count: int | None = None, nfr_categories: list | None = None) -> dict:
+    """Check Section 1.3 objectives for (AC: #N — text) / (NFR: category — text) citations.
+
+    Presence-only when ``ac_count`` is None: any recognized marker counts as cited. When ``ac_count``
+    is supplied, each AC citation's ``#N`` is bounds-checked against it and each NFR citation's
+    category against ``nfr_categories``; out-of-bounds citations land in ``invalid_citations`` so the
+    gate can tell "uncited" apart from "cited but wrong."
+    """
     path = Path(testplan_path)
     if not path.exists():
         return {"valid": False, "error": f"File not found: {testplan_path}"}
@@ -211,9 +244,7 @@ def validate_ac_citations(testplan_path: str) -> dict:
     content = path.read_text()
     section_lines, start_line = extract_section(content, TEMPLATE_HEADINGS["1.3"])
     if not section_lines:
-        return {"valid": True, "total": 0, "cited": 0, "uncited": []}
-
-    ac_re = re.compile(r"\(AC:\s*")
+        return {"valid": True, "total": 0, "cited": 0, "uncited": [], "invalid_citations": []}
 
     objectives = [
         {"text": obj["text"], "line_number": start_line + obj["line_index"]}
@@ -227,14 +258,50 @@ def validate_ac_citations(testplan_path: str) -> dict:
             "error": "Section 1.3 has content but no numbered objectives detected (expected: 1. 2. 3. ...)",
         }
 
-    uncited = [obj for obj in objectives if not ac_re.search(obj["text"])]
-    cited = len(objectives) - len(uncited)
+    uncited = []
+    invalid_citations = []
+    for obj in objectives:
+        citation = parse_citation(obj["text"])
+        if citation is None:
+            uncited.append(obj)
+            continue
+        reason = _citation_reason(citation, ac_count, nfr_categories)
+        if reason:
+            invalid_citations.append({**obj, "reason": reason})
+
+    cited = len(objectives) - len(uncited) - len(invalid_citations)
 
     return {
-        "valid": not uncited,
+        "valid": not uncited and not invalid_citations,
         "total": len(objectives),
         "cited": cited,
         "uncited": uncited,
+        "invalid_citations": invalid_citations,
+    }
+
+
+def validate_ac_coverage(testplan_path: str, ac_count: int) -> dict:
+    """Check every AC number 1..ac_count is cited by at least one Section 1.3 objective."""
+    path = Path(testplan_path)
+    if not path.exists():
+        return {"valid": False, "error": f"File not found: {testplan_path}"}
+
+    content = path.read_text()
+    section_lines, _ = extract_section(content, TEMPLATE_HEADINGS["1.3"])
+    objectives = parse_numbered_objectives(section_lines) if section_lines else []
+    covered = set()
+    for obj in objectives:
+        citation = parse_citation(obj["text"])
+        if citation and citation["kind"] == "AC" and citation["number"] is not None:
+            covered.add(citation["number"])
+
+    missing = [n for n in range(1, ac_count + 1) if n not in covered]
+
+    return {
+        "valid": not missing,
+        "ac_count": ac_count,
+        "covered": sorted(covered),
+        "missing": missing,
     }
 
 
@@ -539,10 +606,8 @@ def validate_tc_traceability(feature_dir: str) -> dict:
     content = testplan_path.read_text()
     section_lines, _ = extract_section(content, TEMPLATE_HEADINGS["1.3"])
 
-    ac_re = re.compile(r"\(AC:\s*")
-
     objectives = {
-        obj["num"]: {"text": obj["text"], "has_ac": bool(ac_re.search(obj["text"]))}
+        obj["num"]: {"text": obj["text"], "has_citation": has_citation(obj["text"])}
         for obj in parse_numbered_objectives(section_lines)
     }
 
@@ -573,8 +638,8 @@ def validate_tc_traceability(feature_dir: str) -> dict:
             obj = objectives.get(num)
             if obj is None:
                 errors.append({"file": f.name, "error": f"References nonexistent objective {num}"})
-            elif not obj["has_ac"]:
-                errors.append({"file": f.name, "error": f"Objective {num} has no AC citation"})
+            elif not obj["has_citation"]:
+                errors.append({"file": f.name, "error": f"Objective {num} has no AC or NFR citation"})
 
     return {
         "valid": not errors,
@@ -700,7 +765,14 @@ def cmd_scope_check(args):
 
 
 def cmd_ac_citations(args):
-    result = validate_ac_citations(args.testplan_path)
+    nfr_categories = [c.strip() for c in args.nfr_categories.split(",") if c.strip()] if args.nfr_categories else []
+    result = validate_ac_citations(args.testplan_path, ac_count=args.ac_count, nfr_categories=nfr_categories)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
+def cmd_ac_coverage(args):
+    result = validate_ac_coverage(args.testplan_path, ac_count=args.ac_count)
     print(json.dumps(result, indent=2))
     sys.exit(0 if result["valid"] else 1)
 
@@ -789,9 +861,24 @@ def main():
     p_scope.add_argument("testplan_path", help="Path to TestPlan.md")
     p_scope.set_defaults(func=cmd_scope_check)
 
-    p_ac = subparsers.add_parser("ac-citations", help="Check Section 1.3 objectives for AC citations")
+    p_ac = subparsers.add_parser("ac-citations", help="Check Section 1.3 objectives for AC/NFR citations")
     p_ac.add_argument("testplan_path", help="Path to TestPlan.md")
+    p_ac.add_argument(
+        "--ac-count", type=int, default=None, help="STRAT acceptance-criteria count; enables (AC: #N) bounds-checking"
+    )
+    p_ac.add_argument(
+        "--nfr-categories", default=None, help="Comma-separated NFR category names to validate (NFR: category) against"
+    )
     p_ac.set_defaults(func=cmd_ac_citations)
+
+    p_ac_cov = subparsers.add_parser(
+        "ac-coverage", help="Check every AC number 1..ac_count is cited by some Section 1.3 objective"
+    )
+    p_ac_cov.add_argument("testplan_path", help="Path to TestPlan.md")
+    p_ac_cov.add_argument(
+        "--ac-count", type=int, required=True, help="STRAT acceptance-criteria count to check coverage against"
+    )
+    p_ac_cov.set_defaults(func=cmd_ac_coverage)
 
     p_struct = subparsers.add_parser("structure", help="Check required headings and pseudo-heading violations")
     p_struct.add_argument("testplan_path", help="Path to TestPlan.md")

@@ -635,6 +635,37 @@ STRAT_NFR_WRAPPED_BULLET = (
     "\nh3. Out-of-Scope\n"
 )
 
+STRAT_TESTABILITY_FOLDED_INTO_AC = (
+    "h3. Acceptance Criteria\n\n"
+    "# Given a user opens a session, when the page loads, then a tile is visible.\n"
+    "# Given a user clicks the tile, when the dialog opens, then samples are shown.\n"
+    "\nh3. Testability: Additional Acceptance Criteria\n\n"
+    "The following edge cases should be covered as acceptance criteria:\n\n"
+    "# *Unverified status*: Given a provider type with inconclusive connectivity, "
+    "when validation runs, then the status is Unverified.\n"
+    "# *Malformed secret*: Given a secret exists but is missing the expected credential key, "
+    "when the user submits registration, then a clear error is returned.\n"
+    "\nh3. Effort Estimate\n"
+)
+
+STRAT_TESTABILITY_DEDUPED_AGAINST_MAIN_AC = (
+    "h3. Acceptance Criteria\n\n"
+    "# Given a user clicks the tile, when the dialog opens, then samples are shown.\n"
+    "\nh3. Testability: Additional Acceptance Criteria\n\n"
+    "# *Duplicate*: Given a user clicks the tile, when the dialog opens, then samples are shown.\n"
+    "# *Unverified status*: Given a provider type with inconclusive connectivity, "
+    "when validation runs, then the status is Unverified.\n"
+    "\nh3. Effort Estimate\n"
+)
+
+# Main AC section is mandatory — Testability items must not be treated as ACs on their own.
+STRAT_TESTABILITY_WITHOUT_MAIN_AC_SECTION = (
+    "h3. Testability: Additional Acceptance Criteria\n\n"
+    "# *Unverified status*: Given a provider type with inconclusive connectivity, "
+    "when validation runs, then the status is Unverified.\n"
+    "\nh3. Effort Estimate\n"
+)
+
 # TestPlan.md with allowed TC categories in Section 5.2 (valid)
 TESTPLAN_VALID_CATEGORIES = """---
 feature: Test Feature

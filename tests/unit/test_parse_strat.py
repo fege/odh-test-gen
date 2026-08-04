@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from scripts.utils.strat_utils import (
+    gate_inputs,
     parse_acceptance_criteria,
     parse_nfr,
     parse_out_of_scope,
@@ -17,6 +18,9 @@ from tests.constants import (
     STRAT_OOS_EM_DASH,
     STRAT_OOS_MIXED,
     STRAT_OOS_PLAIN_TEXT,
+    STRAT_TESTABILITY_DEDUPED_AGAINST_MAIN_AC,
+    STRAT_TESTABILITY_FOLDED_INTO_AC,
+    STRAT_TESTABILITY_WITHOUT_MAIN_AC_SECTION,
 )
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures"
@@ -59,6 +63,11 @@ class TestParseAcceptanceCriteria:
         first_ac = result["acceptance_criteria"][0]["text"]
         assert "Given" in first_ac
         assert "measured by" in first_ac
+
+    def test_acceptance_criteria_have_sequential_num(self):
+        result = parse_acceptance_criteria(STRAT_AC_NUMBERED_LIST)
+
+        assert [ac["num"] for ac in result["acceptance_criteria"]] == [1, 2, 3]
 
     def test_numbered_list_acs_joined(self):
         result = parse_acceptance_criteria(STRAT_AC_NUMBERED_LIST)
@@ -103,6 +112,32 @@ class TestParseAcceptanceCriteria:
         assert "Given a user submits invalid input" in result["acceptance_criteria"][1]["text"]
         assert "Given a duplicate name is submitted" in result["acceptance_criteria"][2]["text"]
 
+    def test_testability_edge_cases_folded_in_with_continued_numbering(self):
+        result = parse_acceptance_criteria(STRAT_TESTABILITY_FOLDED_INTO_AC)
+
+        assert result["found"] is True
+        assert result["count"] == 4
+        assert [ac["num"] for ac in result["acceptance_criteria"]] == [1, 2, 3, 4]
+        assert result["acceptance_criteria"][2]["text"].startswith("Unverified status: Given")
+        assert result["acceptance_criteria"][3]["text"].startswith("Malformed secret: Given")
+
+    def test_testability_duplicate_of_main_ac_is_not_double_counted(self):
+        result = parse_acceptance_criteria(STRAT_TESTABILITY_DEDUPED_AGAINST_MAIN_AC)
+
+        assert result["found"] is True
+        # 1 main AC + 1 unique Testability item; the literal duplicate is dropped.
+        assert result["count"] == 2
+        texts = [ac["text"] for ac in result["acceptance_criteria"]]
+        assert sum("dialog opens, then samples are shown" in t for t in texts) == 1
+        assert any(t.startswith("Unverified status: Given") for t in texts)
+
+    def test_testability_without_main_ac_section_is_not_found(self):
+        result = parse_acceptance_criteria(STRAT_TESTABILITY_WITHOUT_MAIN_AC_SECTION)
+
+        assert result["found"] is False
+        assert result["count"] == 0
+        assert result["acceptance_criteria"] == []
+
 
 class TestParseNfr:
     """Tests for non-functional requirements extraction from fetched STRAT content."""
@@ -136,6 +171,53 @@ class TestParseNfr:
         assert "with all other BFF endpoints" in security["text"]
         # A stray "*" bullet that is not a "* *Cat*: text" NFR must not be merged into Security.
         assert "stray bullet" not in security["text"]
+
+
+class TestGateInputs:
+    """Tests for gate_inputs — the citation gate's deterministic ac_count + nfr_categories.
+
+    The gate only runs after Step 1.5 confirms ACs exist (it STOPs otherwise), so every case here
+    has acceptance criteria; only the NFR section is optional.
+    """
+
+    def test_derives_from_real_strat(self):
+        content = (FIXTURES_DIR / "strat-1737.md").read_text()
+
+        result = gate_inputs(content)
+
+        assert result["ac_count"] == 10
+        cats = result["nfr_categories"].split(",")
+        assert "Performance" in cats
+        assert "Security" in cats
+        assert len(cats) == len(set(cats))  # de-duplicated
+
+    def test_duplicate_categories_deduplicated_in_order(self):
+        content = (
+            "h3. Acceptance Criteria\n\n"
+            "# Given a user registers a store, then it persists\n"
+            "# Given a duplicate name, then it is rejected\n\n"
+            "h3. Non-Functional Requirements\n\n"
+            "* *Upgrade*: GET endpoints keep their shape\n"
+            "* *Upgrade*: also this one\n"
+            "* *Security*: namespace-scoped RBAC\n"
+        )
+
+        result = gate_inputs(content)
+
+        assert result["ac_count"] == 2
+        assert result["nfr_categories"] == "Upgrade,Security"
+
+    def test_no_nfr_section_yields_empty_categories(self):
+        content = (
+            "h3. Acceptance Criteria\n\n"
+            "# Given a user registers a store, then it persists\n\n"
+            "h3. Risks\n\nSome risks.\n"
+        )
+
+        result = gate_inputs(content)
+
+        assert result["ac_count"] == 1
+        assert result["nfr_categories"] == ""
 
 
 class TestParseOutOfScope:

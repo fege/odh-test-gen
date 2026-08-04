@@ -24,8 +24,8 @@ Generate a complete test plan for a RHOAI feature based on a refined strategy, a
 ```
 
 Examples:
-- `/test-plan-create RHAISTRAT-400` (preferred - formal strategy)
-- `/test-plan-create RHOAIENG-48676` (alternative - bug/epic/task)
+- `/test-plan-create RHAISTRAT-400`
+- `/test-plan-create RHOAIENG-48676`
 - `/test-plan-create RHAISTRAT-400 /path/to/adr.pdf`
 
 ## Inputs
@@ -113,7 +113,6 @@ If environment variables are set, proceed to Step 0.3.
 
 5. **Validate against skill repository** (unless `FORCE_OUTPUT_DIR=true`):
    ```bash
-   # Validate path is not in skill repo
    export CLAUDE_SKILL_DIR
    force_flag=$([ "$FORCE_OUTPUT_DIR" = "true" ] && echo "--force" || echo "")
    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-local-path "$target_dir" $force_flag) || exit 1
@@ -124,10 +123,8 @@ If environment variables are set, proceed to Step 0.3.
 
    - If **yes**: Save to `.claude/settings.json`:
      ```bash
-     # Create .claude directory if it doesn't exist
      mkdir -p .claude
 
-     # Update or create settings.json with output_dir preference
      if [ -f .claude/settings.json ]; then
          jq '.["test-plan"].output_dir = "'"$target_dir"'"' .claude/settings.json > .claude/settings.json.tmp
          mv .claude/settings.json.tmp .claude/settings.json
@@ -189,6 +186,7 @@ ac_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py acceptance-cri
 ac_exit=$?
 nfr_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py nfr "$strategy_file") || nfr_json=""
 oos_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py out-of-scope "$strategy_file") || oos_json=""
+gate_inputs=$(cd "$repo_root" && uv run python scripts/parse_strat.py gate-inputs "$strategy_file")
 [ "$strategy_is_temp" = "true" ] && rm "$strategy_file"
 strat_gaps=""
 [ -z "$nfr_json" ] && strat_gaps="${strat_gaps}- Strategy has no Non-Functional Requirements section.\n"
@@ -209,13 +207,13 @@ strat_gaps=""
 
 ### Step 2: Analyze (Parallel Sub-Agents)
 
-**Scope constraint**: This pipeline generates e2e/system and UI test plans only — no unit, integration, or component test levels in Section 2.1. Each test objective (Section 1.3) must cite a STRAT acceptance criterion: `(AC: [text])`. Step 3.2 validates both constraints deterministically.
+**Scope constraint**: This pipeline generates e2e/system and UI test plans only — no unit, integration, or component test levels in Section 2.1. Each test objective (Section 1.3) must cite its grounding: `(AC: #N — text)` or `(NFR: category — text)`. Step 3.2 validates both constraints deterministically.
 
 Invoke these three forked analyzer skills **in parallel** using the Skill tool. Each runs in its own isolated context with the strategy and ADR content.
 
 Pass the full strategy content (and ADR content if available) inline in the skill arguments so each sub-agent has the source material. Additionally, pass the deterministic extractions from Step 1.5 to the relevant analyzers as structured JSON — these are ground truth that the analyzer must use, not re-derive from the raw text.
 
-- **`test-plan.analyze.endpoints`**: Pass full strategy + ADR + `ac_json` (acceptance criteria) + `oos_json` (out-of-scope). Extracts feature scope (in-scope, out-of-scope, AC-traced test objectives) and identifies the e2e test surface (interfaces exercised by e2e tests). Produces findings for Sections 1 and 4.
+- **`test-plan.analyze.endpoints`**: Pass full strategy + ADR + `ac_json` (acceptance criteria) + `oos_json` (out-of-scope) + `nfr_json` (non-functional requirements). Extracts feature scope (in-scope, out-of-scope, AC-traced and grounded-NFR test objectives) and identifies the e2e test surface (interfaces exercised by e2e tests). Produces findings for Sections 1 and 4.
 - **`test-plan.analyze.risks`**: Pass full strategy + ADR + `nfr_json` (non-functional requirements). Determines e2e/UI test levels, test types, priority definitions, risks with mitigations, and NFR assessments. Produces findings for Sections 2, 7, and 8.
 - **`test-plan.analyze.infra`**: Pass full strategy + ADR only. Identifies test environment configuration, test data, test users, infrastructure, and tooling requirements. Produces findings for Section 3.
 
@@ -246,7 +244,6 @@ After generating TestPlan.md, set its frontmatter using the `frontmatter.py` scr
 
 **First, auto-detect source type from Jira key prefix:**
 ```bash
-# Auto-detect source_type from Jira key
 if [[ <JIRA_KEY> == RHAISTRAT-* ]]; then
     SOURCE_TYPE="strat"
 elif [[ <JIRA_KEY> == RHOAIENG-* ]]; then
@@ -279,13 +276,14 @@ If the script exits with an error, fix the field values and retry — do not wri
 
 ### Step 3.2: Validate Generated Test Plan
 
-After setting frontmatter, run the deterministic validation checks:
+After setting frontmatter, run the deterministic validation checks (`<ac_count>`/`<nfr_categories>` from Step 1.5's `gate_inputs`):
 
 ```bash
 testplan="<absolute_path_to_output_dir>/<feature_name>/TestPlan.md"
 (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
  uv run python scripts/validate.py scope-check "$testplan" && \
- uv run python scripts/validate.py ac-citations "$testplan" && \
+ uv run python scripts/validate.py ac-citations "$testplan" --ac-count <ac_count> --nfr-categories "<nfr_categories>" && \
+ uv run python scripts/validate.py ac-coverage "$testplan" --ac-count <ac_count> && \
  uv run python scripts/validate.py structure "$testplan" && \
  uv run python scripts/validate.py category-prefixes "$testplan" && \
  uv run python scripts/validate.py interface-types "$testplan" && \
@@ -366,20 +364,13 @@ Then add the label using the `add_jira_labels.py` script:
  uv run python scripts/add_jira_labels.py "$source_key" test-plan-auto-created)
 ```
 
-Label stamping is **non-blocking** — if it fails (e.g., API unavailable, insufficient permissions, network error), log a warning and continue to the next step. Do not retry or halt the workflow.
+Label stamping is **non-blocking** — if it fails, log a warning and continue. Do not retry or halt the workflow.
 
 ### Step 4: Review, Score, and Improve
 
 After the gaps flow is complete, invoke the internal **`test-plan.review`** skill with the feature directory.
 
-The reviewer runs the quality rubric (5 criteria, 0-2 each, 10-point scale):
-- **Specificity** — feature-specific vs boilerplate
-- **Grounding** — traceable to source material vs fabricated
-- **Scope Fidelity** — matches strategy scope
-- **Actionability** — a QE engineer could start testing
-- **Consistency** — sections agree with each other
-
-The reviewer handles auto-revision internally (up to 2 cycles) and writes `<feature_name>/TestPlanReview.md` with scores and feedback.
+The reviewer runs the quality rubric (Specificity, Grounding, Scope Fidelity, Actionability, Consistency — 0-2 each, 10-point scale; full criteria definitions live in `test-plan.review`), handles auto-revision internally (up to 2 cycles), and writes `<feature_name>/TestPlanReview.md` with scores and feedback.
 
 **Handle the review output:**
 
@@ -417,7 +408,6 @@ source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv ru
 
 **Build label list and apply:**
 ```bash
-# Build label list based on verdict
 if [ "$verdict" = "Ready" ]; then
     rubric_label="test-plan-rubric-pass"
 elif [ "$verdict" = "Rework" ]; then
@@ -427,7 +417,6 @@ else
     rubric_label=""
 fi
 
-# Add labels (conditionally include auto-revised)
 if [ -n "$rubric_label" ]; then
     if [ "$auto_revised" = "true" ]; then
         (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
@@ -450,7 +439,7 @@ Label stamping is **non-blocking** — if it fails, log a warning and continue. 
 - Section 5 (Test Cases): placeholder — 5.2 categories must be test types (E2E, UI, NEG, NFR, UPG), not feature areas
 - Section 6 (E2E Test Scenarios): left as placeholder — to be filled by `/test-plan-create-cases`
 - Section 2.1 (Test Levels): ONLY e2e/system and UI levels — no unit, integration, or component levels
-- Section 1.3 (Test Objectives): Each objective must cite a STRAT acceptance criterion via `(AC: ...)`
+- Section 1.3 (Test Objectives): Each objective must cite its grounding via `(AC: #N — text)` or `(NFR: category — text)`; every AC number `1..ac_count` must be cited by at least one objective (Step 3.2's `ac-coverage` check)
 - Section 7 (Non-Functional Requirements): filled by `test-plan.analyze.risks` — each category must be addressed or marked Not Applicable
 - Section 9: placeholders — 9.1 and 9.2 filled by `/test-plan-create-cases` and `/coverage-assessment`
 

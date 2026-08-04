@@ -52,9 +52,9 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 3. Fetch the source strategy from Jira using the `source_key`:
    ```bash
    # Fetch strategy and save to temporary file
+   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
    strategy_file=$(mktemp)
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
-    uv run python scripts/fetch_issue.py "$source_key" --output "$strategy_file") || {
+   (cd "$repo_root" && uv run python scripts/fetch_issue.py "$source_key" --output "$strategy_file") || {
        echo "Warning: Failed to fetch Jira issue, checking for local file..." >&2
        rm -f "$strategy_file"
        strategy_file=""
@@ -62,15 +62,18 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
    # If fetch failed, check for local strategy file
    if [ -z "$strategy_file" ] || [ ! -f "$strategy_file" ]; then
-       local_file="$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)/artifacts/strat-tasks/${source_key}.md"
+       local_file="$repo_root/artifacts/strat-tasks/${source_key}.md"
        if [ -f "$local_file" ]; then
            strategy_content=$(cat "$local_file")
+           gate_inputs=$(cd "$repo_root" && uv run python scripts/parse_strat.py gate-inputs "$local_file")
        else
            echo "Warning: Neither Jira API nor local strategy file available. Grounding and scope fidelity scoring will be degraded." >&2
            strategy_content=""
+           gate_inputs=""
        fi
    else
        strategy_content=$(cat "$strategy_file")
+       gate_inputs=$(cd "$repo_root" && uv run python scripts/parse_strat.py gate-inputs "$strategy_file")
        rm "$strategy_file"
    fi
    ```
@@ -78,12 +81,23 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 4. Store the raw strategy text for passing to sub-agents.
 
-5. Compute interface coverage deterministically (Section 9.2 and Section 6.2 vs Section 4 are a mechanical table diff, not an LLM judgment call):
+5. Compute interface coverage and AC/NFR citation validity deterministically (Section 9.2/6.2 vs Section 4 is a mechanical table diff, and citation validity is a mechanical STRAT cross-check — neither is an LLM judgment call). `<ac_count>`/`<nfr_categories>` come from `gate_inputs` above (pass neither flag if it's empty — same degraded mode as step 3):
    ```bash
-   interface_coverage_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+   interface_coverage_result=$(cd "$repo_root" && \
        uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md || true)
+   ac_citations_result=$(cd "$repo_root" && \
+       uv run python scripts/validate.py ac-citations <feature_dir>/TestPlan.md --ac-count <ac_count> --nfr-categories "<nfr_categories>" || true)
    ```
    With the pre-create-cases guards, `valid: true` is expected before test cases exist — both Section 9.2 (Test Cases column blank) and Section 6.2 are recognized as not-yet-populated and skipped. A `valid: false` here signals a genuine coverage gap; pass it as data to the score agent.
+
+   `ac-coverage` requires `--ac-count` (no presence-only fallback) — only run it when `<ac_count>` is available; leave `ac_coverage_result` unset in degraded mode:
+   ```bash
+   if [ -n "<ac_count>" ]; then
+       ac_coverage_result=$(cd "$repo_root" && \
+           uv run python scripts/validate.py ac-coverage <feature_dir>/TestPlan.md --ac-count <ac_count> || true)
+   fi
+   ```
 
 ### Step 2: Score (fork)
 
@@ -95,6 +109,8 @@ Launch a **forked** score agent with these substitutions:
 - `{STRATEGY_TEXT}` = raw strategy description text from Step 1
 - `{CALIBRATION_DIR}` = `${CLAUDE_SKILL_DIR}/calibration/`
 - `{INTERFACE_COVERAGE_RESULT}` = JSON from Step 1.5 (`interface_coverage_result`)
+- `{AC_CITATIONS_RESULT}` = JSON from Step 1.5 (`ac_citations_result`)
+- `{AC_COVERAGE_RESULT}` = JSON from Step 1.5 (`ac_coverage_result`, or "not computed — degraded mode" if unset)
 
 The score agent evaluates the test plan against a 5-criterion rubric (specificity, grounding, scope fidelity, actionability, consistency) and returns a structured assessment with per-criterion scores and a grounding cross-reference table.
 

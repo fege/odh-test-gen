@@ -25,12 +25,12 @@ def extract_jira_section(content: str, heading_prefix: str) -> str | None:
     return None
 
 
-def parse_acceptance_criteria(content: str) -> dict:
-    """Extract acceptance criteria from STRAT content."""
-    section = extract_jira_section(content, "h3. Acceptance Criteria")
-    if section is None:
-        return {"found": False, "count": 0, "acceptance_criteria": []}
+def _extract_bulleted_texts(section: str) -> list[str]:
+    """Split a Jira wiki section body into merged, whitespace-normalized bullet-item strings.
 
+    Handles both `#` (numbered) and `*` (plain) bullet markers, and falls back to blank-line
+    paragraph splitting when no bullet marker is present.
+    """
     stripped = section.strip()
 
     if re.search(r"(?m)^#\s+", stripped):
@@ -42,14 +42,44 @@ def parse_acceptance_criteria(content: str) -> dict:
 
     if bullet_marker:
         # Split on the bullet marker directly so entries survive with no blank line between them.
-        merged = [" ".join(item.split()) for item in re.split(bullet_marker, stripped)[1:] if item.strip()]
-    else:
-        merged = []
-        for para in re.split(r"\n\n+", stripped):
-            if text := " ".join(para.split()):
-                merged.append(text)
+        return [" ".join(item.split()) for item in re.split(bullet_marker, stripped)[1:] if item.strip()]
 
-    criteria = [{"text": t} for t in merged]
+    merged = []
+    for para in re.split(r"\n\n+", stripped):
+        if text := " ".join(para.split()):
+            merged.append(text)
+    return merged
+
+
+def parse_acceptance_criteria(content: str) -> dict:
+    """Extract acceptance criteria from STRAT content, folding in Testability-section edge cases.
+
+    An optional `h3. Testability` section (e.g. "Testability: Additional Acceptance Criteria")
+    holds numbered edge cases in the same `# *Title*: Given/When/Then` shape as the main list;
+    these continue the numbering so downstream consumers (ac_count, ac_json, the `(AC: #N)` gate)
+    treat them identically. The main section is mandatory — Testability is not a fallback if it's
+    absent. Items whose sentence exactly duplicates (case/whitespace-insensitive) one already
+    present are skipped; semantic near-duplicates are not detected.
+    """
+    section = extract_jira_section(content, "h3. Acceptance Criteria")
+    if section is None:
+        return {"found": False, "count": 0, "acceptance_criteria": []}
+
+    texts = _extract_bulleted_texts(section)
+
+    testability_section = extract_jira_section(content, "h3. Testability")
+    if testability_section:
+        seen = {" ".join(t.split()).casefold() for t in texts}
+        for raw in _extract_bulleted_texts(testability_section):
+            item = _parse_bullet_item(raw)
+            sentence = item["text"]
+            normalized = " ".join(sentence.split()).casefold()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            texts.append(f"{item['title']}: {sentence}" if item["title"] else sentence)
+
+    criteria = [{"num": i + 1, "text": t} for i, t in enumerate(texts)]
     return {"found": True, "count": len(criteria), "acceptance_criteria": criteria}
 
 
@@ -78,6 +108,21 @@ def parse_nfr(content: str) -> dict:
             requirements[-1]["text"] = f"{requirements[-1]['text']} {line}"
 
     return {"found": True, "requirements": requirements}
+
+
+def gate_inputs(content: str) -> dict:
+    """Derive the citation gate's deterministic inputs from STRAT content.
+
+    Returns ``{"ac_count": int, "nfr_categories": str}`` where ``ac_count`` is the acceptance-criteria
+    count and ``nfr_categories`` is the comma-joined, order-preserving, de-duplicated list of NFR
+    category names — the exact ``--ac-count`` / ``--nfr-categories`` values the Step 3.2
+    ``validate.py ac-citations`` gate consumes, so the create skill threads them without any further
+    parsing or joining in shell.
+    """
+    ac = parse_acceptance_criteria(content)
+    nfr = parse_nfr(content)
+    categories = list(dict.fromkeys(r["category"] for r in nfr["requirements"]))
+    return {"ac_count": ac["count"], "nfr_categories": ",".join(categories)}
 
 
 def _parse_bullet_item(text: str) -> dict:
