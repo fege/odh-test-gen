@@ -110,12 +110,16 @@ def parse_citation(text: str) -> dict | None:
     text between ``NFR:`` and the em-dash for NFR citations. Applying count/category bounds to
     these fields is the caller's policy, not this parser's job.
     """
-    if not CITATION_RE.search(text):
+    citation_match = CITATION_RE.search(text)
+    if not citation_match:
         return None
-    if "(AC:" in text:
-        match = _AC_CITATION_RE.search(text)
+    # Parse the matched citation itself, not the whole text — a bare/incomplete marker of the
+    # other kind sitting elsewhere in the text must not hijack which citation gets parsed.
+    matched = citation_match.group(0)
+    if matched.startswith("(AC:"):
+        match = _AC_CITATION_RE.search(matched)
         return {"kind": "AC", "number": int(match.group(1)) if match and match.group(1) else None, "category": None}
-    match = _NFR_CITATION_RE.search(text)
+    match = _NFR_CITATION_RE.search(matched)
     return {"kind": "NFR", "number": None, "category": match.group(1).strip() if match else ""}
 
 

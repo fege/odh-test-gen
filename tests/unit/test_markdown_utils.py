@@ -36,3 +36,17 @@ class TestCitationParsing:
         # valid — the documented format requires the em-dash, explanatory text, and closing paren.
         assert has_citation(text) is False
         assert parse_citation(text) is None
+
+    def test_bare_ac_marker_before_complete_nfr_citation_parses_the_nfr(self):
+        # A bare, incomplete (AC: #N) sitting earlier in the text must not hijack parsing away
+        # from the actual complete citation that follows it.
+        text = "Verify something (AC: #1) additionally (NFR: Upgrade — shape kept)"
+
+        assert has_citation(text) is True
+        assert parse_citation(text) == {"kind": "NFR", "number": None, "category": "Upgrade"}
+
+    def test_bare_nfr_marker_before_complete_ac_citation_parses_the_ac(self):
+        text = "Verify something (NFR: Upgrade) additionally (AC: #2 — deploy succeeds)"
+
+        assert has_citation(text) is True
+        assert parse_citation(text) == {"kind": "AC", "number": 2, "category": None}
