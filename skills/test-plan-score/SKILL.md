@@ -61,10 +61,17 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
        strategy_file=""
    }
 
-   # If fetch failed, check for local strategy file
+   # If fetch failed, check for local strategy file. source_key comes from TestPlan.md
+   # frontmatter — validate its shape and the resolved path's containment before reading, so a
+   # malformed/malicious source_key can't escape artifacts/strat-tasks/ via path traversal.
    if [ -z "$strategy_file" ] || [ ! -f "$strategy_file" ]; then
-       local_file="$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)/artifacts/strat-tasks/${source_key}.md"
-       if [ -f "$local_file" ]; then
+       strat_dir=$(realpath "$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)/artifacts/strat-tasks")
+       if [[ "$source_key" =~ ^[A-Z][A-Z0-9_]+-[0-9]+$ ]]; then
+           local_file="$strat_dir/${source_key}.md"
+       else
+           local_file=""
+       fi
+       if [ -n "$local_file" ] && [ -f "$local_file" ] && [[ "$(realpath "$local_file")" == "$strat_dir"/* ]]; then
            strategy_content=$(cat "$local_file")
        else
            echo "Warning: Neither Jira API nor local strategy file available. Grounding and scope fidelity will be scored based on plan consistency only." >&2

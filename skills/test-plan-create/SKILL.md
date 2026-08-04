@@ -187,6 +187,8 @@ ac_exit=$?
 nfr_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py nfr "$strategy_file") || nfr_json=""
 oos_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py out-of-scope "$strategy_file") || oos_json=""
 gate_inputs=$(cd "$repo_root" && uv run python scripts/parse_strat.py gate-inputs "$strategy_file")
+ac_count=$(echo "$gate_inputs" | jq -r '.ac_count // empty')
+nfr_categories=$(echo "$gate_inputs" | jq -r '.nfr_categories // empty')
 [ "$strategy_is_temp" = "true" ] && rm "$strategy_file"
 strat_gaps=""
 [ -z "$nfr_json" ] && strat_gaps="${strat_gaps}- Strategy has no Non-Functional Requirements section.\n"
@@ -276,14 +278,14 @@ If the script exits with an error, fix the field values and retry — do not wri
 
 ### Step 3.2: Validate Generated Test Plan
 
-After setting frontmatter, run the deterministic validation checks (`<ac_count>`/`<nfr_categories>` from Step 1.5's `gate_inputs`):
+After setting frontmatter, run the deterministic validation checks (`$ac_count`/`$nfr_categories` were parsed from `gate_inputs` in Step 1.5 — Step 1.5's STOP gate guarantees `$ac_count` is set here):
 
 ```bash
 testplan="<absolute_path_to_output_dir>/<feature_name>/TestPlan.md"
 (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
  uv run python scripts/validate.py scope-check "$testplan" && \
- uv run python scripts/validate.py ac-citations "$testplan" --ac-count <ac_count> --nfr-categories "<nfr_categories>" && \
- uv run python scripts/validate.py ac-coverage "$testplan" --ac-count <ac_count> && \
+ uv run python scripts/validate.py ac-citations "$testplan" --ac-count "$ac_count" --nfr-categories "$nfr_categories" && \
+ uv run python scripts/validate.py ac-coverage "$testplan" --ac-count "$ac_count" && \
  uv run python scripts/validate.py structure "$testplan" && \
  uv run python scripts/validate.py category-prefixes "$testplan" && \
  uv run python scripts/validate.py interface-types "$testplan" && \
@@ -382,11 +384,7 @@ The reviewer runs the quality rubric (Specificity, Grounding, Scope Fidelity, Ac
    - **Only add content that is directly traceable to the source documents** (strategy, ADR, API specs, design docs, or any additional_docs) — do not make assumptions about where documentation exists or what it contains.
 
    Use the Edit tool for any auto-fixes applied.
-3. **Present summary**: Show the user:
-   - Final score and verdict from TestPlanReview.md
-   - Any auto-fixes applied
-   - Any remaining gaps from `TestPlanGaps.md`
-   - Full visibility into the test plan's quality before proceeding to test case generation
+3. **Present summary**: Show the user the final score/verdict, any auto-fixes applied, and any remaining gaps from `TestPlanGaps.md`
 4. **If verdict is Rework**: Advise the user to provide additional source documents (ADR, API spec, design doc) to resolve quality issues before generating test cases
 
 ### Step 4.5: Stamp rubric verdict label

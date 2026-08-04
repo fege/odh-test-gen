@@ -5,6 +5,7 @@ import json
 import pytest
 
 from scripts.utils.frontmatter_utils import write_frontmatter
+from scripts.utils.schemas import TEMPLATE_HEADINGS
 from scripts.validate import (
     check_interactive,
     validate_ac_citations,
@@ -344,7 +345,7 @@ class TestValidateAcCitationsNumbered:
             ("(NFR: upgrade — shape kept)", 0, ["Upgrade"], None),
             ("(AC: #5 — beyond count)", 2, [], "out_of_range"),
             ("(AC: #0 — below one)", 2, [], "out_of_range"),
-            ("(AC: users can deploy)", 2, [], "missing_number"),
+            ("(AC: — users can deploy)", 2, [], "missing_number"),
             ("(NFR: Performance — responsive)", 1, ["Upgrade"], "unknown_nfr_category"),
         ],
         ids=["valid-ac", "valid-nfr-caseless", "ac-too-high", "ac-too-low", "ac-no-number", "unknown-nfr"],
@@ -488,9 +489,9 @@ class TestValidateStructure:
         result = validate_structure(str(testplan))
 
         assert result["valid"] is False
-        assert "### 1.3 Test Objectives" in result["missing_headings"]
-        assert "### 2.1 Test Levels" in result["missing_headings"]
-        assert "## 4. Interfaces Under Test" in result["missing_headings"]
+        assert TEMPLATE_HEADINGS["1.3"] in result["missing_headings"]
+        assert TEMPLATE_HEADINGS["2.1"] in result["missing_headings"]
+        assert TEMPLATE_HEADINGS["4"] in result["missing_headings"]
 
     def test_file_not_found(self):
         result = validate_structure("/nonexistent/TestPlan.md")
@@ -894,7 +895,9 @@ class TestValidateTcTraceability:
 
     def test_valid_traceability_passes(self, tmp_path):
         # Objective 1's AC citation is wrapped onto a continuation line.
-        section = "1. Verify login flow\n   (AC: users can log in)\n2. Verify logout flow (AC: users can log out)\n"
+        section = (
+            "1. Verify login flow\n   (AC: #1 — users can log in)\n2. Verify logout flow (AC: #2 — users can log out)\n"
+        )
         self._make_feature_dir(
             tmp_path,
             section,
@@ -971,7 +974,7 @@ class TestValidateTcTraceability:
         assert "list" in result["errors"][0]["error"].lower()
 
     def test_mixed_valid_and_invalid(self, tmp_path):
-        section = "1. Verify login flow (AC: users can log in)\n2. Verify logout flow (no AC cited)\n"
+        section = "1. Verify login flow (AC: #1 — users can log in)\n2. Verify logout flow (no AC cited)\n"
         self._make_feature_dir(
             tmp_path,
             section,

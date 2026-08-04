@@ -69,7 +69,7 @@ def parse_acceptance_criteria(content: str) -> dict:
 
     testability_section = extract_jira_section(content, "h3. Testability")
     if testability_section:
-        seen = {" ".join(t.split()).casefold() for t in texts}
+        seen = {" ".join(_parse_bullet_item(text)["text"].split()).casefold() for text in texts}
         for raw in _extract_bulleted_texts(testability_section):
             item = _parse_bullet_item(raw)
             sentence = item["text"]
