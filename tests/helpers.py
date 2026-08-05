@@ -43,3 +43,22 @@ def add_feature(repo_path, feature_name, files):
         p = feature / f
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(f"# {f}\n")
+
+
+def strat_with_testability_heading(heading: str) -> str:
+    """Build a minimal STRAT string whose Testability(-ish) section uses the given heading.
+
+    Produces 2 main ACs under 'h3. Acceptance Criteria' and one distinctive bullet
+    under the caller-supplied heading.  The word 'throttled' appears only in that
+    Testability bullet, so callers can assert its presence or absence in AC texts
+    without full-text parsing.  A trailing 'h3. Effort Estimate' bounds the section
+    so extract_jira_section terminates it correctly.
+    """
+    return (
+        "h3. Acceptance Criteria\n\n"
+        "# *Login works*: Given valid creds When submitted Then access granted\n"
+        "# *Logout works*: Given a session When user logs out Then session ends\n\n"
+        f"{heading}\n\n"
+        "# *Rate limit*: Given many attempts When threshold hit Then requests are throttled\n\n"
+        "h3. Effort Estimate\n\n(bounds the section)\n"
+    )

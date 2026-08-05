@@ -366,7 +366,7 @@ class TestValidateAcCitationsNumbered:
             assert result["valid"] is False
             assert result["cited"] == 0
             assert len(result["invalid_citations"]) == 1
-            assert result["invalid_citations"][0]["reason"] == expected_reason
+            assert result["invalid_citations"][0]["reasons"] == [expected_reason]
             assert result["invalid_citations"][0]["line_number"] > 0
 
     def test_counts_split_across_buckets(self, tmp_path):
@@ -385,7 +385,7 @@ class TestValidateAcCitationsNumbered:
         assert result["cited"] == 2
         assert len(result["uncited"]) == 1
         assert len(result["invalid_citations"]) == 1
-        assert result["invalid_citations"][0]["reason"] == "out_of_range"
+        assert result["invalid_citations"][0]["reasons"] == ["out_of_range"]
 
     def test_presence_only_mode_accepts_nfr_marker(self, tmp_path):
         # No ac_count -> presence-only (the validate_all path); an NFR marker counts as cited.
@@ -1116,7 +1116,7 @@ class TestAcCitationsCliArgparse:
 
         assert exc_info.value.code == 0
         result = json.loads(capsys.readouterr().out)
-        unknown = [c for c in result["invalid_citations"] if c["reason"] == "unknown_nfr_category"]
+        unknown = [c for c in result["invalid_citations"] if "unknown_nfr_category" in c["reasons"]]
         assert unknown == [], f"Category was split or not matched; invalid_citations={result['invalid_citations']}"
 
     def test_comma_containing_category_fails_without_matching_flag(self, tmp_path, monkeypatch, capsys):
@@ -1134,8 +1134,8 @@ class TestAcCitationsCliArgparse:
 
         assert exc_info.value.code == 1
         result = json.loads(capsys.readouterr().out)
-        reasons = [c["reason"] for c in result["invalid_citations"]]
-        assert "unknown_nfr_category" in reasons
+        all_reasons = [r for c in result["invalid_citations"] for r in c["reasons"]]
+        assert "unknown_nfr_category" in all_reasons
 
     def test_repeated_nfr_category_flags_both_register(self, tmp_path, monkeypatch, capsys):
         # --nfr-category Security --nfr-category Upgrade must register BOTH; a plan citing
@@ -1183,3 +1183,79 @@ class TestAcCitationsCliArgparse:
         result = json.loads(capsys.readouterr().out)
         assert result["valid"] is True
         assert result["cited"] == 1
+
+
+class TestValidateAcCoverageMultiCitation:
+    """validate_ac_coverage must count AC numbers from ALL citations per objective, not just the first."""
+
+    def test_single_objective_citing_two_acs_covers_both(self, tmp_path):
+        # RED against current code: only (AC: #1) is seen; #2 is dropped → missing==[2].
+        body = "1. Verify two flows (AC: #1 — first flow passes) (AC: #2 — second flow passes)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_coverage(path, ac_count=2)
+
+        assert result["valid"] is True
+        assert result["covered"] == [1, 2]
+        assert result["missing"] == []
+
+    def test_two_objectives_single_citing_covers_non_contiguous(self, tmp_path):
+        body = "1. Verify first flow (AC: #1 — first flow)\n2. Verify third flow (AC: #3 — third flow)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_coverage(path, ac_count=3)
+
+        assert result["valid"] is False
+        assert result["covered"] == [1, 3]
+        assert result["missing"] == [2]
+
+
+class TestValidateAcCitationsMultiCitation:
+    """validate_ac_citations per-objective bucketing with all-citations-examined and reasons list."""
+
+    def test_one_valid_one_invalid_citation_lands_in_invalid(self, tmp_path):
+        # RED: current code examines only (AC: #1 — ok), marks objective as cited, misses #99.
+        body = "1. Verify dual (AC: #1 — valid) (AC: #99 — out of range)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path, ac_count=5)
+
+        assert result["valid"] is False
+        assert result["cited"] == 0
+        assert len(result["invalid_citations"]) == 1
+        assert result["invalid_citations"][0]["reasons"] == ["out_of_range"]
+
+    def test_two_invalid_citations_collects_both_reasons(self, tmp_path):
+        # RED: current code sees only the first citation; the second reason is never collected.
+        body = "1. Verify double-bad (AC: #99 — oob) (NFR: bogus — unknown cat)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path, ac_count=5, nfr_categories=["security"])
+
+        assert result["valid"] is False
+        assert result["total"] == 1
+        assert len(result["invalid_citations"]) == 1
+        assert set(result["invalid_citations"][0]["reasons"]) == {"out_of_range", "unknown_nfr_category"}
+
+    def test_two_valid_citations_counted_as_cited(self, tmp_path):
+        # Regression: an objective with two valid citations must not be double-counted or lost.
+        body = "1. Verify two valid (AC: #1 — first)(AC: #2 — second)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path, ac_count=2)
+
+        assert result["valid"] is True
+        assert result["total"] == 1
+        assert result["cited"] == 1
+        assert result["uncited"] == []
+        assert result["invalid_citations"] == []
+
+    def test_presence_only_mode_multi_citation_objective_counts_as_cited(self, tmp_path):
+        body = "1. Verify flows (AC: #1 — first) (AC: #2 — second)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path)
+
+        assert result["valid"] is True
+        assert result["cited"] == 1
+        assert result["invalid_citations"] == []

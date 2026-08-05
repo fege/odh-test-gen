@@ -6,6 +6,8 @@ Jira wiki markup (h2., h3., *bold*, {{code}}) inside the Description section.
 
 import re
 
+_TESTABILITY_HEADING_RE = re.compile(r"^h3\.\s+Testability(:.*)?\s*$")
+
 
 def extract_jira_section(content: str, heading_prefix: str) -> str | None:
     """Extract text between a Jira wiki heading and the next h2./h3. heading.
@@ -54,12 +56,14 @@ def _extract_bulleted_texts(section: str) -> list[str]:
 def parse_acceptance_criteria(content: str) -> dict:
     """Extract acceptance criteria from STRAT content, folding in Testability-section edge cases.
 
-    An optional `h3. Testability` section (e.g. "Testability: Additional Acceptance Criteria")
-    holds numbered edge cases in the same `# *Title*: Given/When/Then` shape as the main list;
-    these continue the numbering so downstream consumers (ac_count, ac_json, the `(AC: #N)` gate)
-    treat them identically. The main section is mandatory — Testability is not a fallback if it's
-    absent. Items whose sentence exactly duplicates (case/whitespace-insensitive) one already
-    present are skipped; semantic near-duplicates are not detected.
+    An optional `h3. Testability` section (exact `h3. Testability` or colon-qualified e.g.
+    "h3. Testability: Additional Acceptance Criteria") holds numbered edge cases in the same
+    `# *Title*: Given/When/Then` shape as the main list; these continue the numbering so
+    downstream consumers (ac_count, ac_json, the `(AC: #N)` gate) treat them identically.
+    Headings like `h3. Testability Concerns` or `h3. Testability Notes` (without a colon) are
+    ignored. The main section is mandatory — Testability is not a fallback if it's absent. Items
+    whose sentence exactly duplicates (case/whitespace-insensitive) one already present are
+    skipped; semantic near-duplicates are not detected.
     """
     section = extract_jira_section(content, "h3. Acceptance Criteria")
     if section is None:
@@ -67,7 +71,15 @@ def parse_acceptance_criteria(content: str) -> dict:
 
     texts = _extract_bulleted_texts(section)
 
-    testability_section = extract_jira_section(content, "h3. Testability")
+    testability_heading = None
+    for line in content.splitlines():
+        if _TESTABILITY_HEADING_RE.match(line):
+            testability_heading = line
+            break
+
+    testability_section = (
+        extract_jira_section(content, testability_heading) if testability_heading is not None else None
+    )
     if testability_section:
         seen = {" ".join(_parse_bullet_item(text)["text"].split()).casefold() for text in texts}
         for raw in _extract_bulleted_texts(testability_section):

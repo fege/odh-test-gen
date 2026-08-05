@@ -40,7 +40,7 @@ from scripts.utils.markdown_utils import (
     has_citation,
     is_filled_cell,
     normalize_interface,
-    parse_citation,
+    parse_citations,
     parse_numbered_objectives,
     parse_table_rows,
 )
@@ -262,13 +262,13 @@ def validate_ac_citations(testplan_path: str, ac_count: int | None = None, nfr_c
     uncited = []
     invalid_citations = []
     for obj in objectives:
-        citation = parse_citation(obj["text"])
-        if citation is None:
+        cites = parse_citations(obj["text"])
+        if not cites:
             uncited.append(obj)
             continue
-        reason = _citation_reason(citation, ac_count, nfr_categories)
-        if reason:
-            invalid_citations.append({**obj, "reason": reason})
+        reasons = [r for c in cites if (r := _citation_reason(c, ac_count, nfr_categories)) is not None]
+        if reasons:
+            invalid_citations.append({**obj, "reasons": reasons})
 
     cited = len(objectives) - len(uncited) - len(invalid_citations)
 
@@ -294,9 +294,9 @@ def validate_ac_coverage(testplan_path: str, ac_count: int) -> dict:
     objectives = parse_numbered_objectives(section_lines) if section_lines else []
     covered = set()
     for obj in objectives:
-        citation = parse_citation(obj["text"])
-        if citation and citation["kind"] == "AC" and citation["number"] is not None:
-            covered.add(citation["number"])
+        for citation in parse_citations(obj["text"]):
+            if citation["kind"] == "AC" and citation["number"] is not None:
+                covered.add(citation["number"])
 
     missing = [n for n in range(1, ac_count + 1) if n not in covered]
 

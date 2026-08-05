@@ -1,5 +1,6 @@
 """Unit tests for scripts/parse_strat.py — STRAT section extraction."""
 
+import pytest
 from pathlib import Path
 
 from scripts.utils.strat_utils import (
@@ -8,6 +9,7 @@ from scripts.utils.strat_utils import (
     parse_nfr,
     parse_out_of_scope,
 )
+from tests.helpers import strat_with_testability_heading
 from tests.constants import (
     STRAT_AC_NUMBERED_LIST,
     STRAT_AC_NUMBERED_MULTI_PARAGRAPH,
@@ -272,3 +274,37 @@ class TestParseOutOfScope:
 
         assert result["found"] is False
         assert result["items"] == []
+
+
+class TestTestabilityHeadingMatch:
+    """Tests that only exact or colon-qualified Testability headings fold into ACs."""
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "h3. Testability Concerns",
+            "h3. Testability Notes",
+        ],
+    )
+    def test_non_testability_heading_not_folded(self, heading):
+        result = parse_acceptance_criteria(strat_with_testability_heading(heading))
+
+        assert result["found"] is True
+        assert result["count"] == 2
+        ac_texts = [ac["text"] for ac in result["acceptance_criteria"]]
+        assert not any("throttled" in t for t in ac_texts)
+
+    @pytest.mark.parametrize(
+        "heading",
+        [
+            "h3. Testability",
+            "h3. Testability: Additional Acceptance Criteria",
+        ],
+    )
+    def test_testability_heading_folds(self, heading):
+        result = parse_acceptance_criteria(strat_with_testability_heading(heading))
+
+        assert result["found"] is True
+        assert result["count"] == 3
+        ac_texts = [ac["text"] for ac in result["acceptance_criteria"]]
+        assert any("throttled" in t for t in ac_texts)

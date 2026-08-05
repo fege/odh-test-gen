@@ -55,7 +55,7 @@ class TestStratToCitationFlow:
         citations = validate_ac_citations(testplan, ac_count=inputs["ac_count"], nfr_categories=nfr_categories)
 
         assert citations["valid"] is False
-        assert citations["invalid_citations"][0]["reason"] == "out_of_range"
+        assert citations["invalid_citations"][0]["reasons"] == ["out_of_range"]
 
     def test_ac_missing_from_generated_plan_fails_coverage(self, tmp_path):
         # Simulates an analyzer dropping AC #2 entirely (no objective cites it at all) — the
