@@ -1,9 +1,42 @@
-MD013:
-  line_length: 100
-  tables: false
-  code_blocks: false
-  headings: false
-
-MD036: false
-
-MD060: false
+# pymarkdownlnt config (schema: plugins.<rule-id>.<setting> — NOT markdownlint-cli2's flat MD0xx
+# keys; that mismatch previously made this file a no-op). Gate is scoped to skills/ only.
+#
+# Group 1 disabled below: skills/ currently has 100+ violations each with no auto-fix — enforcing
+# now would fail CI on pre-existing files. Re-enabling any is a separate cleanup effort.
+#
+# Group 2 disabled below: false positives on legitimate content, not real mistakes — the parser
+# misreads valid nested blockquotes / blockquote+list examples / YAML frontmatter comments.
+plugins:
+  # --- Group 1: real violations, no auto-fix, out of scope for now ---
+  md003:
+    enabled: false # heading-style
+  md007:
+    enabled: false # ul-indent
+  md013:
+    enabled: false # line-length (intended target: 100 chars)
+  md022:
+    enabled: false # blanks-around-headings
+  md026:
+    enabled: false # no-trailing-punctuation: 2 real (headers ending in ":"), but 1 occurrence is the
+                    # same md023 frontmatter false positive below, so the rule can't go clean either way
+  md031:
+    enabled: false # blanks-around-fences
+  md032:
+    enabled: false # blanks-around-lists
+  md033:
+    enabled: false # no-inline-html
+  md036:
+    enabled: false # no-emphasis-as-heading
+  md040:
+    enabled: false # fenced-code-language
+  md041:
+    enabled: false # first-line-heading
+  # --- Group 2: false positives on valid content ---
+  md005:
+    enabled: false # list-indent: false positive on a blockquote+list example (test-plan-create)
+  md023:
+    enabled: false # heading-start-left: misreads YAML frontmatter "#" comments as headings (test-plan-ui-verify)
+  md025:
+    enabled: false # single-title: same frontmatter misread as md023 above (test-plan-ui-verify)
+  md027:
+    enabled: false # no-multiple-space-blockquote: false positive on valid nested blockquote (test-plan-resolve-feedback)

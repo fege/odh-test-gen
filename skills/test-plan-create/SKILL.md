@@ -45,14 +45,14 @@ If no arguments are provided and no strategy file is available from the current 
 1. **Jira key**: Strategy or issue key (e.g., `RHAISTRAT-400`, `RHOAIENG-48676`)
 
 #### Optional
-2. **ADR file path**: Local path to ADR document (markdown, text, or PDF) for technical details
-3. **ADR link**: Google Doc URL (stored as reference in metadata, not fetched)
-4. **Feature directory name**: snake_case name for the feature directory (e.g., `mcp_catalog`). If not provided, derive from the feature name.
+
+1. **ADR file path**: Local path to ADR document (markdown, text, or PDF) for technical details
+2. **ADR link**: Google Doc URL (stored as reference in metadata, not fetched)
+3. **Feature directory name**: snake_case name for the feature directory (e.g., `mcp_catalog`). If not provided, derive from the feature name.
 
 ## Process
 
 ### Step 0: Pre-flight Checks
-
 
 #### 0.1 Python dependencies
 
@@ -194,10 +194,12 @@ while IFS= read -r cat; do [ -n "$cat" ] && nfr_category_flags+=(--nfr-category 
 strat_gaps=""
 [ -z "$nfr_json" ] && strat_gaps="${strat_gaps}- Strategy has no Non-Functional Requirements section.\n"
 [ -z "$oos_json" ] && strat_gaps="${strat_gaps}- Strategy has no Out-of-Scope section.\n"
+feature_name="<feature_name>"
+(cd "$repo_root" && uv run python scripts/validate.py feature-name "$feature_name") || exit 1
 ```
 
 **If `$ac_exit` is non-zero** (no ACs found or count is 0), **STOP immediately**:
-1. Create `mkdir -p <feature_name>` and write a lowest-score review:
+1. Create `mkdir -p -- "$feature_name"` and write a lowest-score review:
    ```bash
    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set \
        <absolute_path_to_output_dir>/<feature_name>/TestPlanReview.md \
@@ -227,7 +229,7 @@ Once all three sub-agents return:
 
 ### Step 3: Generate Files
 
-1. Create feature directory using Bash: `mkdir -p <feature_name>/test_cases` (in `target_dir` from Step 0.3)
+1. Create feature directory using Bash: `mkdir -p -- "$feature_name/test_cases"` (in `target_dir` from Step 0.3)
 2. Read the template from `${CLAUDE_SKILL_DIR}/test-plan-template.md` using the Read tool
 3. Generate `<feature_name>/TestPlan.md` by filling in the template with the gathered information. Follow the template structure exactly — do not add, remove, or reorder sections. Do NOT write frontmatter manually — Step 3.1 handles it.
    - **Line length**: Wrap all prose lines to a maximum of 100 characters. This does not apply to tables, code blocks, or headings — only paragraph text and list items.

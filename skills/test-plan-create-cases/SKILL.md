@@ -57,7 +57,6 @@ If no arguments AND no session context, ask the user via AskUserQuestion:
 
 ### Step 0: Pre-flight Check
 
-
 #### 0.1 Python dependencies
 
 Install the test-plan package (makes all scripts importable):

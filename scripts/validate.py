@@ -15,6 +15,7 @@ Usage:
     uv run python scripts/validate.py ac-coverage <testplan_path> --ac-count N
     uv run python scripts/validate.py structure <testplan_path>
     uv run python scripts/validate.py category-prefixes <testplan_path>
+    uv run python scripts/validate.py feature-name <feature_name>
     uv run python scripts/validate.py interface-types <testplan_path>
     uv run python scripts/validate.py interface-coverage <testplan_path>
     uv run python scripts/validate.py infra-scope <testplan_path>
@@ -329,6 +330,19 @@ def validate_structure(testplan_path: str) -> dict:
         "missing_headings": missing_headings,
         "pseudo_headings": pseudo_headings,
     }
+
+
+FEATURE_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+
+def validate_feature_name(feature_name: str) -> dict:
+    """Check feature_name is a safe snake_case directory name."""
+    if not FEATURE_NAME_RE.match(feature_name):
+        return {
+            "valid": False,
+            "error": f"feature_name must be snake_case (^[a-z][a-z0-9_]*$): {feature_name!r}",
+        }
+    return {"valid": True}
 
 
 def validate_category_prefixes(testplan_path: str) -> dict:
@@ -791,6 +805,12 @@ def cmd_category_prefixes(args):
     sys.exit(0 if result["valid"] else 1)
 
 
+def cmd_feature_name(args):
+    result = validate_feature_name(args.feature_name)
+    print(json.dumps(result, indent=2))
+    sys.exit(0 if result["valid"] else 1)
+
+
 def cmd_interface_types(args):
     result = validate_interface_types(args.testplan_path)
     print(json.dumps(result, indent=2))
@@ -894,6 +914,12 @@ def main():
     p_cat = subparsers.add_parser("category-prefixes", help="Check Section 5.2 for disallowed TC categories")
     p_cat.add_argument("testplan_path", help="Path to TestPlan.md")
     p_cat.set_defaults(func=cmd_category_prefixes)
+
+    p_feature_name = subparsers.add_parser(
+        "feature-name", help="Check feature_name is safe snake_case (no path traversal)"
+    )
+    p_feature_name.add_argument("feature_name", help="Feature directory name to validate")
+    p_feature_name.set_defaults(func=cmd_feature_name)
 
     p_iface = subparsers.add_parser("interface-types", help="Check Section 4 for Config-type entries")
     p_iface.add_argument("testplan_path", help="Path to TestPlan.md")

@@ -15,6 +15,7 @@ from scripts.validate import (
     validate_all,
     validate_category_prefixes,
     validate_feature_dir,
+    validate_feature_name,
     validate_gap_counts,
     validate_infra_scope,
     validate_interface_coverage,
@@ -560,6 +561,42 @@ class TestValidateCategoryPrefixes:
 
         assert result["valid"] is False
         assert "error" in result
+
+
+class TestValidateFeatureName:
+    """Tests for validate_feature_name — snake_case guard against path traversal / flag injection."""
+
+    @pytest.mark.parametrize(
+        "feature_name, expected_valid",
+        [
+            ("mcp_catalog", True),
+            ("feature2_test", True),
+            ("../../outside", False),
+            ("/tmp/outside", False),
+            ("foo/bar", False),
+            ("-rf", False),
+            ("foo-bar", False),
+            ("Feature_Name", False),
+            ("", False),
+        ],
+        ids=[
+            "simple-snake-case",
+            "snake-case-with-digits",
+            "relative-path-traversal",
+            "absolute-path",
+            "embedded-slash",
+            "leading-dash",
+            "hyphen-instead-of-underscore",
+            "uppercase",
+            "empty-string",
+        ],
+    )
+    def test_validity(self, feature_name, expected_valid):
+        result = validate_feature_name(feature_name)
+
+        assert result["valid"] is expected_valid
+        if not expected_valid:
+            assert "error" in result
 
 
 class TestValidateInterfaceTypes:
