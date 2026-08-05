@@ -337,7 +337,7 @@ FEATURE_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 def validate_feature_name(feature_name: str) -> dict:
     """Check feature_name is a safe snake_case directory name."""
-    if not FEATURE_NAME_RE.match(feature_name):
+    if not FEATURE_NAME_RE.fullmatch(feature_name):
         return {
             "valid": False,
             "error": f"feature_name must be snake_case (^[a-z][a-z0-9_]*$): {feature_name!r}",

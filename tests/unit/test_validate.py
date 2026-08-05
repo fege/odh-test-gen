@@ -578,6 +578,8 @@ class TestValidateFeatureName:
             ("foo-bar", False),
             ("Feature_Name", False),
             ("", False),
+            ("feature\n", False),
+            ("feature\nmalicious", False),
         ],
         ids=[
             "simple-snake-case",
@@ -589,6 +591,8 @@ class TestValidateFeatureName:
             "hyphen-instead-of-underscore",
             "uppercase",
             "empty-string",
+            "trailing-newline",
+            "embedded-newline",
         ],
     )
     def test_validity(self, feature_name, expected_valid):

@@ -187,10 +187,15 @@ ac_exit=$?
 nfr_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py nfr "$strategy_file") || nfr_json=""
 oos_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py out-of-scope "$strategy_file") || oos_json=""
 gate_inputs=$(cd "$repo_root" && uv run python scripts/parse_strat.py gate-inputs "$strategy_file")
+gate_exit=$?
+[ "$strategy_is_temp" = "true" ] && rm "$strategy_file"
 ac_count=$(echo "$gate_inputs" | jq -r '.ac_count // empty')
+if [ "$gate_exit" -ne 0 ] || ! echo "$ac_count" | grep -Eq '^[0-9]+$'; then
+  echo "gate-inputs failed or produced invalid ac_count ('$ac_count'); cannot proceed" >&2
+  exit 1
+fi
 nfr_category_flags=()
 while IFS= read -r cat; do [ -n "$cat" ] && nfr_category_flags+=(--nfr-category "$cat"); done < <(echo "$gate_inputs" | jq -r '.nfr_categories[]? // empty')
-[ "$strategy_is_temp" = "true" ] && rm "$strategy_file"
 strat_gaps=""
 [ -z "$nfr_json" ] && strat_gaps="${strat_gaps}- Strategy has no Non-Functional Requirements section.\n"
 [ -z "$oos_json" ] && strat_gaps="${strat_gaps}- Strategy has no Out-of-Scope section.\n"
