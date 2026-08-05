@@ -9,7 +9,7 @@ import pytest
 
 from scripts.utils.markdown_utils import extract_section, has_citation, parse_citations
 from scripts.utils.schemas import _parse_template_headings, _require_headings
-from scripts.validate import validate_interface_types
+from scripts.validate import validate_interface_types, validate_structure
 from tests.constants import REPO_ROOT
 
 TEMPLATE_PATH = REPO_ROOT / "skills" / "test-plan-create" / "test-plan-template.md"
@@ -25,6 +25,11 @@ class TestTemplateSection4Structure:
 
         assert result["valid"] is True, f"Template Section 4 table does not match expected columns: {result}"
         assert result["header"] == ["Interface", "Type", "Purpose"]
+
+    def test_template_has_no_bold_pseudo_headings(self):
+        result = validate_structure(str(TEMPLATE_PATH))
+
+        assert result["pseudo_headings"] == [], f"Template contains bold pseudo-headings: {result['pseudo_headings']}"
 
 
 class TestTemplateHeadingsFailClosed:
