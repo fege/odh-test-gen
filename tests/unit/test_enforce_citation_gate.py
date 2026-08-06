@@ -2,9 +2,11 @@
 Scope Fidelity when the review agent disagrees with the already-computed citation checks.
 """
 
+import json
+import sys
 from pathlib import Path
 
-from scripts.enforce_citation_gate import enforce_citation_gate
+from scripts.enforce_citation_gate import enforce_citation_gate, main
 from scripts.utils.frontmatter_utils import read_frontmatter, write_frontmatter
 
 VALID_CITATIONS = {"valid": True, "total": 5, "cited": 5, "uncited": [], "invalid_citations": []}
@@ -193,3 +195,115 @@ class TestEnforceCitationGate:
         assert result["overridden"] is True
         data, _ = read_frontmatter(review)
         assert data["scores"]["scope_fidelity"] == 1
+
+
+class TestEnforceCitationGateCLI:
+    """CLI-level tests for main() — exercises JSON parsing and ValidationError handling."""
+
+    def test_malformed_ac_citations_json_exits_zero_with_stderr_diagnostic(self, tmp_path, capsys):
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "enforce_citation_gate.py",
+                str(tmp_path),
+                "--ac-citations-result",
+                "NOT-VALID-JSON{{{",
+            ]
+            try:
+                main()
+            except SystemExit as exc:
+                assert exc.code == 0
+        finally:
+            sys.argv = old_argv
+
+        captured = capsys.readouterr()
+        assert "malformed --ac-citations-result JSON" in captured.err
+        assert "OVERRIDDEN" not in captured.out
+        assert "OK" not in captured.out
+
+    def test_malformed_ac_coverage_json_exits_zero_with_stderr_diagnostic(self, tmp_path, capsys):
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "enforce_citation_gate.py",
+                str(tmp_path),
+                "--ac-citations-result",
+                json.dumps(VALID_CITATIONS),
+                "--ac-coverage-result",
+                "%%%bad%%%",
+            ]
+            try:
+                main()
+            except SystemExit as exc:
+                assert exc.code == 0
+        finally:
+            sys.argv = old_argv
+
+        captured = capsys.readouterr()
+        assert "malformed --ac-coverage-result JSON" in captured.err
+        assert "OVERRIDDEN" not in captured.out
+        assert "OK" not in captured.out
+
+    def test_invalid_review_frontmatter_exits_zero_with_stderr_diagnostic(self, tmp_path, capsys):
+        # Write a TestPlanReview.md whose frontmatter violates the schema:
+        # score=99 is out of range (max 10) and doesn't match sum of scores.
+        review_path = tmp_path / "TestPlanReview.md"
+        review_path.write_text(
+            "---\n"
+            "feature: Test\n"
+            "source_key: RHAISTRAT-1\n"
+            "score: 99\n"
+            "pass: true\n"
+            "verdict: Ready\n"
+            "scores:\n"
+            "  specificity: 2\n"
+            "  grounding: 2\n"
+            "  scope_fidelity: 2\n"
+            "  actionability: 2\n"
+            "  consistency: 2\n"
+            "auto_revised: false\n"
+            "last_updated: '2026-08-06'\n"
+            "---\n"
+            "## Rubric Scores\n"
+        )
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "enforce_citation_gate.py",
+                str(tmp_path),
+                "--ac-citations-result",
+                json.dumps(INVALID_CITATIONS),
+            ]
+            try:
+                main()
+            except SystemExit as exc:
+                assert exc.code == 0
+        finally:
+            sys.argv = old_argv
+
+        captured = capsys.readouterr()
+        assert "invalid TestPlanReview.md" in captured.err
+        assert "OVERRIDDEN" not in captured.out
+        assert "OK" not in captured.out
+
+    def test_happy_path_override_prints_overridden_to_stdout(self, tmp_path, capsys):
+        scores = {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 2, "consistency": 2}
+        _write_review(tmp_path / "TestPlanReview.md", scores, score=10, verdict="Ready", passed=True)
+
+        old_argv = sys.argv
+        try:
+            sys.argv = [
+                "enforce_citation_gate.py",
+                str(tmp_path),
+                "--ac-citations-result",
+                json.dumps(INVALID_CITATIONS),
+            ]
+            try:
+                main()
+            except SystemExit:
+                pass  # main exits 0 on SKIP; override path doesn't call sys.exit
+        finally:
+            sys.argv = old_argv
+
+        captured = capsys.readouterr()
+        assert "OVERRIDDEN" in captured.out

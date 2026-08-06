@@ -91,6 +91,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 5. Compute interface coverage and AC/NFR citation validity deterministically (Section 9.2/6.2 vs Section 4 is a mechanical table diff, and citation validity is a mechanical STRAT cross-check — neither is an LLM judgment call). Parse `ac_count`/`nfr_category_flags` out of the `gate_inputs` JSON captured in Step 1 — both come back empty when `gate_inputs` is `""` (degraded mode, no strategy available):
    ```bash
    repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+   ac_coverage_result=""
    ac_count=$(echo "$gate_inputs" | jq -r '.ac_count // empty')
    nfr_category_flags=()
    while IFS= read -r cat; do [ -n "$cat" ] && nfr_category_flags+=(--nfr-category "$cat"); done < <(echo "$gate_inputs" | jq -r '.nfr_categories[]? // empty')

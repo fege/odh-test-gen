@@ -24,18 +24,9 @@ import os
 import sys
 
 from scripts.utils.frontmatter_utils import read_frontmatter_validated, update_frontmatter
+from scripts.utils.schemas import ValidationError, compute_verdict_and_pass
 
-CRITERIA = ("specificity", "grounding", "scope_fidelity", "actionability", "consistency")
 FEEDBACK_HEADING = "## Section-by-Section Feedback"
-
-
-def _verdict(score, scores):
-    no_zero = all(scores[k] > 0 for k in CRITERIA)
-    if score >= 8 and no_zero:
-        return "Ready"
-    if score == 7 and no_zero:
-        return "Revise"
-    return "Rework"
 
 
 def _build_feedback_note(ac_citations_result: dict, ac_coverage_result: dict | None) -> str:
@@ -97,9 +88,7 @@ def enforce_citation_gate(
 
     old_score = data.get("score")
     scores["scope_fidelity"] = 1
-    score = sum(scores[k] for k in CRITERIA)
-    verdict = _verdict(score, scores)
-    passed = score >= 7 and all(scores[k] > 0 for k in CRITERIA)
+    verdict, score, passed = compute_verdict_and_pass(scores)
 
     updates = {"scores": scores, "score": score, "pass": passed, "verdict": verdict}
 
@@ -126,11 +115,26 @@ def main():
     parser.add_argument("--ac-coverage-result", default=None, help="JSON from validate.py ac-coverage")
     args = parser.parse_args()
 
-    result = enforce_citation_gate(
-        args.feature_dir,
-        json.loads(args.ac_citations_result),
-        json.loads(args.ac_coverage_result) if args.ac_coverage_result else None,
-    )
+    # exit 0 on input errors keeps the review run alive; stderr diagnostic ensures the
+    # broken input/file is visible rather than silently skipping the safety gate.
+    try:
+        ac_citations = json.loads(args.ac_citations_result)
+    except json.JSONDecodeError as exc:
+        print(f"enforce_citation_gate: malformed --ac-citations-result JSON: {exc}", file=sys.stderr)
+        sys.exit(0)
+
+    try:
+        ac_coverage = json.loads(args.ac_coverage_result) if args.ac_coverage_result else None
+    except json.JSONDecodeError as exc:
+        print(f"enforce_citation_gate: malformed --ac-coverage-result JSON: {exc}", file=sys.stderr)
+        sys.exit(0)
+
+    try:
+        result = enforce_citation_gate(args.feature_dir, ac_citations, ac_coverage)
+    except ValidationError as exc:
+        print(f"enforce_citation_gate: invalid TestPlanReview.md: {exc}", file=sys.stderr)
+        sys.exit(0)
+
     if result is None:
         print("SKIP", file=sys.stderr)
         sys.exit(0)

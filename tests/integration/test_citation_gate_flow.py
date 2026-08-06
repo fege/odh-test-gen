@@ -13,7 +13,6 @@ from scripts.enforce_citation_gate import enforce_citation_gate
 from scripts.filter_for_revision import filter_for_revision
 from scripts.utils.frontmatter_utils import write_frontmatter
 
-
 VALID_CITATIONS = {"valid": True, "total": 5, "cited": 5, "uncited": [], "invalid_citations": []}
 VALID_COVERAGE = {"valid": True, "ac_count": 5, "covered": [1, 2, 3, 4, 5], "missing": []}
 INVALID_CITATIONS = {
