@@ -337,6 +337,16 @@ class TestValidateAcCitations:
         assert result["valid"] is False
         assert "error" in result
 
+    def test_negative_ac_count_is_rejected(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_NO_SECTION_13)
+
+        result = validate_ac_citations(str(testplan), ac_count=-1)
+
+        assert result["valid"] is False
+        assert "error" in result
+        assert "non-negative" in result["error"].lower()
+
 
 class TestValidateAcCitationsNumbered:
     """(AC: #N — text) / (NFR: category — text) machine-checkable citation validation."""

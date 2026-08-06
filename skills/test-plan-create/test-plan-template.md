@@ -23,7 +23,7 @@
 acceptance criterion. Each objective cites the AC or NFR it validates
 using the machine-checkable form (AC: #N — short description) or
 (NFR: category — short description). For example:
-1. Verify successful login with valid credentials (AC: #1 — user can authenticate)}
+1. Verify successful login with valid credentials (AC: #1 — user can authenticate)
 
 ---
 

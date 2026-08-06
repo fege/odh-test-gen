@@ -226,7 +226,9 @@ Delete the existing review file to force a clean re-assessment:
 rm <feature_dir>/TestPlanReview.md
 ```
 
-Repeat Step 2 (score agent) with the revised TestPlan.md.
+Re-run the Step 1.5 validation commands against the revised `TestPlan.md` — the revise agent (4b) may have edited Section 4, 6.2, 9.2, or citations, so `interface_coverage_result`, `ac_citations_result`, and `ac_coverage_result` must be recomputed before re-scoring (same degraded-mode branching as Step 1.5, based on whether `ac_count` is set).
+
+Repeat Step 2 (score agent) with the revised TestPlan.md and the recomputed results.
 
 **4f. Re-review:**
 
