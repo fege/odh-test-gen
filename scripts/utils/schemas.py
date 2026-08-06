@@ -526,9 +526,13 @@ def validate(data, schema_type):
         score = data.get("score")
         if isinstance(scores, dict) and isinstance(score, int):
             if all(isinstance(scores.get(k), int) for k in REVIEW_CRITERIA):
-                expected = sum(scores[k] for k in REVIEW_CRITERIA)
-                if score != expected:
-                    errors.append(f"score: expected {expected} from scores.*, got {score}")
+                expected_verdict, expected_total, expected_pass = compute_verdict_and_pass(scores)
+                if score != expected_total:
+                    errors.append(f"score: expected {expected_total} from scores.*, got {score}")
+                if data.get("verdict") != expected_verdict:
+                    errors.append(f"verdict: expected {expected_verdict!r} from scores.*, got {data.get('verdict')!r}")
+                if data.get("pass") != expected_pass:
+                    errors.append(f"pass: expected {expected_pass} from scores.*, got {data.get('pass')}")
 
         before_scores = data.get("before_scores")
         before_score = data.get("before_score")

@@ -213,6 +213,8 @@ class TestEnforceCitationGateCLI:
                 main()
             except SystemExit as exc:
                 assert exc.code == 0
+            else:
+                raise AssertionError("main() must exit with code 0")
         finally:
             sys.argv = old_argv
 
@@ -236,6 +238,8 @@ class TestEnforceCitationGateCLI:
                 main()
             except SystemExit as exc:
                 assert exc.code == 0
+            else:
+                raise AssertionError("main() must exit with code 0")
         finally:
             sys.argv = old_argv
 
@@ -278,6 +282,8 @@ class TestEnforceCitationGateCLI:
                 main()
             except SystemExit as exc:
                 assert exc.code == 0
+            else:
+                raise AssertionError("main() must exit with code 0")
         finally:
             sys.argv = old_argv
 
