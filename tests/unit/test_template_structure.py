@@ -29,6 +29,7 @@ class TestTemplateSection4Structure:
     def test_template_has_no_bold_pseudo_headings(self):
         result = validate_structure(str(TEMPLATE_PATH))
 
+        assert result["valid"] is True, f"Template structure invalid: {result}"
         assert result["pseudo_headings"] == [], f"Template contains bold pseudo-headings: {result['pseudo_headings']}"
 
 
