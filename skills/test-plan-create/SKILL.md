@@ -199,7 +199,7 @@ while IFS= read -r cat; do [ -n "$cat" ] && nfr_category_flags+=(--nfr-category 
 strat_gaps=""
 [ -z "$nfr_json" ] && strat_gaps="${strat_gaps}- Strategy has no Non-Functional Requirements section.\n"
 [ -z "$oos_json" ] && strat_gaps="${strat_gaps}- Strategy has no Out-of-Scope section.\n"
-feature_name="<feature_name>"
+feature_name="<user-provided feature directory name from Inputs (Optional) if given, else snake_case derived from the strategy title>"
 (cd "$repo_root" && uv run python scripts/validate.py feature-name "$feature_name") || exit 1
 ```
 

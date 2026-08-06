@@ -238,6 +238,9 @@ def validate_ac_citations(testplan_path: str, ac_count: int | None = None, nfr_c
     category against ``nfr_categories``; out-of-bounds citations land in ``invalid_citations`` so the
     gate can tell "uncited" apart from "cited but wrong."
     """
+    if ac_count is not None and ac_count < 0:
+        return {"valid": False, "error": "ac_count must be non-negative"}
+
     path = Path(testplan_path)
     if not path.exists():
         return {"valid": False, "error": f"File not found: {testplan_path}"}
