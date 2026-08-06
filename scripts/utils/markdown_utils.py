@@ -87,12 +87,20 @@ def parse_numbered_objectives(lines: list) -> list:
 # require a dash separator (ASCII hyphen -, en dash –, or em dash —) and non-empty explanatory
 # text before a closing paren — a bare (AC: #N) / (NFR: category), or a citation with no
 # closing paren at all, is not recognized.
+#
+# Every trailing repetition quantifier is bounded to _MAX chars to prevent quadratic-time
+# (ReDoS) rescanning when the regex engine backtracks on unterminated input.
 _DASH = r"[-\u2013\u2014]"
+_MAX = 1024  # upper bound on field-width quantifiers — prevents ReDoS backtracking
 CITATION_RE = re.compile(
-    r"\((?:AC:\s*(?:#\d+)?|NFR:\s*[^\s\-\u2013\u2014)][^\-\u2013\u2014)]*)\s*" + _DASH + r"\s*[^\s)][^)]*\)"
+    r"\((?:AC:\s*(?:#\d{1,%d})?|NFR:\s*[^\s\-\u2013\u2014)][^\-\u2013\u2014)]{0,%d})\s*" % (_MAX, _MAX)
+    + _DASH
+    + r"\s*[^\s)][^)]{0,%d}\)" % _MAX
 )
-_AC_CITATION_RE = re.compile(r"\(AC:\s*(?:#(\d+))?\s*" + _DASH + r"\s*[^\s)][^)]*\)")
-_NFR_CITATION_RE = re.compile(r"\(NFR:\s*([^\s\-\u2013\u2014)][^\-\u2013\u2014)]*)\s*" + _DASH + r"\s*[^\s)][^)]*\)")
+_AC_CITATION_RE = re.compile(r"\(AC:\s*(?:#(\d{1,%d}))?\s*" % _MAX + _DASH + r"\s*[^\s)][^)]{0,%d}\)" % _MAX)
+_NFR_CITATION_RE = re.compile(
+    r"\(NFR:\s*([^\s\-\u2013\u2014)][^\-\u2013\u2014)]{0,%d})\s*" % _MAX + _DASH + r"\s*[^\s)][^)]{0,%d}\)" % _MAX
+)
 
 
 def has_citation(text: str) -> bool:
