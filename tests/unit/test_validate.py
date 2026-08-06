@@ -1,16 +1,21 @@
 """Unit tests for scripts/validate.py — unified validation CLI."""
 
 import json
+import sys
 
 import pytest
 
+from scripts import validate as validate_module
 from scripts.utils.frontmatter_utils import write_frontmatter
+from scripts.utils.schemas import TEMPLATE_HEADINGS
 from scripts.validate import (
     check_interactive,
     validate_ac_citations,
+    validate_ac_coverage,
     validate_all,
     validate_category_prefixes,
     validate_feature_dir,
+    validate_feature_name,
     validate_gap_counts,
     validate_infra_scope,
     validate_interface_coverage,
@@ -54,7 +59,7 @@ from tests.constants import (
     VALID_TEST_PLAN_DATA,
     VALID_TESTPLAN_CONTENT,
 )
-from tests.helpers import write_valid_testplan
+from tests.helpers import write_testplan_with_objectives, write_valid_testplan
 
 
 @pytest.fixture
@@ -332,6 +337,157 @@ class TestValidateAcCitations:
         assert result["valid"] is False
         assert "error" in result
 
+    def test_negative_ac_count_is_rejected(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_NO_SECTION_13)
+
+        result = validate_ac_citations(str(testplan), ac_count=-1)
+
+        assert result["valid"] is False
+        assert "error" in result
+        assert "non-negative" in result["error"].lower()
+
+
+class TestValidateAcCitationsNumbered:
+    """(AC: #N — text) / (NFR: category — text) machine-checkable citation validation."""
+
+    @pytest.mark.parametrize(
+        "citation, ac_count, nfr_categories, expected_reason",
+        [
+            ("(AC: #1 — first)", 2, [], None),
+            ("(NFR: upgrade — shape kept)", 0, ["Upgrade"], None),
+            ("(AC: #5 — beyond count)", 2, [], "out_of_range"),
+            ("(AC: #0 — below one)", 2, [], "out_of_range"),
+            ("(AC: — users can deploy)", 2, [], "missing_number"),
+            ("(NFR: Performance — responsive)", 1, ["Upgrade"], "unknown_nfr_category"),
+        ],
+        ids=["valid-ac", "valid-nfr-caseless", "ac-too-high", "ac-too-low", "ac-no-number", "unknown-nfr"],
+    )
+    def test_single_citation_validation(self, tmp_path, citation, ac_count, nfr_categories, expected_reason):
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", f"1. Verify something {citation}\n")
+
+        result = validate_ac_citations(path, ac_count=ac_count, nfr_categories=nfr_categories)
+
+        if expected_reason is None:
+            assert result["valid"] is True
+            assert result["cited"] == 1
+            assert result["invalid_citations"] == []
+        else:
+            assert result["valid"] is False
+            assert result["cited"] == 0
+            assert len(result["invalid_citations"]) == 1
+            assert result["invalid_citations"][0]["reasons"] == [expected_reason]
+            assert result["invalid_citations"][0]["line_number"] > 0
+
+    def test_counts_split_across_buckets(self, tmp_path):
+        body = (
+            "1. Verify a (AC: #1 — first)\n"
+            "2. Verify b (NFR: Upgrade — GET endpoints keep their shape)\n"
+            "3. Verify c (AC: #9 — beyond count)\n"
+            "4. Verify d with no citation at all\n"
+        )
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path, ac_count=2, nfr_categories=["Upgrade"])
+
+        assert result["valid"] is False
+        assert result["total"] == 4
+        assert result["cited"] == 2
+        assert len(result["uncited"]) == 1
+        assert len(result["invalid_citations"]) == 1
+        assert result["invalid_citations"][0]["reasons"] == ["out_of_range"]
+
+    def test_presence_only_mode_accepts_nfr_marker(self, tmp_path):
+        # No ac_count -> presence-only (the validate_all path); an NFR marker counts as cited.
+        body = (
+            "1. Verify deployment (AC: #1 — users can deploy)\n"
+            "2. Verify upgrade (NFR: Upgrade — GET endpoints keep their shape)\n"
+        )
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path)
+
+        assert result["valid"] is True
+        assert result["total"] == 2
+        assert result["cited"] == 2
+        assert result["uncited"] == []
+        assert result["invalid_citations"] == []
+
+
+class TestValidateAcCoverage:
+    """Tests for validate_ac_coverage — every AC number 1..ac_count cited by some objective.
+
+    This is the inverse of validate_ac_citations: that checks each *objective's* citation is
+    well-formed; this checks each *AC number* got covered at all, catching an analyzer that
+    silently drops or conflates an AC even when every citation it did write is individually valid.
+    """
+
+    @pytest.mark.parametrize(
+        "body, ac_count, expected_valid, expected_covered, expected_missing",
+        [
+            (
+                "1. Verify a (AC: #1 — first)\n2. Verify b (AC: #2 — second)\n3. Verify c (AC: #3 — third)\n",
+                3,
+                True,
+                [1, 2, 3],
+                [],
+            ),
+            ("1. Verify a (AC: #1 — first)\n2. Verify c (AC: #3 — third)\n", 3, False, [1, 3], [2]),
+            ("1. Verify a (AC: #1 — first)\n2. Verify upgrade (NFR: Upgrade — shape kept)\n", 2, False, [1], [2]),
+            ("1. Verify a (AC: #1 — first)\n2. Verify a again (AC: #1 — first)\n", 2, False, [1], [2]),
+            ("", 0, True, [], []),
+        ],
+        ids=[
+            "all-covered",
+            "one-missing",
+            "nfr-does-not-count",
+            "duplicate-collapses-other-still-missing",
+            "zero-ac-count",
+        ],
+    )
+    def test_coverage(self, tmp_path, body, ac_count, expected_valid, expected_covered, expected_missing):
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_coverage(path, ac_count=ac_count)
+
+        assert result["valid"] is expected_valid
+        assert result["covered"] == expected_covered
+        assert result["missing"] == expected_missing
+
+    def test_no_section_with_positive_ac_count_fails(self, tmp_path):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(TESTPLAN_NO_SECTION_13)
+
+        result = validate_ac_coverage(str(testplan), ac_count=2)
+
+        assert result["valid"] is False
+        assert result["missing"] == [1, 2]
+
+    def test_file_not_found(self):
+        result = validate_ac_coverage("/nonexistent/TestPlan.md", ac_count=2)
+
+        assert result["valid"] is False
+        assert "error" in result
+
+    def test_negative_ac_count_is_rejected(self, tmp_path):
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", "")
+
+        result = validate_ac_coverage(path, ac_count=-1)
+
+        assert result["valid"] is False
+        assert "error" in result
+        assert "non-negative" in result["error"].lower()
+
+    def test_zero_ac_count_is_valid_with_empty_missing(self, tmp_path):
+        # ac_count=0 is the "no ACs" edge case — valid, nothing to cover.
+        # This is existing behaviour; the test pins it so the negative-ac fix cannot regress it.
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", "")
+
+        result = validate_ac_coverage(path, ac_count=0)
+
+        assert result["valid"] is True
+        assert result["missing"] == []
+
 
 class TestValidateStructure:
     """Tests for validate_structure — required headings and pseudo-heading detection."""
@@ -365,9 +521,9 @@ class TestValidateStructure:
         result = validate_structure(str(testplan))
 
         assert result["valid"] is False
-        assert "### 1.3 Test Objectives" in result["missing_headings"]
-        assert "### 2.1 Test Levels" in result["missing_headings"]
-        assert "## 4. Interfaces Under Test" in result["missing_headings"]
+        assert TEMPLATE_HEADINGS["1.3"] in result["missing_headings"]
+        assert TEMPLATE_HEADINGS["2.1"] in result["missing_headings"]
+        assert TEMPLATE_HEADINGS["4"] in result["missing_headings"]
 
     def test_file_not_found(self):
         result = validate_structure("/nonexistent/TestPlan.md")
@@ -415,6 +571,46 @@ class TestValidateCategoryPrefixes:
 
         assert result["valid"] is False
         assert "error" in result
+
+
+class TestValidateFeatureName:
+    """Tests for validate_feature_name — snake_case guard against path traversal / flag injection."""
+
+    @pytest.mark.parametrize(
+        "feature_name, expected_valid",
+        [
+            ("mcp_catalog", True),
+            ("feature2_test", True),
+            ("../../outside", False),
+            ("/tmp/outside", False),
+            ("foo/bar", False),
+            ("-rf", False),
+            ("foo-bar", False),
+            ("Feature_Name", False),
+            ("", False),
+            ("feature\n", False),
+            ("feature\nmalicious", False),
+        ],
+        ids=[
+            "simple-snake-case",
+            "snake-case-with-digits",
+            "relative-path-traversal",
+            "absolute-path",
+            "embedded-slash",
+            "leading-dash",
+            "hyphen-instead-of-underscore",
+            "uppercase",
+            "empty-string",
+            "trailing-newline",
+            "embedded-newline",
+        ],
+    )
+    def test_validity(self, feature_name, expected_valid):
+        result = validate_feature_name(feature_name)
+
+        assert result["valid"] is expected_valid
+        if not expected_valid:
+            assert "error" in result
 
 
 class TestValidateInterfaceTypes:
@@ -771,7 +967,9 @@ class TestValidateTcTraceability:
 
     def test_valid_traceability_passes(self, tmp_path):
         # Objective 1's AC citation is wrapped onto a continuation line.
-        section = "1. Verify login flow\n   (AC: users can log in)\n2. Verify logout flow (AC: users can log out)\n"
+        section = (
+            "1. Verify login flow\n   (AC: #1 — users can log in)\n2. Verify logout flow (AC: #2 — users can log out)\n"
+        )
         self._make_feature_dir(
             tmp_path,
             section,
@@ -848,7 +1046,7 @@ class TestValidateTcTraceability:
         assert "list" in result["errors"][0]["error"].lower()
 
     def test_mixed_valid_and_invalid(self, tmp_path):
-        section = "1. Verify login flow (AC: users can log in)\n2. Verify logout flow (no AC cited)\n"
+        section = "1. Verify login flow (AC: #1 — users can log in)\n2. Verify logout flow (no AC cited)\n"
         self._make_feature_dir(
             tmp_path,
             section,
@@ -866,6 +1064,16 @@ class TestValidateTcTraceability:
         assert len(result["errors"]) == 2
         error_files = {e["file"] for e in result["errors"]}
         assert error_files == {"TC-E2E-002.md", "TC-E2E-003.md"}
+
+    def test_nfr_cited_objective_traces_successfully(self, tmp_path):
+        # An objective grounded in an NFR (not a numbered AC) is still a valid trace target.
+        section = "1. Verify upgrade path (NFR: Upgrade — endpoints keep response shape)\n"
+        self._make_feature_dir(tmp_path, section, {"TC-UPG-001": {"objectives": "[1]"}})
+
+        result = validate_tc_traceability(str(tmp_path))
+
+        assert result["valid"] is True
+        assert result["errors"] == []
 
 
 class TestCheckInteractive:
@@ -891,3 +1099,173 @@ class TestCheckInteractive:
 
         assert result["interactive"] is expected_interactive
         assert expected_reason_contains in result["reason"]
+
+
+class TestAcCitationsCliArgparse:
+    """
+    Drives the real validate.main() / cmd_ac_citations via sys.argv so that any divergence
+    between the argparse definition (action="append", dest="nfr_category") and what
+    cmd_ac_citations consumes is caught here against the real production parser.
+    """
+
+    def test_comma_containing_category_is_valid_citation(self, tmp_path, monkeypatch, capsys):
+        # "Security, Privacy" passed as ONE --nfr-category flag must NOT be split on the comma;
+        # the plan objective citing (NFR: Security, Privacy — ...) must be VALID.
+        testplan = write_testplan_with_objectives(
+            tmp_path / "TestPlan.md",
+            "1. Verify data stays in namespace (NFR: Security, Privacy — data must not leave namespace)\n",
+        )
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["validate.py", "ac-citations", testplan, "--ac-count", "0", "--nfr-category", "Security, Privacy"],
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            validate_module.main()
+
+        assert exc_info.value.code == 0
+        result = json.loads(capsys.readouterr().out)
+        unknown = [c for c in result["invalid_citations"] if "unknown_nfr_category" in c["reasons"]]
+        assert unknown == [], f"Category was split or not matched; invalid_citations={result['invalid_citations']}"
+
+    def test_comma_containing_category_fails_without_matching_flag(self, tmp_path, monkeypatch, capsys):
+        # Same plan, but a *different* category flag is supplied — proves the name had to match.
+        testplan = write_testplan_with_objectives(
+            tmp_path / "TestPlan.md",
+            "1. Verify data stays in namespace (NFR: Security, Privacy — data must not leave namespace)\n",
+        )
+
+        monkeypatch.setattr(
+            sys, "argv", ["validate.py", "ac-citations", testplan, "--ac-count", "0", "--nfr-category", "Upgrade"]
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            validate_module.main()
+
+        assert exc_info.value.code == 1
+        result = json.loads(capsys.readouterr().out)
+        all_reasons = [r for c in result["invalid_citations"] for r in c["reasons"]]
+        assert "unknown_nfr_category" in all_reasons
+
+    def test_repeated_nfr_category_flags_both_register(self, tmp_path, monkeypatch, capsys):
+        # --nfr-category Security --nfr-category Upgrade must register BOTH; a plan citing
+        # Upgrade must be valid, proving the list is not collapsed to just the last value.
+        testplan = write_testplan_with_objectives(
+            tmp_path / "TestPlan.md",
+            "1. Verify upgrade path (NFR: Upgrade — GET endpoints keep their shape)\n",
+        )
+
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                "validate.py",
+                "ac-citations",
+                testplan,
+                "--ac-count",
+                "0",
+                "--nfr-category",
+                "Security",
+                "--nfr-category",
+                "Upgrade",
+            ],
+        )
+        with pytest.raises(SystemExit) as exc_info:
+            validate_module.main()
+
+        assert exc_info.value.code == 0
+        result = json.loads(capsys.readouterr().out)
+        assert result["invalid_citations"] == []
+
+    def test_no_nfr_category_flag_presence_only_mode_exits_0(self, tmp_path, monkeypatch, capsys):
+        # When --nfr-category is omitted entirely (args.nfr_category stays None),
+        # cmd_ac_citations must not error; a valid (AC: #1 — text) with --ac-count 1 exits 0.
+        testplan = write_testplan_with_objectives(
+            tmp_path / "TestPlan.md",
+            "1. Verify login flow (AC: #1 — users can authenticate)\n",
+        )
+
+        monkeypatch.setattr(sys, "argv", ["validate.py", "ac-citations", testplan, "--ac-count", "1"])
+        with pytest.raises(SystemExit) as exc_info:
+            validate_module.main()
+
+        assert exc_info.value.code == 0
+        result = json.loads(capsys.readouterr().out)
+        assert result["valid"] is True
+        assert result["cited"] == 1
+
+
+class TestValidateAcCoverageMultiCitation:
+    """validate_ac_coverage must count AC numbers from ALL citations per objective, not just the first."""
+
+    def test_single_objective_citing_two_acs_covers_both(self, tmp_path):
+        # RED against current code: only (AC: #1) is seen; #2 is dropped → missing==[2].
+        body = "1. Verify two flows (AC: #1 — first flow passes) (AC: #2 — second flow passes)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_coverage(path, ac_count=2)
+
+        assert result["valid"] is True
+        assert result["covered"] == [1, 2]
+        assert result["missing"] == []
+
+    def test_two_objectives_single_citing_covers_non_contiguous(self, tmp_path):
+        body = "1. Verify first flow (AC: #1 — first flow)\n2. Verify third flow (AC: #3 — third flow)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_coverage(path, ac_count=3)
+
+        assert result["valid"] is False
+        assert result["covered"] == [1, 3]
+        assert result["missing"] == [2]
+
+
+class TestValidateAcCitationsMultiCitation:
+    """validate_ac_citations per-objective bucketing with all-citations-examined and reasons list."""
+
+    def test_one_valid_one_invalid_citation_lands_in_invalid(self, tmp_path):
+        # RED: current code examines only (AC: #1 — ok), marks objective as cited, misses #99.
+        body = "1. Verify dual (AC: #1 — valid) (AC: #99 — out of range)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path, ac_count=5)
+
+        assert result["valid"] is False
+        assert result["cited"] == 0
+        assert len(result["invalid_citations"]) == 1
+        assert result["invalid_citations"][0]["reasons"] == ["out_of_range"]
+
+    def test_two_invalid_citations_collects_both_reasons(self, tmp_path):
+        # RED: current code sees only the first citation; the second reason is never collected.
+        body = "1. Verify double-bad (AC: #99 — oob) (NFR: bogus — unknown cat)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path, ac_count=5, nfr_categories=["security"])
+
+        assert result["valid"] is False
+        assert result["total"] == 1
+        assert len(result["invalid_citations"]) == 1
+        assert set(result["invalid_citations"][0]["reasons"]) == {"out_of_range", "unknown_nfr_category"}
+
+    def test_two_valid_citations_counted_as_cited(self, tmp_path):
+        # Regression: an objective with two valid citations must not be double-counted or lost.
+        body = "1. Verify two valid (AC: #1 — first)(AC: #2 — second)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path, ac_count=2)
+
+        assert result["valid"] is True
+        assert result["total"] == 1
+        assert result["cited"] == 1
+        assert result["uncited"] == []
+        assert result["invalid_citations"] == []
+
+    def test_presence_only_mode_multi_citation_objective_counts_as_cited(self, tmp_path):
+        body = "1. Verify flows (AC: #1 — first) (AC: #2 — second)\n"
+        path = write_testplan_with_objectives(tmp_path / "TestPlan.md", body)
+
+        result = validate_ac_citations(path)
+
+        assert result["valid"] is True
+        assert result["cited"] == 1
+        assert result["invalid_citations"] == []

@@ -7,11 +7,14 @@ the deterministic validators that check LLM-generated output against it.
 
 import pytest
 
+from scripts.utils.markdown_utils import extract_section, has_citation, parse_citations
 from scripts.utils.schemas import _parse_template_headings, _require_headings
 from scripts.validate import validate_interface_types
 from tests.constants import REPO_ROOT
 
 TEMPLATE_PATH = REPO_ROOT / "skills" / "test-plan-create" / "test-plan-template.md"
+
+_SECTION_1_3_HEADING = "### 1.3 Test Objectives"
 
 
 class TestTemplateSection4Structure:
@@ -35,3 +38,24 @@ class TestTemplateHeadingsFailClosed:
         monkeypatch.setattr("scripts.utils.schemas._TEMPLATE_PATH", tmp_path / "nonexistent-template.md")
         with pytest.raises(ValueError, match="template"):
             _parse_template_headings()
+
+
+class TestTemplateCitationFormat:
+    """Section 1.3 in the template must document a citation format the validator actually accepts."""
+
+    def _section_1_3_text(self):
+        content = TEMPLATE_PATH.read_text()
+        lines, _ = extract_section(content, _SECTION_1_3_HEADING)
+        return "\n".join(lines)
+
+    def test_section_1_3_has_no_legacy_bracket_citation(self):
+        assert "(AC: [" not in self._section_1_3_text()
+
+    def test_section_1_3_example_is_accepted_by_validator(self):
+        assert has_citation(self._section_1_3_text()) is True
+
+    def test_section_1_3_example_parses_to_well_formed_citation(self):
+        cites = parse_citations(self._section_1_3_text())
+
+        assert cites, "template Section 1.3 must contain a parseable (AC: #N — text) or (NFR: category — text) example"
+        assert cites[0]["kind"] in {"AC", "NFR"}

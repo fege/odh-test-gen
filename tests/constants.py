@@ -6,6 +6,8 @@ Provides valid base data for each artifact type to use in tests.
 
 from pathlib import Path
 
+from scripts.utils.schemas import TEMPLATE_HEADINGS
+
 # Repository root and common paths
 REPO_ROOT = Path(__file__).parent.parent
 SCRIPTS_DIR = REPO_ROOT / "scripts"
@@ -89,7 +91,7 @@ No title section here.
 """
 
 # Valid TestPlan.md content for validation tests
-VALID_TESTPLAN_CONTENT = """---
+VALID_TESTPLAN_CONTENT = f"""---
 source_key: RHAISTRAT-1507
 feature: Notebook Spawning
 version: 1.0.0
@@ -99,10 +101,10 @@ components:
   - AI Hub
 ---
 
-## 1. Test Objectives
+{TEMPLATE_HEADINGS["1"]}
 Test notebook spawning feature.
 
-### 1.2 Scope
+{TEMPLATE_HEADINGS["1.2"]}
 This feature enables users to spawn Jupyter notebooks.
 """
 
@@ -239,7 +241,7 @@ automation_status: Not Started
 
 # Valid TC file with all required fields
 # TestPlan.md with only e2e/UI test levels (valid scope)
-TESTPLAN_E2E_ONLY = """---
+TESTPLAN_E2E_ONLY = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -250,27 +252,27 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 1. Executive Summary
+{TEMPLATE_HEADINGS["1"]}
 
-### 1.3 Test Objectives
+{TEMPLATE_HEADINGS["1.3"]}
 
 1. Verify model deployment via e2e system test (AC: "Users can deploy models")
 2. Verify dashboard navigation via UI test (AC: "Dashboard shows model status")
 
-## 2. Test Strategy
+{TEMPLATE_HEADINGS["2"]}
 
-### 2.1 Test Levels
+{TEMPLATE_HEADINGS["2.1"]}
 
 - **E2E System Testing** — end-to-end workflows through API and CLI
 - **UI Testing** — dashboard interactions and form validation
 
-### 2.2 Test Types
+{TEMPLATE_HEADINGS["2.2"]}
 
 - **Positive Testing** — valid inputs
 """
 
 # TestPlan.md with disallowed test levels (invalid scope)
-TESTPLAN_BROAD_LEVELS = """---
+TESTPLAN_BROAD_LEVELS = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -281,29 +283,29 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 1. Executive Summary
+{TEMPLATE_HEADINGS["1"]}
 
-### 1.3 Test Objectives
+{TEMPLATE_HEADINGS["1.3"]}
 
 1. Verify API endpoint returns correct data
 2. Verify UI renders correctly
 
-## 2. Test Strategy
+{TEMPLATE_HEADINGS["2"]}
 
-### 2.1 Test Levels
+{TEMPLATE_HEADINGS["2.1"]}
 
 - **API Integration Testing** — REST endpoint testing against backend
 - **Data Validation Testing** — data transformation, persistence
 - **E2E System Testing** — end-to-end workflows
 - **Functional Testing** — business logic, filtering
 
-### 2.2 Test Types
+{TEMPLATE_HEADINGS["2.2"]}
 
 - **Positive Testing** — valid inputs
 """
 
 # TestPlan.md with no Section 2.1
-TESTPLAN_NO_SECTION_21 = """---
+TESTPLAN_NO_SECTION_21 = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -314,9 +316,9 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 2. Test Strategy
+{TEMPLATE_HEADINGS["2"]}
 
-### 2.2 Test Types
+{TEMPLATE_HEADINGS["2.2"]}
 
 - **Positive Testing** — valid inputs
 """
@@ -324,7 +326,7 @@ author: QE Team
 # TestPlan.md with all AC citations present (valid)
 # Objective 1's (AC: ...) is wrapped onto a continuation line — the parser must join
 # continuation lines before checking, or it reads objective 1 as uncited.
-TESTPLAN_AC_CITED = """---
+TESTPLAN_AC_CITED = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -335,20 +337,20 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 1. Executive Summary
+{TEMPLATE_HEADINGS["1"]}
 
-### 1.3 Test Objectives
+{TEMPLATE_HEADINGS["1.3"]}
 
 1. Verify model deployment works end-to-end
-   (AC: "Users can deploy models from the catalog")
-2. Verify dashboard shows status (AC: "Model status is visible in the dashboard")
-3. Verify RBAC enforcement (AC: "Non-admin users cannot delete models")
+   (AC: #1 — "Users can deploy models from the catalog")
+2. Verify dashboard shows status (AC: #2 — "Model status is visible in the dashboard")
+3. Verify RBAC enforcement (AC: #3 — "Non-admin users cannot delete models")
 
-## 2. Test Strategy
+{TEMPLATE_HEADINGS["2"]}
 """
 
 # TestPlan.md with missing AC citations (invalid)
-TESTPLAN_AC_MISSING = """---
+TESTPLAN_AC_MISSING = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -359,19 +361,19 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 1. Executive Summary
+{TEMPLATE_HEADINGS["1"]}
 
-### 1.3 Test Objectives
+{TEMPLATE_HEADINGS["1.3"]}
 
-1. Verify model deployment works end-to-end (AC: "Users can deploy models")
+1. Verify model deployment works end-to-end (AC: #1 — "Users can deploy models")
 2. Verify dashboard shows correct status
-3. Verify RBAC enforcement for admin users (AC: "Admin users can manage all models")
+3. Verify RBAC enforcement for admin users (AC: #3 — "Admin users can manage all models")
 
-## 2. Test Strategy
+{TEMPLATE_HEADINGS["2"]}
 """
 
 # TestPlan.md with bullet-style objectives (not numbered — triggers format error)
-TESTPLAN_AC_BULLET_FORMAT = """---
+TESTPLAN_AC_BULLET_FORMAT = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -382,18 +384,18 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 1. Executive Summary
+{TEMPLATE_HEADINGS["1"]}
 
-### 1.3 Test Objectives
+{TEMPLATE_HEADINGS["1.3"]}
 
 - **Obj-1**: Verify catalog tile is visible (AC: "tile is visible")
 - **Obj-2**: Verify dialog displays samples (AC: "samples displayed")
 
-## 2. Test Strategy
+{TEMPLATE_HEADINGS["2"]}
 """
 
 # TestPlan.md with no Section 1.3
-TESTPLAN_NO_SECTION_13 = """---
+TESTPLAN_NO_SECTION_13 = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -404,57 +406,57 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 2. Test Strategy
+{TEMPLATE_HEADINGS["2"]}
 """
 
 # TestPlan.md body content with proper structure (no frontmatter)
-TESTPLAN_VALID_BODY = """
+TESTPLAN_VALID_BODY = f"""
 # Test Feature Test Plan
 
-## 1. Executive Summary
+{TEMPLATE_HEADINGS["1"]}
 
-### 1.1 Purpose
+{TEMPLATE_HEADINGS["1.1"]}
 
 Test the feature.
 
-### 1.2 Scope
+{TEMPLATE_HEADINGS["1.2"]}
 
 In scope items.
 
-### 1.3 Test Objectives
+{TEMPLATE_HEADINGS["1.3"]}
 
-1. Verify something (AC: "acceptance criterion")
+1. Verify something (AC: #1 — "acceptance criterion")
 
-## 2. Test Strategy
+{TEMPLATE_HEADINGS["2"]}
 
-### 2.1 Test Levels
+{TEMPLATE_HEADINGS["2.1"]}
 
 - **E2E System Testing** — end-to-end workflows
 
-### 2.2 Test Types
+{TEMPLATE_HEADINGS["2.2"]}
 
 - **Positive Testing** — valid inputs
 
-### 2.3 Test Priorities
+{TEMPLATE_HEADINGS["2.3"]}
 
 - **P0 (Critical)** — core flows
 
-## 3. Test Environment
+{TEMPLATE_HEADINGS["3"]}
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
 | `/v1/chat/completions` | REST | Chat inference |
 | `/v1/models` | REST | List models |
 
-## 7. Non-Functional Requirements
+{TEMPLATE_HEADINGS["7"]}
 
-## 8. Risks and Mitigation
+{TEMPLATE_HEADINGS["8"]}
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 
-### 9.2 Interface Coverage
+{TEMPLATE_HEADINGS["9.2"]}
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
@@ -463,7 +465,7 @@ In scope items.
 """
 
 # TestPlan.md with bold-text pseudo-headings (invalid structure)
-TESTPLAN_BOLD_HEADINGS = """---
+TESTPLAN_BOLD_HEADINGS = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -474,39 +476,39 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 1. Executive Summary
+{TEMPLATE_HEADINGS["1"]}
 
-### 1.1 Purpose
+{TEMPLATE_HEADINGS["1.1"]}
 
 Test the feature.
 
-### 1.2 Scope
+{TEMPLATE_HEADINGS["1.2"]}
 
 In scope items.
 
-### 1.3 Test Objectives
+{TEMPLATE_HEADINGS["1.3"]}
 
-1. Verify something (AC: "acceptance criterion")
+1. Verify something (AC: #1 — "acceptance criterion")
 
-## 2. Test Strategy
+{TEMPLATE_HEADINGS["2"]}
 
-### 2.1 Test Levels
+{TEMPLATE_HEADINGS["2.1"]}
 
 - **E2E System Testing** — end-to-end workflows
 
-### 2.2 Test Types
+{TEMPLATE_HEADINGS["2.2"]}
 
 - **Positive Testing** — valid inputs
 
-### 2.3 Test Priorities
+{TEMPLATE_HEADINGS["2.3"]}
 
 - **P0 (Critical)** — core flows
 
-## 3. Test Environment
+{TEMPLATE_HEADINGS["3"]}
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
-## 7. Non-Functional Requirements
+{TEMPLATE_HEADINGS["7"]}
 
 **Measurement Points:**
 
@@ -516,13 +518,13 @@ Some content here.
 
 More content.
 
-## 8. Risks and Mitigation
+{TEMPLATE_HEADINGS["8"]}
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 """
 
 # TestPlan.md missing required sections
-TESTPLAN_MISSING_SECTIONS = """---
+TESTPLAN_MISSING_SECTIONS = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -533,15 +535,15 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 1. Executive Summary
+{TEMPLATE_HEADINGS["1"]}
 
-### 1.1 Purpose
+{TEMPLATE_HEADINGS["1.1"]}
 
 Test the feature.
 
-## 2. Test Strategy
+{TEMPLATE_HEADINGS["2"]}
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 """
 
 # STRAT parser test data — Jira wiki markup variations
@@ -635,8 +637,39 @@ STRAT_NFR_WRAPPED_BULLET = (
     "\nh3. Out-of-Scope\n"
 )
 
+STRAT_TESTABILITY_FOLDED_INTO_AC = (
+    "h3. Acceptance Criteria\n\n"
+    "# Given a user opens a session, when the page loads, then a tile is visible.\n"
+    "# Given a user clicks the tile, when the dialog opens, then samples are shown.\n"
+    "\nh3. Testability: Additional Acceptance Criteria\n\n"
+    "The following edge cases should be covered as acceptance criteria:\n\n"
+    "# *Unverified status*: Given a provider type with inconclusive connectivity, "
+    "when validation runs, then the status is Unverified.\n"
+    "# *Malformed secret*: Given a secret exists but is missing the expected credential key, "
+    "when the user submits registration, then a clear error is returned.\n"
+    "\nh3. Effort Estimate\n"
+)
+
+STRAT_TESTABILITY_DEDUPED_AGAINST_MAIN_AC = (
+    "h3. Acceptance Criteria\n\n"
+    "# Given a user clicks the tile, when the dialog opens, then samples are shown.\n"
+    "\nh3. Testability: Additional Acceptance Criteria\n\n"
+    "# *Duplicate*: Given a user clicks the tile, when the dialog opens, then samples are shown.\n"
+    "# *Unverified status*: Given a provider type with inconclusive connectivity, "
+    "when validation runs, then the status is Unverified.\n"
+    "\nh3. Effort Estimate\n"
+)
+
+# Main AC section is mandatory — Testability items must not be treated as ACs on their own.
+STRAT_TESTABILITY_WITHOUT_MAIN_AC_SECTION = (
+    "h3. Testability: Additional Acceptance Criteria\n\n"
+    "# *Unverified status*: Given a provider type with inconclusive connectivity, "
+    "when validation runs, then the status is Unverified.\n"
+    "\nh3. Effort Estimate\n"
+)
+
 # TestPlan.md with allowed TC categories in Section 5.2 (valid)
-TESTPLAN_VALID_CATEGORIES = """---
+TESTPLAN_VALID_CATEGORIES = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -647,13 +680,13 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 5. Test Cases
+{TEMPLATE_HEADINGS["5"]}
 
-### 5.1 Test Case Summary
+{TEMPLATE_HEADINGS["5.1"]}
 
 3 test cases total.
 
-### 5.2 Test Case Naming Convention
+{TEMPLATE_HEADINGS["5.2"]}
 
 Test cases follow the naming pattern: `TC-<CATEGORY>-<NUMBER>`
 
@@ -665,7 +698,7 @@ Test cases follow the naming pattern: `TC-<CATEGORY>-<NUMBER>`
 """
 
 # TestPlan.md with feature-area TC categories in Section 5.2 (invalid)
-TESTPLAN_FEATURE_CATEGORIES = """---
+TESTPLAN_FEATURE_CATEGORIES = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -676,13 +709,13 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 5. Test Cases
+{TEMPLATE_HEADINGS["5"]}
 
-### 5.1 Test Case Summary
+{TEMPLATE_HEADINGS["5.1"]}
 
 5 test cases total.
 
-### 5.2 Test Case Naming Convention
+{TEMPLATE_HEADINGS["5.2"]}
 
 Test cases follow the naming pattern: `TC-<CATEGORY>-<NUMBER>`
 
@@ -695,7 +728,7 @@ Test cases follow the naming pattern: `TC-<CATEGORY>-<NUMBER>`
 """
 
 # TestPlan.md with no Section 5.2
-TESTPLAN_NO_SECTION_52 = """---
+TESTPLAN_NO_SECTION_52 = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -706,17 +739,17 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 5. Test Cases
+{TEMPLATE_HEADINGS["5"]}
 
-### 5.1 Test Case Summary
+{TEMPLATE_HEADINGS["5.1"]}
 
 0 test cases.
 
-## 6. E2E Test Scenarios
+{TEMPLATE_HEADINGS["6"]}
 """
 
 # TestPlan.md with valid interface types in Section 4 (no Config)
-TESTPLAN_VALID_INTERFACES = """---
+TESTPLAN_VALID_INTERFACES = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -727,7 +760,7 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
@@ -738,7 +771,7 @@ author: QE Team
 
 # Section 4 header row has a blank cell — the validator must report the real header row
 # (above the separator), not silently promote the first data row to "header".
-TESTPLAN_INTERFACE_TYPES_BLANK_HEADER_CELL = """---
+TESTPLAN_INTERFACE_TYPES_BLANK_HEADER_CELL = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -749,7 +782,7 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type |  |
 |-----------|------|---------|
@@ -757,7 +790,7 @@ author: QE Team
 """
 
 # TestPlan.md with Config-type entries in Section 4 (invalid)
-TESTPLAN_CONFIG_INTERFACES = """---
+TESTPLAN_CONFIG_INTERFACES = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -768,7 +801,7 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
@@ -781,7 +814,7 @@ author: QE Team
 # TestPlan.md where Section 9.2 and 6.2 fully cover Section 4 interfaces
 # Full coverage, but Section 4 uses bold/plain formatting while 6.2/9.2 use backticks —
 # normalization must still match them (regression for exact-string-equality false failures).
-TESTPLAN_INTERFACE_COVERAGE_FULL = """---
+TESTPLAN_INTERFACE_COVERAGE_FULL = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -792,25 +825,25 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
 | **/v1/chat/completions** | REST | Chat inference |
 | /v1/models | REST | List models |
 
-## 6. E2E Test Scenarios
+{TEMPLATE_HEADINGS["6"]}
 
-### 6.2 E2E Coverage Matrix
+{TEMPLATE_HEADINGS["6.2"]}
 
 | Interface (from Section 4) | E2E Scenarios |
 |----------------------------|---------------|
 | `/v1/chat/completions` | TC-E2E-001 |
 | `/v1/models` | TC-E2E-002 |
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 
-### 9.2 Interface Coverage
+{TEMPLATE_HEADINGS["9.2"]}
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
@@ -819,7 +852,7 @@ author: QE Team
 """
 
 # TestPlan.md where Section 9.2 is missing an interface from Section 4
-TESTPLAN_INTERFACE_COVERAGE_MISSING_9_2 = """---
+TESTPLAN_INTERFACE_COVERAGE_MISSING_9_2 = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -830,24 +863,24 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
 | `/v1/chat/completions` | REST | Chat inference |
 | `/v1/models` | REST | List models |
 
-## 6. E2E Test Scenarios
+{TEMPLATE_HEADINGS["6"]}
 
-### 6.2 E2E Coverage Matrix
+{TEMPLATE_HEADINGS["6.2"]}
 
 | Interface (from Section 4) | E2E Scenarios |
 |----------------------------|---------------|
 | | |
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 
-### 9.2 Interface Coverage
+{TEMPLATE_HEADINGS["9.2"]}
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
@@ -855,7 +888,7 @@ author: QE Team
 """
 
 # TestPlan.md where Section 6.2 is populated but missing an interface from Section 4
-TESTPLAN_INTERFACE_COVERAGE_MISSING_6_2 = """---
+TESTPLAN_INTERFACE_COVERAGE_MISSING_6_2 = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -866,24 +899,24 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
 | `/v1/chat/completions` | REST | Chat inference |
 | `/v1/models` | REST | List models |
 
-## 6. E2E Test Scenarios
+{TEMPLATE_HEADINGS["6"]}
 
-### 6.2 E2E Coverage Matrix
+{TEMPLATE_HEADINGS["6.2"]}
 
 | Interface (from Section 4) | E2E Scenarios |
 |----------------------------|---------------|
 | `/v1/chat/completions` | TC-E2E-001 |
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 
-### 9.2 Interface Coverage
+{TEMPLATE_HEADINGS["9.2"]}
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
@@ -892,7 +925,7 @@ author: QE Team
 """
 
 # TestPlan.md where Section 6.2 is still the pre-create-cases placeholder (skip check)
-TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_6_2 = """---
+TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_6_2 = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -903,24 +936,24 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
 | `/v1/chat/completions` | REST | Chat inference |
 | `/v1/models` | REST | List models |
 
-## 6. E2E Test Scenarios
+{TEMPLATE_HEADINGS["6"]}
 
-### 6.2 E2E Coverage Matrix
+{TEMPLATE_HEADINGS["6.2"]}
 
 | Interface (from Section 4) | E2E Scenarios |
 |----------------------------|---------------|
 | | |
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 
-### 9.2 Interface Coverage
+{TEMPLATE_HEADINGS["9.2"]}
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
@@ -930,7 +963,7 @@ author: QE Team
 
 # TestPlan.md where an interface is marked "pending details" in Section 4 and is
 # absent from both Section 6.2 and 9.2 — it must be excluded from the missing lists.
-TESTPLAN_INTERFACE_COVERAGE_PENDING = """---
+TESTPLAN_INTERFACE_COVERAGE_PENDING = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -941,24 +974,24 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
 | `/v1/chat/completions` | REST | Chat inference |
 | `/v1/models` | REST | pending details |
 
-## 6. E2E Test Scenarios
+{TEMPLATE_HEADINGS["6"]}
 
-### 6.2 E2E Coverage Matrix
+{TEMPLATE_HEADINGS["6.2"]}
 
 | Interface (from Section 4) | E2E Scenarios |
 |----------------------------|---------------|
 | `/v1/chat/completions` | TC-E2E-001 |
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 
-### 9.2 Interface Coverage
+{TEMPLATE_HEADINGS["9.2"]}
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
@@ -966,7 +999,7 @@ author: QE Team
 """
 
 # TestPlan.md where Section 9.2 lists the interface but its Test Cases cell is blank
-TESTPLAN_INTERFACE_COVERAGE_EMPTY_9_2_CELL = """---
+TESTPLAN_INTERFACE_COVERAGE_EMPTY_9_2_CELL = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -977,25 +1010,25 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
 | `/v1/chat/completions` | REST | Chat inference |
 | `/v1/models` | REST | List models |
 
-## 6. E2E Test Scenarios
+{TEMPLATE_HEADINGS["6"]}
 
-### 6.2 E2E Coverage Matrix
+{TEMPLATE_HEADINGS["6.2"]}
 
 | Interface (from Section 4) | E2E Scenarios |
 |----------------------------|---------------|
 | `/v1/chat/completions` | TC-E2E-001 |
 | `/v1/models` | TC-E2E-002 |
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 
-### 9.2 Interface Coverage
+{TEMPLATE_HEADINGS["9.2"]}
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
@@ -1004,7 +1037,7 @@ author: QE Team
 """
 
 # TestPlan.md where Section 6.2 lists the interface but its E2E Scenarios cell is blank
-TESTPLAN_INTERFACE_COVERAGE_EMPTY_6_2_CELL = """---
+TESTPLAN_INTERFACE_COVERAGE_EMPTY_6_2_CELL = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -1015,25 +1048,25 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
 | `/v1/chat/completions` | REST | Chat inference |
 | `/v1/models` | REST | List models |
 
-## 6. E2E Test Scenarios
+{TEMPLATE_HEADINGS["6"]}
 
-### 6.2 E2E Coverage Matrix
+{TEMPLATE_HEADINGS["6.2"]}
 
 | Interface (from Section 4) | E2E Scenarios |
 |----------------------------|---------------|
 | `/v1/chat/completions` | TC-E2E-001 |
 | `/v1/models` | |
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 
-### 9.2 Interface Coverage
+{TEMPLATE_HEADINGS["9.2"]}
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
@@ -1042,7 +1075,7 @@ author: QE Team
 """
 
 # TestPlan.md where Section 9.2's Test Cases cell is a non-informative placeholder, not a real TC ID
-TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_TC_CELL = """---
+TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_TC_CELL = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -1053,25 +1086,25 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
 | `/v1/chat/completions` | REST | Chat inference |
 | `/v1/models` | REST | List models |
 
-## 6. E2E Test Scenarios
+{TEMPLATE_HEADINGS["6"]}
 
-### 6.2 E2E Coverage Matrix
+{TEMPLATE_HEADINGS["6.2"]}
 
 | Interface (from Section 4) | E2E Scenarios |
 |----------------------------|---------------|
 | `/v1/chat/completions` | TC-E2E-001 |
 | `/v1/models` | TC-E2E-002 |
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 
-### 9.2 Interface Coverage
+{TEMPLATE_HEADINGS["9.2"]}
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
@@ -1080,7 +1113,7 @@ author: QE Team
 """
 
 # TestPlan.md where Section 6.2's E2E Scenarios cell is a non-informative placeholder, not a real TC ID
-TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_SCENARIO_CELL = """---
+TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_SCENARIO_CELL = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -1091,25 +1124,25 @@ author: QE Team
 
 # Test Feature Test Plan
 
-## 4. Interfaces Under Test
+{TEMPLATE_HEADINGS["4"]}
 
 | Interface | Type | Purpose |
 |-----------|------|---------|
 | `/v1/chat/completions` | REST | Chat inference |
 | `/v1/models` | REST | List models |
 
-## 6. E2E Test Scenarios
+{TEMPLATE_HEADINGS["6"]}
 
-### 6.2 E2E Coverage Matrix
+{TEMPLATE_HEADINGS["6.2"]}
 
 | Interface (from Section 4) | E2E Scenarios |
 |----------------------------|---------------|
 | `/v1/chat/completions` | TC-E2E-001 |
 | `/v1/models` | - |
 
-## 9. Appendix
+{TEMPLATE_HEADINGS["9"]}
 
-### 9.2 Interface Coverage
+{TEMPLATE_HEADINGS["9.2"]}
 
 | Interface | Test Cases | Coverage |
 |-----------|------------|----------|
@@ -1118,7 +1151,7 @@ author: QE Team
 """
 
 # TestPlan.md with clean test infra (no SUT/dev tooling)
-TESTPLAN_CLEAN_INFRA = """---
+TESTPLAN_CLEAN_INFRA = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -1129,20 +1162,20 @@ author: QE Team
 
 # Test Feature Test Plan
 
-### 3.1 Infrastructure & Configuration
+{TEMPLATE_HEADINGS["3.1"]}
 - OpenShift 4.16+
 - RHOAI 3.5 operator
 - `KUBECONFIG` env var for cluster access
 - CatalogSource for operator subscription
 
-### 3.4 Test Tools
+{TEMPLATE_HEADINGS["3.4"]}
 - oc/kubectl for cluster interaction
 - curl for API testing
 - pytest for test execution
 """
 
 # TestPlan.md with local dev tooling leaked into infra sections
-TESTPLAN_DEV_TOOLING_INFRA = """---
+TESTPLAN_DEV_TOOLING_INFRA = f"""---
 feature: Test Feature
 source_key: RHAISTRAT-400
 version: 1.0.0
@@ -1153,13 +1186,13 @@ author: QE Team
 
 # Test Feature Test Plan
 
-### 3.1 Infrastructure & Configuration
+{TEMPLATE_HEADINGS["3.1"]}
 - OpenShift 4.16+
 - Local development runtime: Python 3.x with pip
 - Container runtime (podman or docker)
 - `KUBECONFIG` env var for cluster access
 
-### 3.4 Test Tools
+{TEMPLATE_HEADINGS["3.4"]}
 - oc/kubectl for cluster interaction
 - pip install for local development
 - docker-compose for local SUT setup

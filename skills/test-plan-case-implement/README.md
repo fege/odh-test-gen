@@ -91,13 +91,13 @@ This skill uses the following utility scripts:
   - Provides pre-analyzed test context for ~162 opendatahub-io repos
   - Includes: framework detection, conventions, linting, container recipes, agent_readiness
   - **Significantly improves** placement decisions and test quality
-  - Source: https://github.com/opendatahub-io/odh-test-context
+  - Source: <https://github.com/opendatahub-io/odh-test-context>
   - If missing: Skill offers to clone or proceed with manual discovery
 
 - **Red-Hat-Quality-Tiger-Team** repository at `~/Code/Red-Hat-Quality-Tiger-Team` (or custom path)
   - Provides test pattern guides (go-tests.md, typescript-unit-tests.md, cypress-tests.md, testing-standards.md)
   - Guides provide code patterns, examples, and anti-patterns for test generation
-  - Source: https://github.com/RedHatQE/Red-Hat-Quality-Tiger-Team
+  - Source: <https://github.com/RedHatQE/Red-Hat-Quality-Tiger-Team>
   - If missing: Skill offers to clone or auto-generate via Tiger Team's test-rules-generator
 
 ### Optional

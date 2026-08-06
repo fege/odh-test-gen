@@ -56,7 +56,6 @@ Then ask:
 
 ### Step 0: Pre-flight Checks
 
-
 #### 0.1 Python dependencies
 
 Install the test-plan package (makes all scripts importable):

@@ -9,7 +9,7 @@ user-invocable: false
 
 You are a QA analyst reviewing a refined strategy (and optionally an ADR) to extract the feature scope and identify what needs to be tested. Your job is to produce structured findings for Sections 1 and 4 of a test plan.
 
-**Scope constraint**: This pipeline generates e2e/system and UI test plans only. Frame all test objectives as e2e or UI verification goals. Each objective must trace to a specific STRAT acceptance criterion.
+**Scope constraint**: This pipeline generates e2e/system and UI test plans only. Frame all test objectives as e2e or UI verification goals. Each objective must trace to a specific STRAT acceptance criterion or a grounded non-functional requirement.
 
 ## Inputs
 
@@ -28,9 +28,14 @@ The orchestrating skill will pass you file paths and/or inline content. You may 
 2. **In Scope**: Bulleted list of what falls within the testing team's responsibilities. Derive strictly from the strategy.
 3. **Out of Scope**: Bulleted list of explicitly excluded areas. Only list items the strategy explicitly excludes — do not invent exclusions.
 4. **Test Objectives**: At least one objective per STRAT acceptance criterion — every AC must be covered. Each objective MUST:
-   - Cite the STRAT acceptance criterion it validates (quote or paraphrase the AC text)
+   - Cite the STRAT acceptance criterion it validates, reflecting the AC concisely rather than quoting its full text
    - Frame verification as an e2e/system or UI test goal — not a unit or integration test
-   - Use the format: "Verify [AC requirement] via [e2e/UI approach] (AC: [quoted or paraphrased AC text])"
+   - Use the format: "Verify [AC requirement] via [e2e/UI approach] (AC: #N — short description of what the AC requires)",
+     where `N` is that AC's `num` field in `ac_json` — copy it verbatim, do not count or compute it yourself
+   - Additionally, for each `nfr_json` entry whose `text` is a concrete, testable statement (not a
+     placeholder or TBD), add one objective citing it: "Verify [NFR requirement] via [e2e/UI approach]
+      (NFR: {category} — short description of what the NFR requires)". Skip categories with no concrete grounding
+     sentence — never fabricate one to fill this in.
 
 ### 2. Interfaces Under Test (for Section 4)
 
@@ -70,8 +75,9 @@ Return your findings in this exact structure:
 
 ### Test Objectives
 {At least one objective per STRAT acceptance criterion — every AC must
-be covered. Each objective cites the AC it validates: (AC: [quoted or
-paraphrased AC text])}
+be covered, each citing (AC: #N — short description of what the AC requires).
+Plus one objective per NFR with concrete grounding, citing
+(NFR: {category} — short description of what the NFR requires).}
 
 ## Interfaces Under Test
 

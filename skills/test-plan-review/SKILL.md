@@ -52,25 +52,35 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 3. Fetch the source strategy from Jira using the `source_key`:
    ```bash
    # Fetch strategy and save to temporary file
+   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
    strategy_file=$(mktemp)
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
-    uv run python scripts/fetch_issue.py "$source_key" --output "$strategy_file") || {
+   (cd "$repo_root" && uv run python scripts/fetch_issue.py "$source_key" --output "$strategy_file") || {
        echo "Warning: Failed to fetch Jira issue, checking for local file..." >&2
        rm -f "$strategy_file"
        strategy_file=""
    }
 
-   # If fetch failed, check for local strategy file
+   # If fetch failed, check for local strategy file. source_key comes from TestPlan.md
+   # frontmatter — validate its shape and the resolved path's containment before reading, so a
+   # malformed/malicious source_key can't escape artifacts/strat-tasks/ via path traversal.
    if [ -z "$strategy_file" ] || [ ! -f "$strategy_file" ]; then
-       local_file="$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)/artifacts/strat-tasks/${source_key}.md"
-       if [ -f "$local_file" ]; then
+       strat_dir=$(realpath "$repo_root/artifacts/strat-tasks")
+       if [[ "$source_key" =~ ^[A-Z][A-Z0-9_]+-[0-9]+$ ]]; then
+           local_file="$strat_dir/${source_key}.md"
+       else
+           local_file=""
+       fi
+       if [ -n "$local_file" ] && [ -f "$local_file" ] && [[ "$(realpath "$local_file")" == "$strat_dir"/* ]]; then
            strategy_content=$(cat "$local_file")
+           gate_inputs=$(cd "$repo_root" && uv run python scripts/parse_strat.py gate-inputs "$local_file")
        else
            echo "Warning: Neither Jira API nor local strategy file available. Grounding and scope fidelity scoring will be degraded." >&2
            strategy_content=""
+           gate_inputs=""
        fi
    else
        strategy_content=$(cat "$strategy_file")
+       gate_inputs=$(cd "$repo_root" && uv run python scripts/parse_strat.py gate-inputs "$strategy_file")
        rm "$strategy_file"
    fi
    ```
@@ -78,10 +88,28 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 4. Store the raw strategy text for passing to sub-agents.
 
-5. Compute interface coverage deterministically (Section 9.2 and Section 6.2 vs Section 4 are a mechanical table diff, not an LLM judgment call):
+5. Compute interface coverage and AC/NFR citation validity deterministically (Section 9.2/6.2 vs Section 4 is a mechanical table diff, and citation validity is a mechanical STRAT cross-check — neither is an LLM judgment call). Parse `ac_count`/`nfr_category_flags` out of the `gate_inputs` JSON captured in Step 1 — both come back empty when `gate_inputs` is `""` (degraded mode, no strategy available):
    ```bash
-   interface_coverage_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+   ac_count=$(echo "$gate_inputs" | jq -r '.ac_count // empty')
+   nfr_category_flags=()
+   while IFS= read -r cat; do [ -n "$cat" ] && nfr_category_flags+=(--nfr-category "$cat"); done < <(echo "$gate_inputs" | jq -r '.nfr_categories[]? // empty')
+
+   interface_coverage_result=$(cd "$repo_root" && \
        uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md || true)
+
+   if [ -n "$ac_count" ]; then
+       ac_citations_result=$(cd "$repo_root" && \
+           uv run python scripts/validate.py ac-citations <feature_dir>/TestPlan.md --ac-count "$ac_count" "${nfr_category_flags[@]}" || true)
+       ac_coverage_result=$(cd "$repo_root" && \
+           uv run python scripts/validate.py ac-coverage <feature_dir>/TestPlan.md --ac-count "$ac_count" || true)
+   else
+       # Degraded mode: ac-citations falls back to presence-only checking (no bounds to check
+       # against). ac-coverage has no such fallback (requires --ac-count), so it's skipped
+       # entirely and ac_coverage_result stays unset.
+       ac_citations_result=$(cd "$repo_root" && \
+           uv run python scripts/validate.py ac-citations <feature_dir>/TestPlan.md || true)
+   fi
    ```
    With the pre-create-cases guards, `valid: true` is expected before test cases exist — both Section 9.2 (Test Cases column blank) and Section 6.2 are recognized as not-yet-populated and skipped. A `valid: false` here signals a genuine coverage gap; pass it as data to the score agent.
 
@@ -95,6 +123,8 @@ Launch a **forked** score agent with these substitutions:
 - `{STRATEGY_TEXT}` = raw strategy description text from Step 1
 - `{CALIBRATION_DIR}` = `${CLAUDE_SKILL_DIR}/calibration/`
 - `{INTERFACE_COVERAGE_RESULT}` = JSON from Step 1.5 (`interface_coverage_result`)
+- `{AC_CITATIONS_RESULT}` = JSON from Step 1.5 (`ac_citations_result`)
+- `{AC_COVERAGE_RESULT}` = JSON from Step 1.5 (`ac_coverage_result`, or "not computed — degraded mode" if unset)
 
 The score agent evaluates the test plan against a 5-criterion rubric (specificity, grounding, scope fidelity, actionability, consistency) and returns a structured assessment with per-criterion scores and a grounding cross-reference table.
 
@@ -104,7 +134,7 @@ The score agent evaluates the test plan against a 5-criterion rubric (specificit
 |---------|-------|
 | 1.1 Purpose | Does it clearly state what is being tested and why? |
 | 1.2 Scope | Are in-scope and out-of-scope explicitly defined? |
-| 1.3 Test Objectives | Are there 3-7 concrete, measurable objectives? |
+| 1.3 Test Objectives | Is there at least one objective per STRAT acceptance criterion (every AC covered), plus grounded NFR objectives where applicable? |
 | 2.1 Test Levels | Are the selected levels appropriate for the feature type? |
 | 2.3 Priorities | Are P0/P1/P2 definitions specific to this feature, not generic? |
 | 3.1 Cluster Config | Are versions and dependencies specified or marked TBD? |
@@ -196,7 +226,9 @@ Delete the existing review file to force a clean re-assessment:
 rm <feature_dir>/TestPlanReview.md
 ```
 
-Repeat Step 2 (score agent) with the revised TestPlan.md.
+Re-run the Step 1.5 validation commands against the revised `TestPlan.md` — the revise agent (4b) may have edited Section 4, 6.2, 9.2, or citations, so `interface_coverage_result`, `ac_citations_result`, and `ac_coverage_result` must be recomputed before re-scoring (same degraded-mode branching as Step 1.5, based on whether `ac_count` is set).
+
+Repeat Step 2 (score agent) with the revised TestPlan.md and the recomputed results.
 
 **4f. Re-review:**
 

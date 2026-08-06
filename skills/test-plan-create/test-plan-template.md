@@ -20,8 +20,10 @@
 
 ### 1.3 Test Objectives
 {Numbered list (1. 2. 3. ...) — at least one objective per STRAT
-acceptance criterion. Each cites the AC it validates: (AC: [quoted or
-paraphrased AC text])}
+acceptance criterion. Each objective cites the AC or NFR it validates
+using the machine-checkable form (AC: #N — short description) or
+(NFR: category — short description). For example:
+1. Verify successful login with valid credentials (AC: #1 — user can authenticate)
 
 ---
 

@@ -198,7 +198,7 @@ If `use_odh_context == False` (no odh-test-context available):
 2. Test generation will rely more heavily on Tiger Team pattern guides (Step 1.2b)
 3. Generated tests may be less optimized for the specific repo
 4. **For new components**: Consider contributing to odh-test-context for future use:
-   - Repository: https://github.com/opendatahub-io/odh-test-context
+   - Repository: <https://github.com/opendatahub-io/odh-test-context>
    - Add JSON file: `tests/<repo_name>.json` with discovered framework, test directories, conventions, linting tools
    - See existing files in `tests/` directory as examples
    - Improves test quality for all future test generation on this component
