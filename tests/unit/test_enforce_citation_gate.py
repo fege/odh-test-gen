@@ -306,8 +306,8 @@ class TestEnforceCitationGateCLI:
             ]
             try:
                 main()
-            except SystemExit:
-                pass  # main exits 0 on SKIP; override path doesn't call sys.exit
+            except SystemExit as exc:
+                assert exc.code == 0
         finally:
             sys.argv = old_argv
 
