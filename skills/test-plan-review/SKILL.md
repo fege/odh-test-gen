@@ -169,6 +169,20 @@ The review agent writes `<feature_dir>/TestPlanReview.md` with rubric scores, fe
 - Are NFR categories in Section 7 consistent with the feature scope? (e.g., a feature that pulls images should not mark Disconnected as N/A)
 - Does Section 6.2 E2E Coverage Matrix include all interfaces from Section 4? (deterministic — from the `interface-coverage` result; expected unpopulated until create-cases runs)
 
+### Step 3.5: Enforce Citation Gate
+
+The review agent is instructed to read `ac_citations_result.valid`/`ac_coverage_result.valid` directly and cap Scope Fidelity to `<= 1` when either is false — but LLM compliance with that instruction isn't guaranteed. Deterministically re-apply it:
+
+```bash
+repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+coverage_arg=()
+[ -n "$ac_coverage_result" ] && coverage_arg=(--ac-coverage-result "$ac_coverage_result")
+(cd "$repo_root" && uv run python scripts/enforce_citation_gate.py <feature_dir> \
+    --ac-citations-result "$ac_citations_result" "${coverage_arg[@]}")
+```
+
+If this overrides `scope_fidelity`, the corrected value (and an injected feedback note explaining why) is what Step 4 evaluates below — not whatever the review agent originally wrote.
+
 ### Step 4: Check Criteria and Revise (max 2 cycles)
 
 After the review agent completes, read the review frontmatter:
@@ -232,7 +246,7 @@ Repeat Step 2 (score agent) with the revised TestPlan.md and the recomputed resu
 
 **4f. Re-review:**
 
-Repeat Step 3 (review agent) with `{FIRST_PASS}=false`.
+Repeat Step 3 (review agent) with `{FIRST_PASS}=false`, then repeat Step 3.5 (Enforce Citation Gate) against the recomputed `ac_citations_result`/`ac_coverage_result` from 4e.
 
 **4g. Restore before_scores and revision history:**
 
