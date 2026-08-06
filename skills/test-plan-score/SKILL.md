@@ -84,9 +84,11 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
        strategy_path="$strategy_file"
    fi
    ```
+
    If neither Jira API nor local file is available, warn the user and proceed — grounding and scope fidelity will be scored based on plan consistency only.
 
 4. Compute AC/NFR citation validity and coverage deterministically (mirrors `test-plan.review` Step 1). When a strategy file is available, run `gate-inputs` then `ac-citations` + `ac-coverage` on the test plan:
+
    ```bash
    repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
 

@@ -84,11 +84,13 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
        rm "$strategy_file"
    fi
    ```
+
    If neither Jira API nor local file is available, warn the user that grounding and scope fidelity scoring will be degraded, and proceed with the test plan content only.
 
 4. Store the raw strategy text for passing to sub-agents.
 
 5. Compute interface coverage and AC/NFR citation validity deterministically (Section 9.2/6.2 vs Section 4 is a mechanical table diff, and citation validity is a mechanical STRAT cross-check — neither is an LLM judgment call). Parse `ac_count`/`nfr_category_flags` out of the `gate_inputs` JSON captured in Step 1 — both come back empty when `gate_inputs` is `""` (degraded mode, no strategy available):
+
    ```bash
    repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
    ac_coverage_result=""
