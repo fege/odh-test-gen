@@ -1,4 +1,4 @@
 reviews:
-  request_changes_workflow: true
+  request_changes_workflow: false
   auto_review:
-    auto_pause_after_reviewed_commits: 10
+    auto_pause_after_reviewed_commits: 0
