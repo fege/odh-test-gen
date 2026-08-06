@@ -136,7 +136,7 @@ def main():
         sys.exit(0)
 
     if result is None:
-        print("SKIP", file=sys.stderr)
+        print("SKIP")
         sys.exit(0)
     print("OVERRIDDEN" if result["overridden"] else "OK")
 
