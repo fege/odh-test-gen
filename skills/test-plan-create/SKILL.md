@@ -157,9 +157,11 @@ If environment variables are set, proceed to Step 0.3.
 
    **Fetching from Jira:**
    ```bash
-   strategy_file=$(mktemp)
+   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+   tmp_result=$(cd "$repo_root" && uv run python scripts/parse_strat.py new-strat-tmp) || exit 1
+   strategy_file=$(echo "$tmp_result" | jq -r '.strategy_file')
    strategy_is_temp=true
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+   (cd "$repo_root" && \
     uv run python scripts/fetch_issue.py <JIRA_KEY> --output "$strategy_file")
    strategy_content=$(cat "$strategy_file")
    ```

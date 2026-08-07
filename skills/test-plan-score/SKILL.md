@@ -53,8 +53,10 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 3. Fetch the source strategy from Jira using the `source_key`:
    ```bash
    # Fetch strategy and save to temporary file
-   strategy_file=$(mktemp)
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+   tmp_result=$(cd "$repo_root" && uv run python scripts/parse_strat.py new-strat-tmp) || exit 1
+   strategy_file=$(echo "$tmp_result" | jq -r '.strategy_file')
+   (cd "$repo_root" && \
     uv run python scripts/fetch_issue.py "$source_key" --output "$strategy_file") || {
        echo "Warning: Failed to fetch Jira issue, checking for local file..." >&2
        rm -f "$strategy_file"

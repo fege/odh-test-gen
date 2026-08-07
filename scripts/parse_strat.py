@@ -10,10 +10,12 @@ Usage:
     uv run python scripts/parse_strat.py out-of-scope <strat_file>
     uv run python scripts/parse_strat.py workflow-inputs <strat_file>
     uv run python scripts/parse_strat.py resolve-local <jira_key>
+    uv run python scripts/parse_strat.py new-strat-tmp
 """
 
 import argparse
 import json
+import os
 import re
 import sys
 import tempfile
@@ -29,20 +31,30 @@ JIRA_KEY_RE = re.compile(SCHEMAS["test-plan"]["source_key"]["pattern"])
 def _load_strat_content(raw_path: str) -> str:
     """Read strat_file after confirming it resolves inside a permitted location.
 
-    Every documented caller passes one of exactly two paths: a `mktemp` temp file (Jira fetch)
-    or `<repo_root>/artifacts/strat-tasks/<KEY>.md` (local cache fallback, keyed off a Jira issue
-    key an upstream caller may not have validated). Anything else is rejected so a malformed or
-    malicious strat_file argument can't be used to read arbitrary files off disk.
+    Every documented caller passes one of exactly two paths: the persistent local cache
+    `<repo_root>/artifacts/strat-tasks/<KEY>.md`, or an ephemeral fetch written to
+    `<repo_root>/artifacts/strat-tasks/.tmp/` (an application-owned, mode-0700 directory — never
+    the shared system temp dir, which any other process could have dropped a readable file into).
+    Anything else is rejected so a malformed or malicious strat_file argument can't be used to
+    read arbitrary files off disk.
     """
     resolved = Path(raw_path).resolve()
-    allowed_roots = [Path(tempfile.gettempdir()).resolve()]
-    if repo_root := get_git_root(str(Path(__file__).resolve().parent)):
-        allowed_roots.append((Path(repo_root) / "artifacts" / "strat-tasks").resolve())
+    repo_root = get_git_root(str(Path(__file__).resolve().parent))
+    if not repo_root:
+        raise ValueError("strategy_file_not_permitted")
+
+    strat_root = (Path(repo_root) / "artifacts" / "strat-tasks").resolve()
+    allowed_roots = [strat_root, strat_root / ".tmp"]
 
     if not any(resolved == root or resolved.is_relative_to(root) for root in allowed_roots):
         raise ValueError("strategy_file_not_permitted")
 
-    return resolved.read_text()
+    # O_NOFOLLOW closes the gap between the containment check above and the read: if the final
+    # path component was swapped for a symlink in between, the kernel rejects the open instead of
+    # silently following it wherever the symlink points.
+    fd = os.open(resolved, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, encoding="utf-8") as f:
+        return f.read()
 
 
 def cmd_acceptance_criteria(args):
@@ -99,6 +111,36 @@ def cmd_resolve_local(args):
     sys.exit(0)
 
 
+def cmd_new_strat_tmp(args):
+    """Create a fresh, unguessably-named file inside the owned artifacts/strat-tasks/.tmp/
+    directory (mode 0700, created/enforced on every call) for an ephemeral Jira fetch — replaces
+    bare `mktemp`, which would land in the shared system temp dir that _load_strat_content no
+    longer trusts.
+    """
+    repo_root = get_git_root(str(Path(__file__).resolve().parent))
+    if not repo_root:
+        print(json.dumps({"created": False, "error": "repo_root_not_found"}, indent=2))
+        sys.exit(1)
+
+    tmp_dir = Path(repo_root) / "artifacts" / "strat-tasks" / ".tmp"
+    # A separate mkdir-then-chmod would leave the directory briefly at the default (looser) mode
+    # before narrowing it. Forcing the umask during creation makes a freshly created dir 0700 from
+    # its first instant; the chmod afterward is a no-op there and only self-heals a pre-existing
+    # directory left over from before this fix.
+    old_umask = os.umask(0o077)
+    try:
+        tmp_dir.mkdir(parents=True, exist_ok=True)
+    finally:
+        os.umask(old_umask)
+    os.chmod(tmp_dir, 0o700)
+
+    fd, path = tempfile.mkstemp(prefix="strategy.", suffix=".md", dir=tmp_dir)
+    os.close(fd)
+
+    print(json.dumps({"created": True, "strategy_file": path}, indent=2))
+    sys.exit(0)
+
+
 def cmd_workflow_inputs(args):
     try:
         content = _load_strat_content(args.strat_file)
@@ -141,6 +183,11 @@ def main():
     )
     p_resolve.add_argument("jira_key", help="Jira key, e.g. RHAISTRAT-1746")
     p_resolve.set_defaults(func=cmd_resolve_local)
+
+    p_new_tmp = subparsers.add_parser(
+        "new-strat-tmp", help="Create a fresh ephemeral strategy file inside the owned .tmp/ cache dir"
+    )
+    p_new_tmp.set_defaults(func=cmd_new_strat_tmp)
 
     args = parser.parse_args()
     args.func(args)
