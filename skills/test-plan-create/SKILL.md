@@ -153,7 +153,7 @@ If environment variables are set, proceed to Step 0.3.
 
 ### Step 1: Gather Information
 
-1. **Strategy**: If a Jira key was provided, fetch it using the `fetch_issue.py` script. The strategy contains both the technical approach (HOW) and the business need (WHAT/WHY). If auto-detected, read the local file from `artifacts/strat-tasks/` instead — do NOT fetch.
+1. **Strategy**: If a Jira key was provided, fetch it using the `fetch_issue.py` script. If auto-detected, read the local file from `artifacts/strat-tasks/` instead — do NOT fetch.
 
    **Fetching from Jira:**
    ```bash
