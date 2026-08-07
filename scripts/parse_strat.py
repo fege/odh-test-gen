@@ -8,7 +8,7 @@ Usage:
     uv run python scripts/parse_strat.py acceptance-criteria <strat_file>
     uv run python scripts/parse_strat.py nfr <strat_file>
     uv run python scripts/parse_strat.py out-of-scope <strat_file>
-    uv run python scripts/parse_strat.py gate-inputs <strat_file>
+    uv run python scripts/parse_strat.py workflow-inputs <strat_file>
 """
 
 import argparse
@@ -16,7 +16,7 @@ import json
 import sys
 from pathlib import Path
 
-from scripts.utils.strat_utils import gate_inputs, parse_acceptance_criteria, parse_nfr, parse_out_of_scope
+from scripts.utils.strat_utils import parse_acceptance_criteria, parse_nfr, parse_out_of_scope, workflow_inputs
 
 
 def cmd_acceptance_criteria(args):
@@ -40,9 +40,14 @@ def cmd_out_of_scope(args):
     sys.exit(0 if result["found"] else 1)
 
 
-def cmd_gate_inputs(args):
-    content = Path(args.strat_file).read_text()
-    result = gate_inputs(content)
+def cmd_workflow_inputs(args):
+    try:
+        content = Path(args.strat_file).read_text()
+    except (OSError, UnicodeDecodeError) as exc:
+        print(json.dumps({"status": "error", "error": str(exc)}, indent=2))
+        sys.exit(1)
+
+    result = workflow_inputs(content)
     print(json.dumps(result, indent=2))
     sys.exit(0)
 
@@ -65,9 +70,12 @@ def main():
     p_oos.add_argument("strat_file", help="Path to fetched STRAT markdown file")
     p_oos.set_defaults(func=cmd_out_of_scope)
 
-    p_gate = subparsers.add_parser("gate-inputs", help="Emit ac_count + nfr_categories for the citation gate")
-    p_gate.add_argument("strat_file", help="Path to fetched STRAT markdown file")
-    p_gate.set_defaults(func=cmd_gate_inputs)
+    p_workflow = subparsers.add_parser(
+        "workflow-inputs",
+        help="Combined ac/nfr/out-of-scope parse + gate inputs for test-plan-create Step 1.5",
+    )
+    p_workflow.add_argument("strat_file", help="Path to fetched STRAT markdown file")
+    p_workflow.set_defaults(func=cmd_workflow_inputs)
 
     args = parser.parse_args()
     args.func(args)

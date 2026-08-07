@@ -1,13 +1,18 @@
 """Unit tests for scripts/parse_strat.py — STRAT section extraction."""
 
-import pytest
+import json
+import sys
 from pathlib import Path
 
+import pytest
+
+from scripts.parse_strat import main
 from scripts.utils.strat_utils import (
     gate_inputs,
     parse_acceptance_criteria,
     parse_nfr,
     parse_out_of_scope,
+    workflow_inputs,
 )
 from tests.helpers import strat_with_testability_heading
 from tests.constants import (
@@ -235,6 +240,58 @@ class TestGateInputs:
         assert result["nfr_categories"] == ["Security, Privacy"]
 
 
+class TestWorkflowInputs:
+    """Tests for workflow_inputs — test-plan-create's combined pre-generation gate, replacing
+    four separate parse_strat.py subcommand calls plus inline jq/bash validation in SKILL.md.
+    """
+
+    def test_ok_status_combines_all_sections_from_real_strat(self):
+        content = (FIXTURES_DIR / "strat-1737.md").read_text()
+
+        result = workflow_inputs(content)
+
+        assert result["status"] == "ok"
+        assert result["ac_json"]["count"] == 10
+        assert result["nfr_json"]["found"] is True
+        assert result["oos_json"]["found"] is True
+        assert result["ac_count"] == 10
+        assert "Performance" in result["nfr_categories"]
+
+    def test_no_acceptance_criteria_status_when_section_absent(self):
+        content = "h3. Requirements\n\nSome text.\n\nh3. Risks\n\nSome risks.\n"
+
+        result = workflow_inputs(content)
+
+        assert result == {
+            "status": "no_acceptance_criteria",
+            "ac_json": {"found": False, "count": 0, "acceptance_criteria": []},
+        }
+
+    def test_no_acceptance_criteria_status_when_section_present_but_empty(self):
+        content = "h3. Acceptance Criteria (Proposed -- requires PM/Engineering validation)\n\nh3. Effort Estimate\n"
+
+        result = workflow_inputs(content)
+
+        assert result["status"] == "no_acceptance_criteria"
+        assert result["ac_json"]["found"] is True
+        assert result["ac_json"]["count"] == 0
+
+    def test_missing_nfr_and_oos_sections_preserve_found_false_not_squashed(self):
+        content = (
+            "h3. Acceptance Criteria\n\n"
+            "# Given a user registers a store, then it persists\n\n"
+            "h3. Risks\n\nSome risks.\n"
+        )
+
+        result = workflow_inputs(content)
+
+        assert result["status"] == "ok"
+        assert result["nfr_json"] == {"found": False, "requirements": []}
+        assert result["oos_json"] == {"found": False, "count": 0, "items": []}
+        assert result["ac_count"] == 1
+        assert result["nfr_categories"] == []
+
+
 class TestParseOutOfScope:
     """Tests for out-of-scope extraction from fetched STRAT content."""
 
@@ -308,3 +365,28 @@ class TestTestabilityHeadingMatch:
         assert result["count"] == 3
         ac_texts = [ac["text"] for ac in result["acceptance_criteria"]]
         assert any("throttled" in t for t in ac_texts)
+
+
+class TestWorkflowInputsCLI:
+    """CLI-level tests for parse_strat.py's workflow-inputs — exercises the strategy-file read
+    failure path, which the underlying workflow_inputs() function never sees (it takes content,
+    not a path).
+    """
+
+    def test_unreadable_strategy_file_exits_one_with_structured_error(self, tmp_path, capsys):
+        # A directory can't be read as text — stands in for a bad/missing --strategy-file path.
+        old_argv = sys.argv
+        try:
+            sys.argv = ["parse_strat.py", "workflow-inputs", str(tmp_path)]
+            try:
+                main()
+            except SystemExit as exc:
+                assert exc.code == 1
+            else:
+                raise AssertionError("main() must exit with code 1")
+        finally:
+            sys.argv = old_argv
+
+        output = json.loads(capsys.readouterr().out)
+        assert output["status"] == "error"
+        assert isinstance(output["error"], str) and output["error"]

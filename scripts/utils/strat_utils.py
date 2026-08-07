@@ -137,6 +137,32 @@ def gate_inputs(content: str) -> dict:
     return {"ac_count": ac["count"], "nfr_categories": categories}
 
 
+def workflow_inputs(content: str) -> dict:
+    """Combine AC/NFR/out-of-scope parsing with gate_inputs for test-plan-create's Step 1.5: one
+    call in place of four separate parse_strat.py subcommands plus inline jq/bash validation.
+
+    Returns ``{"status": "no_acceptance_criteria", "ac_json": {...}}`` when the strategy has zero
+    parseable acceptance criteria — a content problem the caller must handle explicitly (STOP and
+    record a Rework verdict), not conflate with a parsing/execution failure. Otherwise returns
+    ``{"status": "ok", "ac_json": ..., "nfr_json": ..., "oos_json": ..., "ac_count": ...,
+    "nfr_categories": [...]}`` with ``nfr_json``/``oos_json`` preserving their own ``found`` flag
+    (a strategy legitimately lacking either section is not an error).
+    """
+    ac_json = parse_acceptance_criteria(content)
+    if not ac_json["found"] or ac_json["count"] == 0:
+        return {"status": "no_acceptance_criteria", "ac_json": ac_json}
+
+    inputs = gate_inputs(content)
+    return {
+        "status": "ok",
+        "ac_json": ac_json,
+        "nfr_json": parse_nfr(content),
+        "oos_json": parse_out_of_scope(content),
+        "ac_count": inputs["ac_count"],
+        "nfr_categories": inputs["nfr_categories"],
+    }
+
+
 def _parse_bullet_item(text: str) -> dict:
     """Parse a single bullet item, extracting bold title if present."""
     bold_match = re.match(r"^\*([^*]+)\*\s*(.*)", text)

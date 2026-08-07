@@ -22,6 +22,8 @@ import argparse
 import json
 import os
 import sys
+import yaml
+
 
 from scripts.utils.frontmatter_utils import read_frontmatter_validated, update_frontmatter
 from scripts.utils.schemas import ValidationError, compute_verdict_and_pass
@@ -122,16 +124,22 @@ def main():
     except json.JSONDecodeError as exc:
         print(f"enforce_citation_gate: malformed --ac-citations-result JSON: {exc}", file=sys.stderr)
         sys.exit(0)
+    if not isinstance(ac_citations, dict):
+        print("enforce_citation_gate: --ac-citations-result must be a JSON object", file=sys.stderr)
+        sys.exit(0)
 
     try:
         ac_coverage = json.loads(args.ac_coverage_result) if args.ac_coverage_result else None
     except json.JSONDecodeError as exc:
         print(f"enforce_citation_gate: malformed --ac-coverage-result JSON: {exc}", file=sys.stderr)
         sys.exit(0)
+    if ac_coverage is not None and not isinstance(ac_coverage, dict):
+        print("enforce_citation_gate: --ac-coverage-result must be a JSON object", file=sys.stderr)
+        sys.exit(0)
 
     try:
         result = enforce_citation_gate(args.feature_dir, ac_citations, ac_coverage)
-    except ValidationError as exc:
+    except (ValidationError, OSError, yaml.YAMLError) as exc:
         print(f"enforce_citation_gate: invalid TestPlanReview.md: {exc}", file=sys.stderr)
         sys.exit(0)
 

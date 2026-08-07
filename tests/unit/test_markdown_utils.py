@@ -76,6 +76,13 @@ class TestCitationRejectsIncompleteFields:
         assert has_citation(text) is True
         assert parse_citations(text)[0] == {"kind": "NFR", "number": None, "category": "Security"}
 
+    def test_hyphenated_nfr_category_is_not_truncated_at_the_intra_word_hyphen(self):
+        # "Multi-tenancy" has no whitespace around its internal hyphen, unlike the em-dash
+        # separator before the rationale — the hyphen must not be mistaken for the separator.
+        text = "Verify isolation (NFR: Multi-tenancy — data is isolated)"
+        assert has_citation(text) is True
+        assert parse_citations(text)[0] == {"kind": "NFR", "number": None, "category": "Multi-tenancy"}
+
 
 class TestCitationSeparatorVariants:
     """The separator must accept ASCII hyphen, en dash, and em dash interchangeably."""
@@ -236,7 +243,7 @@ class TestParseCitationsMultiple:
 # of CITATION_RE cause O(n^2) backtracking on inputs that open `(NFR:` but never
 # supply the required dash separator or closing paren.
 #
-# The fix is to bound those quantifiers to a finite width (≤ 512 chars each).
+# The fix is to bound those quantifiers to a finite width (≤ 1024 chars each).
 # After the fix all five tests below must be GREEN.  Before the fix the two
 # time-budget tests are RED — but note that they are *slow* failures: the
 # pathological input causes ~85 s of regex scanning before the assertion fires.

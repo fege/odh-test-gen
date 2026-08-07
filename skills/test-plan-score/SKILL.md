@@ -87,37 +87,29 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
    If neither Jira API nor local file is available, warn the user and proceed — grounding and scope fidelity will be scored based on plan consistency only.
 
-4. Compute AC/NFR citation validity and coverage deterministically (mirrors `test-plan.review` Step 1). When a strategy file is available, run `gate-inputs` then `ac-citations` + `ac-coverage` on the test plan:
+4. Compute AC/NFR citation validity and coverage deterministically (mirrors `test-plan.review` Step 1.5) via `scripts/build_citation_inputs.py`, which derives `ac_count`/`nfr_categories` from `strategy_path` (or runs in degraded mode when it's empty) and calls the three validators directly:
 
    ```bash
    repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+   strategy_arg=()
+   [ -n "$strategy_path" ] && strategy_arg=(--strategy-file "$strategy_path")
 
-   interface_coverage_result=$(cd "$repo_root" && \
-       uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md || true)
+   gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> "${strategy_arg[@]}")
+   gate_exit=$?
+   [ -n "$strategy_file" ] && [ -f "$strategy_file" ] && rm "$strategy_file"
 
-   if [ -n "$strategy_path" ]; then
-       gate_inputs=$(cd "$repo_root" && uv run python scripts/parse_strat.py gate-inputs "$strategy_path")
-       # Clean up temp file now that gate-inputs has read it
-       [ -n "$strategy_file" ] && [ -f "$strategy_file" ] && rm "$strategy_file"
-       ac_count=$(echo "$gate_inputs" | jq -r '.ac_count // empty')
-       nfr_category_flags=()
-       while IFS= read -r cat; do [ -n "$cat" ] && nfr_category_flags+=(--nfr-category "$cat"); done < <(echo "$gate_inputs" | jq -r '.nfr_categories[]? // empty')
-
-       if [ -n "$ac_count" ]; then
-           ac_citations_result=$(cd "$repo_root" && \
-               uv run python scripts/validate.py ac-citations <feature_dir>/TestPlan.md --ac-count "$ac_count" "${nfr_category_flags[@]}" || true)
-           ac_coverage_result=$(cd "$repo_root" && \
-               uv run python scripts/validate.py ac-coverage <feature_dir>/TestPlan.md --ac-count "$ac_count" || true)
-       else
-           ac_citations_result=$(cd "$repo_root" && \
-               uv run python scripts/validate.py ac-citations <feature_dir>/TestPlan.md || true)
-       fi
-   else
-       # Degraded mode: presence-only citation check, no coverage
-       ac_citations_result=$(cd "$repo_root" && \
-           uv run python scripts/validate.py ac-citations <feature_dir>/TestPlan.md || true)
+   if [ "$gate_exit" -ne 0 ]; then
+       echo "ERROR: scripts/build_citation_inputs.py failed to construct citation gate inputs — stopping." >&2
+       echo "$gate_result" >&2
+       exit 1
    fi
+
+   interface_coverage_result=$(echo "$gate_result" | jq -c '.interface_coverage_result')
+   ac_citations_result=$(echo "$gate_result" | jq -c '.ac_citations_result')
+   ac_coverage_result=$(echo "$gate_result" | jq -c '.ac_coverage_result // empty')
    ```
+
+   A nonzero exit means gate-input construction itself failed (unreadable strategy file, a parsing bug) — that's an execution failure, not data about the test plan, so stop rather than silently falling back to degraded mode.
 
 ### Step 2: Score (fork)
 
