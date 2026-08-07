@@ -14,11 +14,12 @@ Usage:
 """
 
 import argparse
+import contextlib
 import json
 import os
 import re
+import secrets
 import sys
-import tempfile
 from pathlib import Path
 
 from scripts.utils.repo_utils import get_git_root
@@ -116,27 +117,51 @@ def cmd_new_strat_tmp(args):
     directory (mode 0700, created/enforced on every call) for an ephemeral Jira fetch — replaces
     bare `mktemp`, which would land in the shared system temp dir that _load_strat_content no
     longer trusts.
+
+    Uses descriptor-relative operations (O_NOFOLLOW + dir_fd) throughout instead of re-resolving
+    ".tmp" as a path string at each step: a path-based `mkdir(exist_ok=True)` silently accepts a
+    pre-existing symlink at ".tmp" (it only checks that the resolved target is a directory), and a
+    plain `os.chmod`/`tempfile.mkstemp(dir=...)` would then follow that symlink — retargeting the
+    mode change and the new file onto whatever directory the symlink points at (CWE-59/CWE-367).
+    Opening the parent with O_NOFOLLOW and operating on its descriptor for every subsequent step
+    means a symlink at ".tmp" is rejected outright rather than silently followed.
     """
     repo_root = get_git_root(str(Path(__file__).resolve().parent))
     if not repo_root:
         print(json.dumps({"created": False, "error": "repo_root_not_found"}, indent=2))
         sys.exit(1)
 
-    tmp_dir = Path(repo_root) / "artifacts" / "strat-tasks" / ".tmp"
-    # A separate mkdir-then-chmod would leave the directory briefly at the default (looser) mode
-    # before narrowing it. Forcing the umask during creation makes a freshly created dir 0700 from
-    # its first instant; the chmod afterward is a no-op there and only self-heals a pre-existing
-    # directory left over from before this fix.
-    old_umask = os.umask(0o077)
+    strat_root = Path(repo_root) / "artifacts" / "strat-tasks"
+    strat_root.mkdir(parents=True, exist_ok=True)
+
     try:
-        tmp_dir.mkdir(parents=True, exist_ok=True)
-    finally:
-        os.umask(old_umask)
-    os.chmod(tmp_dir, 0o700)
+        root_fd = os.open(strat_root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            with contextlib.suppress(FileExistsError):
+                os.mkdir(".tmp", 0o700, dir_fd=root_fd)
+            tmp_fd = os.open(".tmp", os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=root_fd)
+        finally:
+            os.close(root_fd)
 
-    fd, path = tempfile.mkstemp(prefix="strategy.", suffix=".md", dir=tmp_dir)
-    os.close(fd)
+        try:
+            os.fchmod(tmp_fd, 0o700)
+            for _ in range(10):
+                name = f"strategy.{secrets.token_hex(8)}.md"
+                try:
+                    file_fd = os.open(name, os.O_CREAT | os.O_EXCL | os.O_RDWR, 0o600, dir_fd=tmp_fd)
+                    os.close(file_fd)
+                    break
+                except FileExistsError:
+                    continue
+            else:
+                raise OSError("failed to create a unique strategy temp file")
+        finally:
+            os.close(tmp_fd)
+    except OSError:
+        print(json.dumps({"created": False, "error": "strategy_tmp_unavailable"}, indent=2))
+        sys.exit(1)
 
+    path = str(strat_root / ".tmp" / name)
     print(json.dumps({"created": True, "strategy_file": path}, indent=2))
     sys.exit(0)
 

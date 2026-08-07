@@ -563,3 +563,21 @@ class TestCmdNewStratTmp:
 
         assert exit_code == 1
         assert output == {"created": False, "error": "repo_root_not_found"}
+
+    def test_preexisting_symlink_at_tmp_is_rejected_not_followed(self, tmp_path, monkeypatch, run_cli):
+        # CWE-59/CWE-367: a path-based mkdir(exist_ok=True) + chmod + mkstemp(dir=...) would
+        # silently follow a pre-existing symlink at .tmp, chmod'ing and writing into whatever
+        # directory it points at. The O_NOFOLLOW dir_fd chain must reject this outright.
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        attacker_dir = tmp_path / "attacker_dir"
+        attacker_dir.mkdir()
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        (strat_dir / ".tmp").symlink_to(attacker_dir)
+
+        exit_code, output = run_cli(main, ["new-strat-tmp"])
+
+        assert exit_code == 1
+        assert output == {"created": False, "error": "strategy_tmp_unavailable"}
+        assert (attacker_dir.stat().st_mode & 0o777) != 0o700
+        assert list(attacker_dir.iterdir()) == []
