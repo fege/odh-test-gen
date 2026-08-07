@@ -67,4 +67,9 @@ Add what changed and why to the review file's `## Revision History` section. For
 - **Consistency**: {what was changed}
 ```
 
+Use exactly this format — the `### Cycle {N} Revision` heading plus per-criterion bullets. Do not
+add any other standalone bold line (e.g. a bold intro sentence or a bold "TBDs retained" summary)
+before or after the bullet list; bold text belongs only as the inline criterion label at the start
+of a bullet.
+
 Do not return a summary. Your work is complete when the test plan has been processed and `auto_revised` accurately reflects whether changes were made.

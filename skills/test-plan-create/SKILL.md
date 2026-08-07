@@ -153,20 +153,23 @@ If environment variables are set, proceed to Step 0.3.
 
 ### Step 1: Gather Information
 
-1. **Strategy**: If a Jira key was provided, fetch it using the `fetch_issue.py` script. The strategy contains both the technical approach (HOW) and the business need (WHAT/WHY). If auto-detected, read the local file from `artifacts/strat-tasks/` instead — do NOT fetch.
+1. **Strategy**: If a Jira key was provided, fetch it using the `fetch_issue.py` script. If auto-detected, read the local file from `artifacts/strat-tasks/` instead — do NOT fetch.
 
    **Fetching from Jira:**
    ```bash
-   strategy_file=$(mktemp)
+   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+   tmp_result=$(cd "$repo_root" && uv run python scripts/parse_strat.py new-strat-tmp) || exit 1
+   strategy_file=$(echo "$tmp_result" | jq -r '.strategy_file')
    strategy_is_temp=true
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+   (cd "$repo_root" && \
     uv run python scripts/fetch_issue.py <JIRA_KEY> --output "$strategy_file")
    strategy_content=$(cat "$strategy_file")
    ```
 
    **Auto-detected from `artifacts/strat-tasks/<JIRA_KEY>.md`** (shared cache, other skills use it as a Jira-outage fallback — never delete, see Step 1.5):
    ```bash
-   strategy_file="$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)/artifacts/strat-tasks/<JIRA_KEY>.md"
+   resolve_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/parse_strat.py resolve-local "<JIRA_KEY>") || exit 1
+   strategy_file=$(echo "$resolve_result" | jq -r '.strategy_file')
    strategy_is_temp=false
    strategy_content=$(cat "$strategy_file")
    ```
@@ -182,28 +185,35 @@ Run the STRAT parser on the fetched strategy file to extract structured data det
 
 ```bash
 repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
-ac_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py acceptance-criteria "$strategy_file")
-ac_exit=$?
-nfr_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py nfr "$strategy_file") || nfr_json=""
-oos_json=$(cd "$repo_root" && uv run python scripts/parse_strat.py out-of-scope "$strategy_file") || oos_json=""
-gate_inputs=$(cd "$repo_root" && uv run python scripts/parse_strat.py gate-inputs "$strategy_file")
+gate_result=$(cd "$repo_root" && uv run python scripts/parse_strat.py workflow-inputs "$strategy_file")
 gate_exit=$?
 [ "$strategy_is_temp" = "true" ] && rm "$strategy_file"
-ac_count=$(echo "$gate_inputs" | jq -r '.ac_count // empty')
-if [ "$gate_exit" -ne 0 ] || ! echo "$ac_count" | grep -Eq '^[0-9]+$'; then
-  echo "gate-inputs failed or produced invalid ac_count ('$ac_count'); cannot proceed" >&2
+
+if [ "$gate_exit" -ne 0 ]; then
+  echo "workflow-inputs failed to parse the strategy; cannot proceed" >&2
+  echo "$gate_result" >&2
   exit 1
 fi
-nfr_category_flags=()
-while IFS= read -r cat; do [ -n "$cat" ] && nfr_category_flags+=(--nfr-category "$cat"); done < <(echo "$gate_inputs" | jq -r '.nfr_categories[]? // empty')
-strat_gaps=""
-[ -z "$nfr_json" ] && strat_gaps="${strat_gaps}- Strategy has no Non-Functional Requirements section.\n"
-[ -z "$oos_json" ] && strat_gaps="${strat_gaps}- Strategy has no Out-of-Scope section.\n"
+
+gate_status=$(echo "$gate_result" | jq -r '.status')
+
+if [ "$gate_status" = "ok" ]; then
+  ac_json=$(echo "$gate_result" | jq -c '.ac_json')
+  nfr_json=$(echo "$gate_result" | jq -c 'if .nfr_json.found then .nfr_json else empty end')
+  oos_json=$(echo "$gate_result" | jq -c 'if .oos_json.found then .oos_json else empty end')
+  ac_count=$(echo "$gate_result" | jq -r '.ac_count')
+  nfr_category_flags=()
+  while IFS= read -r cat; do [ -n "$cat" ] && nfr_category_flags+=(--nfr-category "$cat"); done < <(echo "$gate_result" | jq -r '.nfr_categories[]? // empty')
+  strat_gaps=""
+  [ -z "$nfr_json" ] && strat_gaps="${strat_gaps}- Strategy has no Non-Functional Requirements section.\n"
+  [ -z "$oos_json" ] && strat_gaps="${strat_gaps}- Strategy has no Out-of-Scope section.\n"
+fi
+
 feature_name="<user-provided feature directory name from Inputs (Optional) if given, else snake_case derived from the strategy title>"
 (cd "$repo_root" && uv run python scripts/validate.py feature-name "$feature_name") || exit 1
 ```
 
-**If `$ac_exit` is non-zero** (no ACs found or count is 0), **STOP immediately**:
+**If `$gate_status` is `no_acceptance_criteria`** (no ACs found or count is 0), **STOP immediately**:
 1. Create `mkdir -p -- "$feature_name"` and write a lowest-score review:
    ```bash
    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set \
@@ -284,7 +294,7 @@ If the script exits with an error, fix the field values and retry — do not wri
 
 ### Step 3.2: Validate Generated Test Plan
 
-After setting frontmatter, run the deterministic validation checks (`$ac_count`/`$nfr_category_flags` were parsed from `gate_inputs` in Step 1.5 — Step 1.5's STOP gate guarantees `$ac_count` is set here):
+After setting frontmatter, run the deterministic validation checks (`$ac_count`/`$nfr_category_flags` were parsed in Step 1.5 — Step 1.5's STOP gate guarantees `$ac_count` is set here):
 
 ```bash
 testplan="<absolute_path_to_output_dir>/<feature_name>/TestPlan.md"

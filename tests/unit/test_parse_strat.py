@@ -1,13 +1,17 @@
 """Unit tests for scripts/parse_strat.py — STRAT section extraction."""
 
-import pytest
+import tempfile
 from pathlib import Path
 
+import pytest
+
+from scripts.parse_strat import _load_strat_content, main
 from scripts.utils.strat_utils import (
     gate_inputs,
     parse_acceptance_criteria,
     parse_nfr,
     parse_out_of_scope,
+    workflow_inputs,
 )
 from tests.helpers import strat_with_testability_heading
 from tests.constants import (
@@ -235,6 +239,58 @@ class TestGateInputs:
         assert result["nfr_categories"] == ["Security, Privacy"]
 
 
+class TestWorkflowInputs:
+    """Tests for workflow_inputs — test-plan-create's combined pre-generation gate, replacing
+    four separate parse_strat.py subcommand calls plus inline jq/bash validation in SKILL.md.
+    """
+
+    def test_ok_status_combines_all_sections_from_real_strat(self):
+        content = (FIXTURES_DIR / "strat-1737.md").read_text()
+
+        result = workflow_inputs(content)
+
+        assert result["status"] == "ok"
+        assert result["ac_json"]["count"] == 10
+        assert result["nfr_json"]["found"] is True
+        assert result["oos_json"]["found"] is True
+        assert result["ac_count"] == 10
+        assert "Performance" in result["nfr_categories"]
+
+    def test_no_acceptance_criteria_status_when_section_absent(self):
+        content = "h3. Requirements\n\nSome text.\n\nh3. Risks\n\nSome risks.\n"
+
+        result = workflow_inputs(content)
+
+        assert result == {
+            "status": "no_acceptance_criteria",
+            "ac_json": {"found": False, "count": 0, "acceptance_criteria": []},
+        }
+
+    def test_no_acceptance_criteria_status_when_section_present_but_empty(self):
+        content = "h3. Acceptance Criteria (Proposed -- requires PM/Engineering validation)\n\nh3. Effort Estimate\n"
+
+        result = workflow_inputs(content)
+
+        assert result["status"] == "no_acceptance_criteria"
+        assert result["ac_json"]["found"] is True
+        assert result["ac_json"]["count"] == 0
+
+    def test_missing_nfr_and_oos_sections_preserve_found_false_not_squashed(self):
+        content = (
+            "h3. Acceptance Criteria\n\n"
+            "# Given a user registers a store, then it persists\n\n"
+            "h3. Risks\n\nSome risks.\n"
+        )
+
+        result = workflow_inputs(content)
+
+        assert result["status"] == "ok"
+        assert result["nfr_json"] == {"found": False, "requirements": []}
+        assert result["oos_json"] == {"found": False, "count": 0, "items": []}
+        assert result["ac_count"] == 1
+        assert result["nfr_categories"] == []
+
+
 class TestParseOutOfScope:
     """Tests for out-of-scope extraction from fetched STRAT content."""
 
@@ -308,3 +364,220 @@ class TestTestabilityHeadingMatch:
         assert result["count"] == 3
         ac_texts = [ac["text"] for ac in result["acceptance_criteria"]]
         assert any("throttled" in t for t in ac_texts)
+
+
+class TestWorkflowInputsCLI:
+    """CLI-level tests for parse_strat.py's workflow-inputs — exercises the strategy-file read
+    failure path, which the underlying workflow_inputs() function never sees (it takes content,
+    not a path).
+    """
+
+    def test_unreadable_strategy_file_exits_one_with_structured_error(self, tmp_path, run_cli, monkeypatch):
+        # A directory, placed *inside* the permitted root, so this exercises the OSError-on-read
+        # path specifically — distinct from test_strat_file_outside_permitted_roots_is_rejected,
+        # which exercises the containment rejection (ValueError) path.
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        unreadable_dir = strat_dir / "not-a-file.md"
+        unreadable_dir.mkdir(parents=True)
+
+        exit_code, output = run_cli(main, ["workflow-inputs", str(unreadable_dir)])
+
+        assert exit_code == 1
+        assert output == {"status": "error", "error": "strategy_file_unreadable"}
+
+    def test_strat_file_outside_permitted_roots_is_rejected(self, run_cli):
+        # A real, readable file — just not under artifacts/strat-tasks/ or its .tmp/ subdir.
+        # Proves containment is enforced by location, not by whether the file happens to exist.
+        outside_file = FIXTURES_DIR / "strat-1737.md"
+
+        exit_code, output = run_cli(main, ["workflow-inputs", str(outside_file)])
+
+        assert exit_code == 1
+        assert output == {"status": "error", "error": "strategy_file_unreadable"}
+
+
+class TestLoadStratContentContainment:
+    """Unit tests for _load_strat_content's path-containment guard, shared by all four
+    subcommands. Every documented caller passes either a path under artifacts/strat-tasks/ (the
+    persistent local cache) or artifacts/strat-tasks/.tmp/ (ephemeral Jira fetches) — never the
+    shared system temp dir. Anything else must be rejected before the file is read.
+    """
+
+    def test_artifacts_strat_tasks_file_is_permitted(self, tmp_path, monkeypatch):
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        strat_file = strat_dir / "RHAISTRAT-1746.md"
+        strat_file.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
+        assert "Given X" in _load_strat_content(str(strat_file))
+
+    def test_artifacts_strat_tasks_tmp_file_is_permitted(self, tmp_path, monkeypatch):
+        # The ephemeral-fetch location: artifacts/strat-tasks/.tmp/, created mode-0700 by the
+        # SKILL.md writers instead of using the shared system temp dir.
+        tmp_dir = tmp_path / "artifacts" / "strat-tasks" / ".tmp"
+        tmp_dir.mkdir(parents=True)
+        strat_file = tmp_dir / "strategy.abc123.md"
+        strat_file.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
+        assert "Given X" in _load_strat_content(str(strat_file))
+
+    def test_file_outside_both_permitted_roots_is_rejected(self):
+        outside_file = FIXTURES_DIR / "strat-1737.md"
+
+        with pytest.raises(ValueError, match="strategy_file_not_permitted"):
+            _load_strat_content(str(outside_file))
+
+    def test_real_system_temp_dir_file_is_no_longer_permitted(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md") as f:
+            f.write("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+            f.flush()
+
+            with pytest.raises(ValueError, match="strategy_file_not_permitted"):
+                _load_strat_content(f.name)
+
+    def test_no_repo_root_is_rejected(self, monkeypatch):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: None)
+
+        with pytest.raises(ValueError, match="strategy_file_not_permitted"):
+            _load_strat_content("/etc/hosts")
+
+    def test_traversal_out_of_artifacts_strat_tasks_is_rejected(self, tmp_path, monkeypatch):
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        secret_file = tmp_path / "artifacts" / "secret.md"
+        secret_file.write_text("top secret")
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
+        with pytest.raises(ValueError, match="strategy_file_not_permitted"):
+            _load_strat_content(str(strat_dir / ".." / "secret.md"))
+
+    def test_symlink_pointing_outside_permitted_roots_is_rejected(self, tmp_path, monkeypatch):
+        # resolve() dereferences the symlink before the containment check runs, so a symlink
+        # sitting inside the permitted root but pointing outside it must still be rejected.
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        secret_file = tmp_path / "secret.md"
+        secret_file.write_text("top secret")
+        link = strat_dir / "RHAISTRAT-1746.md"
+        link.symlink_to(secret_file)
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
+        with pytest.raises(ValueError, match="strategy_file_not_permitted"):
+            _load_strat_content(str(link))
+
+
+class TestCmdResolveLocal:
+    """CLI-level tests for parse_strat.py's resolve-local — validates a Jira key before
+    turning it into a filesystem path, closing the gap where test-plan-create/SKILL.md
+    used to splice an unvalidated <JIRA_KEY> directly into artifacts/strat-tasks/<KEY>.md.
+    """
+
+    def _run(self, jira_key, tmp_path, monkeypatch, run_cli, create_file=True):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        if create_file:
+            strat_dir = tmp_path / "artifacts" / "strat-tasks"
+            strat_dir.mkdir(parents=True)
+            (strat_dir / f"{jira_key}.md").write_text("content")
+
+        return run_cli(main, ["resolve-local", jira_key])
+
+    def test_valid_key_with_cached_file_resolves(self, tmp_path, monkeypatch, run_cli):
+        exit_code, output = self._run("RHAISTRAT-1746", tmp_path, monkeypatch, run_cli)
+
+        assert exit_code == 0
+        assert output["found"] is True
+        assert output["strategy_file"] == str(tmp_path / "artifacts" / "strat-tasks" / "RHAISTRAT-1746.md")
+
+    def test_valid_key_without_cached_file_fails(self, tmp_path, monkeypatch, run_cli):
+        exit_code, output = self._run("RHAISTRAT-9999999", tmp_path, monkeypatch, run_cli, create_file=False)
+
+        assert exit_code == 1
+        assert output == {"found": False, "error": "strategy_file_not_found"}
+
+    @pytest.mark.parametrize(
+        "jira_key",
+        [
+            "../../etc/passwd",
+            "EVILPROJ-1",  # well-shaped but not one of the three real prefixes
+            "rhaistrat-1746",  # lowercase
+            "RHAISTRAT-",  # missing number
+            "RHAISTRAT-1746; rm -rf /",
+        ],
+    )
+    def test_malformed_or_disallowed_key_is_rejected_before_touching_disk(
+        self, jira_key, tmp_path, monkeypatch, run_cli
+    ):
+        exit_code, output = self._run(jira_key, tmp_path, monkeypatch, run_cli, create_file=False)
+
+        assert exit_code == 1
+        assert output == {"found": False, "error": "malformed_jira_key"}
+
+
+class TestCmdNewStratTmp:
+    """CLI-level tests for parse_strat.py's new-strat-tmp — replaces bare `mktemp` in SKILL.md
+    writers so ephemeral Jira fetches land in the owned, mode-0700 artifacts/strat-tasks/.tmp/
+    directory that _load_strat_content actually trusts, not the shared system temp dir.
+    """
+
+    def test_creates_owned_tmp_dir_with_mode_0700(self, tmp_path, monkeypatch, run_cli):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
+        exit_code, output = run_cli(main, ["new-strat-tmp"])
+
+        assert exit_code == 0
+        assert output["created"] is True
+        tmp_dir = tmp_path / "artifacts" / "strat-tasks" / ".tmp"
+        assert tmp_dir.is_dir()
+        assert (tmp_dir.stat().st_mode & 0o777) == 0o700
+
+    def test_returned_file_is_inside_owned_tmp_dir_and_readable_by_load_strat_content(
+        self, tmp_path, monkeypatch, run_cli
+    ):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
+        _, output = run_cli(main, ["new-strat-tmp"])
+
+        strategy_file = Path(output["strategy_file"])
+        tmp_dir = tmp_path / "artifacts" / "strat-tasks" / ".tmp"
+        assert strategy_file.is_relative_to(tmp_dir)
+        assert strategy_file.is_file()
+
+        strategy_file.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+        assert "Given X" in _load_strat_content(str(strategy_file))
+
+    def test_repeated_calls_produce_distinct_files(self, tmp_path, monkeypatch, run_cli):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
+        _, first = run_cli(main, ["new-strat-tmp"])
+        _, second = run_cli(main, ["new-strat-tmp"])
+
+        assert first["strategy_file"] != second["strategy_file"]
+
+    def test_no_repo_root_fails_cleanly(self, monkeypatch, run_cli):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: None)
+
+        exit_code, output = run_cli(main, ["new-strat-tmp"])
+
+        assert exit_code == 1
+        assert output == {"created": False, "error": "repo_root_not_found"}
+
+    def test_preexisting_symlink_at_tmp_is_rejected_not_followed(self, tmp_path, monkeypatch, run_cli):
+        # CWE-59/CWE-367: a path-based mkdir(exist_ok=True) + chmod + mkstemp(dir=...) would
+        # silently follow a pre-existing symlink at .tmp, chmod'ing and writing into whatever
+        # directory it points at. The O_NOFOLLOW dir_fd chain must reject this outright.
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        attacker_dir = tmp_path / "attacker_dir"
+        attacker_dir.mkdir()
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        (strat_dir / ".tmp").symlink_to(attacker_dir)
+
+        exit_code, output = run_cli(main, ["new-strat-tmp"])
+
+        assert exit_code == 1
+        assert output == {"created": False, "error": "strategy_tmp_unavailable"}
+        assert (attacker_dir.stat().st_mode & 0o777) != 0o700
+        assert list(attacker_dir.iterdir()) == []

@@ -92,14 +92,17 @@ def parse_numbered_objectives(lines: list) -> list:
 # (ReDoS) rescanning when the regex engine backtracks on unterminated input.
 _DASH = r"[-\u2013\u2014]"
 _MAX = 1024  # upper bound on field-width quantifiers — prevents ReDoS backtracking
-CITATION_RE = re.compile(
-    r"\((?:AC:\s*(?:#\d{1,%d})?|NFR:\s*[^\s\-\u2013\u2014)][^\-\u2013\u2014)]{0,%d})\s*" % (_MAX, _MAX)
-    + _DASH
-    + r"\s*[^\s)][^)]{0,%d}\)" % _MAX
-)
+
+# The NFR category may itself contain an intra-word hyphen (e.g. "Multi-tenancy"). Only a dash
+# with whitespace on both sides is the separator -- an unspaced hyphen is part of the category
+# text, not a terminator. The AC branch has no free-text category, so this ambiguity doesn't
+# apply there; its dash stays whitespace-tolerant on both sides as before.
+_AC_BRANCH = r"AC:\s*(?:#\d{1,%d})?\s*" % _MAX + _DASH + r"\s*"
+_NFR_BRANCH = r"NFR:\s*[^\s\-\u2013\u2014)][^)]{0,%d}?\s+" % _MAX + _DASH + r"\s+"
+CITATION_RE = re.compile(r"\((?:" + _AC_BRANCH + "|" + _NFR_BRANCH + r")[^\s)][^)]{0,%d}\)" % _MAX)
 _AC_CITATION_RE = re.compile(r"\(AC:\s*(?:#(\d{1,%d}))?\s*" % _MAX + _DASH + r"\s*[^\s)][^)]{0,%d}\)" % _MAX)
 _NFR_CITATION_RE = re.compile(
-    r"\(NFR:\s*([^\s\-\u2013\u2014)][^\-\u2013\u2014)]{0,%d})\s*" % _MAX + _DASH + r"\s*[^\s)][^)]{0,%d}\)" % _MAX
+    r"\(NFR:\s*([^\s\-\u2013\u2014)][^)]{0,%d}?)\s+" % _MAX + _DASH + r"\s+[^\s)][^)]{0,%d}\)" % _MAX
 )
 
 

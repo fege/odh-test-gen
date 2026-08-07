@@ -291,6 +291,43 @@ SCHEMAS = {
 }
 
 
+# ─── Review Scoring ─────────────────────────────────────────────────────────────
+
+REVIEW_CRITERIA = ("specificity", "grounding", "scope_fidelity", "actionability", "consistency")
+"""The five review-rubric criteria, in canonical order.
+
+Must stay in sync with ``scores`` sub-fields in ``SCHEMAS["test-plan-review"]`` above.
+"""
+
+
+def compute_verdict_and_pass(scores: dict) -> tuple[str, int, bool]:
+    """Single Python authority for the review verdict/pass formula.
+
+    Implements the rubric rules documented in
+    ``skills/test-plan-review/prompts/review-agent.md`` (Step 4 — Determine
+    Verdict, Step 5 — ``pass`` definition).  Any future rubric change MUST
+    update both that prompt and this function together.
+
+    Args:
+        scores: dict mapping each criterion name to its int score (0-2).
+
+    Returns:
+        (verdict, total_score, passed) where *verdict* is one of
+        ``"Ready"``/``"Revise"``/``"Rework"``, *total_score* is the sum of
+        all criterion scores, and *passed* is the rubric-pass boolean.
+    """
+    total = sum(scores[k] for k in REVIEW_CRITERIA)
+    no_zero = all(scores[k] > 0 for k in REVIEW_CRITERIA)
+    if total >= 8 and no_zero:
+        verdict = "Ready"
+    elif total == 7 and no_zero:
+        verdict = "Revise"
+    else:
+        verdict = "Rework"
+    passed = total >= 7 and no_zero
+    return verdict, total, passed
+
+
 # ─── Test Plan Structure Schema ───────────────────────────────────────────────────
 
 _TEMPLATE_PATH = Path(__file__).resolve().parent.parent.parent / "skills" / "test-plan-create" / "test-plan-template.md"
@@ -485,28 +522,25 @@ def validate(data, schema_type):
         errors.extend(_validate_field(field_name, data.get(field_name), field_spec))
 
     if schema_type == "test-plan-review":
-        criteria = (
-            "specificity",
-            "grounding",
-            "scope_fidelity",
-            "actionability",
-            "consistency",
-        )
         scores = data.get("scores")
         score = data.get("score")
         if isinstance(scores, dict) and isinstance(score, int):
-            if all(isinstance(scores.get(k), int) for k in criteria):
-                expected = sum(scores[k] for k in criteria)
-                if score != expected:
-                    errors.append(f"score: expected {expected} from scores.*, got {score}")
+            if all(isinstance(scores.get(k), int) for k in REVIEW_CRITERIA):
+                expected_verdict, expected_total, expected_pass = compute_verdict_and_pass(scores)
+                if score != expected_total:
+                    errors.append(f"score: expected {expected_total} from scores.*, got {score}")
+                if data.get("verdict") != expected_verdict:
+                    errors.append(f"verdict: expected {expected_verdict!r} from scores.*, got {data.get('verdict')!r}")
+                if data.get("pass") != expected_pass:
+                    errors.append(f"pass: expected {expected_pass} from scores.*, got {data.get('pass')}")
 
         before_scores = data.get("before_scores")
         before_score = data.get("before_score")
         if (before_score is None) != (before_scores is None):
             errors.append("before_score and before_scores must both be set or both be null")
         if isinstance(before_scores, dict) and isinstance(before_score, int):
-            if all(isinstance(before_scores.get(k), int) for k in criteria):
-                expected_before = sum(before_scores[k] for k in criteria)
+            if all(isinstance(before_scores.get(k), int) for k in REVIEW_CRITERIA):
+                expected_before = sum(before_scores[k] for k in REVIEW_CRITERIA)
                 if before_score != expected_before:
                     errors.append(f"before_score: expected {expected_before} from before_scores.*, got {before_score}")
 

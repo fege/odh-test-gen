@@ -240,4 +240,4 @@ be filled by `/coverage-assessment`. Leave both empty until then.}
 
 ---
 
-**End of Test Plan**
+## End of Test Plan

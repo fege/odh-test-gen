@@ -1,11 +1,36 @@
 """Shared fixtures for unit and integration tests."""
 
+import json
 import subprocess
+import sys
 
 import pytest
 
 from tests.constants import VALID_TC_CONTENT
 from tests.helpers import write_valid_testplan
+
+
+@pytest.fixture
+def run_cli(capsys):
+    """Run a script's argparse main() with the given argv, returning (exit_code, parsed_json).
+
+    Usage: exit_code, output = run_cli(scripts.parse_strat.main, ["workflow-inputs", path])
+    """
+
+    def _run(main_func, argv):
+        old_argv = sys.argv
+        try:
+            sys.argv = [old_argv[0], *argv]
+            try:
+                main_func()
+                exit_code = 0
+            except SystemExit as exc:
+                exit_code = exc.code
+        finally:
+            sys.argv = old_argv
+        return exit_code, json.loads(capsys.readouterr().out)
+
+    return _run
 
 
 @pytest.fixture

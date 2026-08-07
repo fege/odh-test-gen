@@ -14,7 +14,7 @@ def _base_review_payload():
         "source_key": "RHAISTRAT-1290",
         "score": 8,
         "pass": True,
-        "verdict": "Revise",
+        "verdict": "Ready",
         "scores": {
             "specificity": 2,
             "grounding": 2,
