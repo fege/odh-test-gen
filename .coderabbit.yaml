@@ -8,17 +8,15 @@ reviews:
   auto_review:
     auto_pause_after_reviewed_commits: 0
 
-  # Ensure we don't waste budget on dependencies, but scan all logic paths
+  # Ensure we don't waste budget on dependencies/lint noise, but scan all
+  # logic and enforcement paths (pre-commit hooks, Makefile targets, agent
+  # instructions) so those can't be weakened without review.
   path_filters:
     - "!uv.lock"
-    - "!.pre-commit-config.yaml"
     - "!.skillsaw.yaml"
     - "!.markdownlint.yaml"
-    - "!Makefile"
     - "!README.md"
     - "!CHANGELOG.md"
-    - "!CLAUDE.md"
-    - "!.flake8"
 
   path_instructions:
     # ── 1. Python Scripts (scripts/**/*.py) ───────────────────────────
@@ -26,7 +24,7 @@ reviews:
       instructions: |
         PYTHON DETERMINISTIC SCRIPTS:
         1. NO-LLM INVARIANT: Scripts in this directory must be fully deterministic. Flag any LLM or AI API call — none are allowed here.
-        2. SECRET PROTECTION: Never hardcode Jira or GitHub credentials. Credentials must be read from environment variables (JIRA_URL, JIRA_USER, JIRA_TOKEN). Flag any hardcoded secret or token.
+        2. SECRET PROTECTION: Never hardcode credentials. Jira credentials must be read from environment variables (JIRA_URL, JIRA_USER, JIRA_TOKEN); GitHub auth goes through the `gh` CLI's own session, not an env var. Secrets must never appear in command arguments, URLs, logs, exception messages, JSON output, or generated artifacts. Flag any hardcoded secret, token, or leaked credential in output.
         3. STRUCTURED ERRORS: Avoid silent failures and raw unhandled exceptions surfacing to the caller. Errors should be caught and returned as a structured JSON block, e.g. {"status": "failed", "error": "..."}.
 
     # ── 2. Claude Code Plugin Skills (skills/**/*.md) ──────────────────
