@@ -25,7 +25,8 @@ reviews:
         PYTHON DETERMINISTIC SCRIPTS:
         1. NO-LLM INVARIANT: Scripts in this directory must be fully deterministic. Flag any LLM or AI API call — none are allowed here.
         2. SECRET PROTECTION: Never hardcode credentials. Jira credentials must be read from environment variables (JIRA_URL, JIRA_USER, JIRA_TOKEN); GitHub auth goes through the `gh` CLI's own session, not an env var. Secrets must never appear in command arguments, URLs, logs, exception messages, JSON output, or generated artifacts. Flag any hardcoded secret, token, or leaked credential in output.
-        3. STRUCTURED ERRORS: Avoid silent failures and raw unhandled exceptions surfacing to the caller. Errors should be caught and returned as a structured JSON block, e.g. {"status": "failed", "error": "..."}.
+        3. STRUCTURED ERRORS: CLI entry points must catch expected failures and return a structured JSON block, e.g. {"status": "failed", "error": "..."}.
+           Reusable helpers must preserve typed exceptions for callers and tests.
 
     # ── 2. Claude Code Plugin Skills (skills/**/*.md) ──────────────────
     - path: "skills/**/*.md"
