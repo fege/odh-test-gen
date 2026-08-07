@@ -166,7 +166,8 @@ If environment variables are set, proceed to Step 0.3.
 
    **Auto-detected from `artifacts/strat-tasks/<JIRA_KEY>.md`** (shared cache, other skills use it as a Jira-outage fallback — never delete, see Step 1.5):
    ```bash
-   strategy_file="$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)/artifacts/strat-tasks/<JIRA_KEY>.md"
+   resolve_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/parse_strat.py resolve-local "<JIRA_KEY>") || exit 1
+   strategy_file=$(echo "$resolve_result" | jq -r '.strategy_file')
    strategy_is_temp=false
    strategy_content=$(cat "$strategy_file")
    ```

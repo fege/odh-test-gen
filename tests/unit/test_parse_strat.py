@@ -2,11 +2,12 @@
 
 import json
 import sys
+import tempfile
 from pathlib import Path
 
 import pytest
 
-from scripts.parse_strat import main
+from scripts.parse_strat import _load_strat_content, main
 from scripts.utils.strat_utils import (
     gate_inputs,
     parse_acceptance_criteria,
@@ -390,3 +391,128 @@ class TestWorkflowInputsCLI:
         output = json.loads(capsys.readouterr().out)
         assert output["status"] == "error"
         assert isinstance(output["error"], str) and output["error"]
+
+    def test_strat_file_outside_permitted_roots_is_rejected(self, capsys):
+        # A real, readable file — just not under the mktemp temp dir or artifacts/strat-tasks/.
+        # Proves containment is enforced by location, not by whether the file happens to exist.
+        outside_file = FIXTURES_DIR / "strat-1737.md"
+        old_argv = sys.argv
+        try:
+            sys.argv = ["parse_strat.py", "workflow-inputs", str(outside_file)]
+            try:
+                main()
+            except SystemExit as exc:
+                assert exc.code == 1
+            else:
+                raise AssertionError("main() must exit with code 1")
+        finally:
+            sys.argv = old_argv
+
+        output = json.loads(capsys.readouterr().out)
+        assert output == {"status": "error", "error": "strategy_file_unreadable"}
+
+
+class TestLoadStratContentContainment:
+    """Unit tests for _load_strat_content's path-containment guard, shared by all four
+    subcommands. Every documented caller passes either a mktemp file or a path under
+    artifacts/strat-tasks/ — anything else must be rejected before the file is read.
+    """
+
+    def test_mktemp_file_is_permitted(self):
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=True) as f:
+            f.write("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+            f.flush()
+
+            assert "Given X" in _load_strat_content(f.name)
+
+    def _isolate_temp_root(self, tmp_path, monkeypatch):
+        # tmp_path itself lives under the real tempfile.gettempdir() tree, which would make the
+        # temp-dir allow-rule silently cover it too. Point it somewhere structurally disjoint so
+        # these tests actually exercise the artifacts/strat-tasks allow-rule in isolation.
+        fake_system_tmp = tmp_path.parent / "unrelated-system-tmp"
+        monkeypatch.setattr("scripts.parse_strat.tempfile.gettempdir", lambda: str(fake_system_tmp))
+
+    def test_artifacts_strat_tasks_file_is_permitted(self, tmp_path, monkeypatch):
+        self._isolate_temp_root(tmp_path, monkeypatch)
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        strat_file = strat_dir / "RHAISTRAT-1746.md"
+        strat_file.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
+        assert "Given X" in _load_strat_content(str(strat_file))
+
+    def test_file_outside_both_permitted_roots_is_rejected(self):
+        outside_file = FIXTURES_DIR / "strat-1737.md"
+
+        with pytest.raises(ValueError, match="strategy_file_not_permitted"):
+            _load_strat_content(str(outside_file))
+
+    def test_traversal_out_of_artifacts_strat_tasks_is_rejected(self, tmp_path, monkeypatch):
+        self._isolate_temp_root(tmp_path, monkeypatch)
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        secret_file = tmp_path / "artifacts" / "secret.md"
+        secret_file.write_text("top secret")
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
+        with pytest.raises(ValueError, match="strategy_file_not_permitted"):
+            _load_strat_content(str(strat_dir / ".." / "secret.md"))
+
+
+class TestCmdResolveLocal:
+    """CLI-level tests for parse_strat.py's resolve-local — validates a Jira key before
+    turning it into a filesystem path, closing the gap where test-plan-create/SKILL.md
+    used to splice an unvalidated <JIRA_KEY> directly into artifacts/strat-tasks/<KEY>.md.
+    """
+
+    def _run(self, jira_key, tmp_path, monkeypatch, capsys, create_file=True):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        if create_file:
+            strat_dir = tmp_path / "artifacts" / "strat-tasks"
+            strat_dir.mkdir(parents=True)
+            (strat_dir / f"{jira_key}.md").write_text("content")
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["parse_strat.py", "resolve-local", jira_key]
+            try:
+                main()
+                exit_code = 0
+            except SystemExit as exc:
+                exit_code = exc.code
+        finally:
+            sys.argv = old_argv
+
+        return exit_code, json.loads(capsys.readouterr().out)
+
+    def test_valid_key_with_cached_file_resolves(self, tmp_path, monkeypatch, capsys):
+        exit_code, output = self._run("RHAISTRAT-1746", tmp_path, monkeypatch, capsys)
+
+        assert exit_code == 0
+        assert output["found"] is True
+        assert output["strategy_file"] == str(tmp_path / "artifacts" / "strat-tasks" / "RHAISTRAT-1746.md")
+
+    def test_valid_key_without_cached_file_fails(self, tmp_path, monkeypatch, capsys):
+        exit_code, output = self._run("RHAISTRAT-9999999", tmp_path, monkeypatch, capsys, create_file=False)
+
+        assert exit_code == 1
+        assert output == {"found": False, "error": "strategy_file_not_found"}
+
+    @pytest.mark.parametrize(
+        "jira_key",
+        [
+            "../../etc/passwd",
+            "EVILPROJ-1",  # well-shaped but not one of the three real prefixes
+            "rhaistrat-1746",  # lowercase
+            "RHAISTRAT-",  # missing number
+            "RHAISTRAT-1746; rm -rf /",
+        ],
+    )
+    def test_malformed_or_disallowed_key_is_rejected_before_touching_disk(
+        self, jira_key, tmp_path, monkeypatch, capsys
+    ):
+        exit_code, output = self._run(jira_key, tmp_path, monkeypatch, capsys, create_file=False)
+
+        assert exit_code == 1
+        assert output == {"found": False, "error": "malformed_jira_key"}
