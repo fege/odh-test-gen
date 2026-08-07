@@ -43,8 +43,8 @@ def cmd_out_of_scope(args):
 def cmd_workflow_inputs(args):
     try:
         content = Path(args.strat_file).read_text()
-    except (OSError, UnicodeDecodeError) as exc:
-        print(json.dumps({"status": "error", "error": str(exc)}, indent=2))
+    except (OSError, UnicodeDecodeError):
+        print(json.dumps({"status": "error", "error": "strategy_file_unreadable"}, indent=2))
         sys.exit(1)
 
     result = workflow_inputs(content)

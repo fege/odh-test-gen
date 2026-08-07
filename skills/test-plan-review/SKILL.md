@@ -84,7 +84,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    fi
    ```
 
-   `strategy_file_path` (kept alive, not removed yet if it's the fetched temp file) is passed to `scripts/build_citation_inputs.py` in Step 1.5.
+   `strategy_file_path` (kept alive, not removed until Step 5) is passed to `scripts/build_citation_inputs.py` in Step 1.5 and reused on every re-score in Step 4e — the fetched temp file must survive all revision cycles, not just the first pass.
 
    If neither Jira API nor local file is available, warn the user that grounding and scope fidelity scoring will be degraded, and proceed with the test plan content only.
 
@@ -99,7 +99,6 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
    gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> "${strategy_arg[@]}")
    gate_exit=$?
-   [ -n "$strategy_file" ] && rm -f "$strategy_file"
 
    if [ "$gate_exit" -ne 0 ]; then
        echo "ERROR: scripts/build_citation_inputs.py failed to construct citation gate inputs — stopping review." >&2
@@ -270,6 +269,12 @@ If any criterion remains `< 2` and cycles remain, go back to 4a.
 If cycles are exhausted, stop and proceed to Step 5.
 
 ### Step 5: Present Results
+
+All revision cycles are complete — safe to remove the fetched temp strategy file now:
+
+```bash
+[ -n "$strategy_file" ] && rm -f "$strategy_file"
+```
 
 Read the final review file and present a summary to the user:
 
