@@ -581,3 +581,108 @@ class TestCmdNewStratTmp:
         assert output == {"created": False, "error": "strategy_tmp_unavailable"}
         assert (attacker_dir.stat().st_mode & 0o777) != 0o700
         assert list(attacker_dir.iterdir()) == []
+
+
+class TestCmdSaveSnapshot:
+    """CLI-level tests for parse_strat.py's save-snapshot — persists a fetched/cached strategy
+    file as <feature_dir>/.source-strategy.md for test-plan-create's snapshot-primary handoff to
+    test-plan.review/test-plan.score.
+    """
+
+    def test_temp_file_is_moved_not_left_behind(self, tmp_path, monkeypatch, run_cli):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        tmp_dir = tmp_path / "artifacts" / "strat-tasks" / ".tmp"
+        tmp_dir.mkdir(parents=True)
+        strategy_file = tmp_dir / "strategy.abc123.md"
+        strategy_file.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+        feature_dir = tmp_path / "mcp_catalog"
+
+        exit_code, output = run_cli(main, ["save-snapshot", str(strategy_file), str(feature_dir)])
+
+        assert exit_code == 0
+        assert output == {
+            "status": "ok",
+            "strategy_file": str(feature_dir / ".source-strategy.md"),
+            "source": "temp",
+            "components": [],
+        }
+        assert not strategy_file.exists()
+        assert "Given X" in (feature_dir / ".source-strategy.md").read_text()
+
+    def test_components_are_extracted_from_the_snapshot(self, tmp_path, monkeypatch, run_cli):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        strategy_file = strat_dir / "RHAISTRAT-1746.md"
+        strategy_file.write_text(
+            "# RHAISTRAT-1746: Vector store registration\n\n"
+            "## Metadata\n\n"
+            "- **Type**: Strategy\n"
+            "- **Components**: AI Hub, Model Serving\n"
+        )
+        feature_dir = tmp_path / "mcp_catalog"
+
+        exit_code, output = run_cli(main, ["save-snapshot", str(strategy_file), str(feature_dir)])
+
+        assert exit_code == 0
+        assert output["components"] == ["AI Hub", "Model Serving"]
+
+    def test_cache_file_is_copied_and_never_deleted(self, tmp_path, monkeypatch, run_cli):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        strategy_file = strat_dir / "RHAISTRAT-1746.md"
+        strategy_file.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+        feature_dir = tmp_path / "mcp_catalog"
+
+        exit_code, output = run_cli(main, ["save-snapshot", str(strategy_file), str(feature_dir)])
+
+        assert exit_code == 0
+        assert output["source"] == "cache"
+        assert strategy_file.is_file()  # shared cache is never deleted
+        assert "Given X" in (feature_dir / ".source-strategy.md").read_text()
+
+    def test_feature_dir_is_created_if_missing(self, tmp_path, monkeypatch, run_cli):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        strategy_file = strat_dir / "RHAISTRAT-1746.md"
+        strategy_file.write_text("content")
+        feature_dir = tmp_path / "not_yet_created"
+
+        exit_code, _ = run_cli(main, ["save-snapshot", str(strategy_file), str(feature_dir)])
+
+        assert exit_code == 0
+        assert feature_dir.is_dir()
+
+    def test_strat_file_outside_permitted_roots_is_rejected(self, tmp_path, run_cli):
+        outside_file = FIXTURES_DIR / "strat-1737.md"
+        feature_dir = tmp_path / "mcp_catalog"
+
+        exit_code, output = run_cli(main, ["save-snapshot", str(outside_file), str(feature_dir)])
+
+        assert exit_code == 1
+        assert output == {"status": "error", "error": "strategy_file_not_permitted"}
+        assert not feature_dir.exists()
+
+    def test_rejects_preexisting_symlink_at_destination(self, tmp_path, monkeypatch, run_cli):
+        # A pre-existing .source-strategy.md symlink could otherwise redirect the write to
+        # overwrite an arbitrary file the process has write access to. The kernel must reject
+        # this at open() time rather than the write silently following it.
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        strategy_file = strat_dir / "RHAISTRAT-1746.md"
+        strategy_file.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+
+        feature_dir = tmp_path / "mcp_catalog"
+        feature_dir.mkdir()
+        secret_file = tmp_path / "secret.md"
+        secret_file.write_text("TOP SECRET — must never be overwritten")
+        (feature_dir / ".source-strategy.md").symlink_to(secret_file)
+
+        exit_code, output = run_cli(main, ["save-snapshot", str(strategy_file), str(feature_dir)])
+
+        assert exit_code == 1
+        assert output["status"] == "error"
+        assert secret_file.read_text() == "TOP SECRET — must never be overwritten"

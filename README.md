@@ -362,9 +362,21 @@ scripts/
 ├── list_test_functions.py  # Extract test functions from Python files (AST)
 ├── load_pattern_guides.py  # Load CLAUDE.md and testing pattern guides
 ├── parse_test_score.py     # Parse test quality score assessments
+├── parse_test_cases.py     # Parse test case files into structured data
 ├── update_tc_frontmatter.py # Bulk update TC frontmatter fields
+├── analyze_common_setup.py # Identify common setup requirements across test cases
+├── extract_and_format_conventions.py # Extract conventions from odh-test-context as markdown
+├── format_conventions.py  # Format test conventions dict as markdown
+├── format_file_result.py  # Format test file generation result as JSON
+├── version.py              # Test plan version management
 ├── jira_utils.py           # Jira REST API client with retry logic
-├── fetch_issue.py          # Fetch Jira issues and save as markdown
+├── fetch_issue.py          # Fetch Jira issues, save as markdown, extract components
+├── parse_strat.py          # Parse STRAT sections; snapshot strategy files for test-plan-create
+├── resolve_strategy.py     # Snapshot-primary strategy resolution for test-plan-review/score
+├── build_citation_inputs.py # Build citation gate inputs (AC/NFR/interface coverage) from a strategy
+├── enforce_citation_gate.py # Deterministically cap Scope Fidelity when citation checks fail
+├── filter_for_revision.py # Decide whether a test plan review warrants revision
+├── preserve_review_state.py # Save/restore cumulative review state across re-assessment cycles
 ├── add_jira_labels.py      # Add labels to Jira issues (CLI wrapper)
 └── utils/                  # Shared utilities
     ├── schemas.py          # Schema validation (test-plan, test-case, test-gaps, review)
@@ -374,6 +386,8 @@ scripts/
     ├── repo_discovery.py   # Extract repo indicators from test plans
     ├── tc_parser.py        # Test case file parsing (extended with category/title extraction)
     ├── text_utils.py       # Text transformation utilities (snake_case conversion)
+    ├── markdown_utils.py   # Parse markdown section content
+    ├── strat_utils.py      # Parse STRAT sections from fetched Jira wiki markup
     └── test_analyzer.py    # Common setup requirements identification
 ```
 

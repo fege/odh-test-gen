@@ -160,34 +160,27 @@ If environment variables are set, proceed to Step 0.3.
    repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
    tmp_result=$(cd "$repo_root" && uv run python scripts/parse_strat.py new-strat-tmp) || exit 1
    strategy_file=$(echo "$tmp_result" | jq -r '.strategy_file')
-   strategy_is_temp=true
    (cd "$repo_root" && \
     uv run python scripts/fetch_issue.py <JIRA_KEY> --output "$strategy_file")
-   strategy_content=$(cat "$strategy_file")
    ```
 
-   **Auto-detected from `artifacts/strat-tasks/<JIRA_KEY>.md`** (shared cache, other skills use it as a Jira-outage fallback — never delete, see Step 1.5):
+   **Auto-detected from `artifacts/strat-tasks/<JIRA_KEY>.md`** (shared cache; also a Jira-outage fallback for other skills):
    ```bash
    resolve_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/parse_strat.py resolve-local "<JIRA_KEY>") || exit 1
    strategy_file=$(echo "$resolve_result" | jq -r '.strategy_file')
-   strategy_is_temp=false
-   strategy_content=$(cat "$strategy_file")
    ```
 
-   - Extract `components` from the Jira response by parsing the markdown output (list of RHOAI product component names, e.g., `["AI Hub", "Model Serving"]`)
-   - If Components field is empty or missing, set `components = []`
-   - Store for use in frontmatter (Step 3.1)
+   - `components` is extracted deterministically in Step 1.5 (`parse_strat.py save-snapshot`).
 2. **ADR** (if provided): Read the ADR file for additional technical detail (API endpoints, data models, implementation specifics).
 
-### Step 1.5: Parse and Validate Strategy Sections
+### Step 1.5: Parse Strategy Sections and Snapshot the Strategy
 
-Run the STRAT parser on the fetched strategy file to extract structured data deterministically:
+Run the STRAT parser on the fetched strategy file, before the snapshot step below moves/copies it:
 
 ```bash
 repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
 gate_result=$(cd "$repo_root" && uv run python scripts/parse_strat.py workflow-inputs "$strategy_file")
 gate_exit=$?
-[ "$strategy_is_temp" = "true" ] && rm "$strategy_file"
 
 if [ "$gate_exit" -ne 0 ]; then
   echo "workflow-inputs failed to parse the strategy; cannot proceed" >&2
@@ -211,10 +204,20 @@ fi
 
 feature_name="<user-provided feature directory name from Inputs (Optional) if given, else snake_case derived from the strategy title>"
 (cd "$repo_root" && uv run python scripts/validate.py feature-name "$feature_name") || exit 1
+feature_dir="$(pwd)/$feature_name"
+```
+
+**Snapshot the strategy** at `$feature_dir/.source-strategy.md` — creates the feature dir, moves
+temp fetches, copies (never deletes) the shared cache:
+
+```bash
+snapshot_result=$(cd "$repo_root" && uv run python scripts/parse_strat.py save-snapshot "$strategy_file" "$feature_dir") || exit 1
+strategy_file=$(echo "$snapshot_result" | jq -r '.strategy_file')
+components=$(echo "$snapshot_result" | jq -r '.components | join(",")')
 ```
 
 **If `$gate_status` is `no_acceptance_criteria`** (no ACs found or count is 0), **STOP immediately**:
-1. Create `mkdir -p -- "$feature_name"` and write a lowest-score review:
+1. Write a lowest-score review:
    ```bash
    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set \
        <absolute_path_to_output_dir>/<feature_name>/TestPlanReview.md \
@@ -229,9 +232,9 @@ feature_name="<user-provided feature directory name from Inputs (Optional) if gi
 
 **Scope constraint**: This pipeline generates e2e/system and UI test plans only — no unit, integration, or component test levels in Section 2.1. Each objective (Section 1.3) must cite its grounding (see Section 1.3 note below); Step 3.2 validates this deterministically.
 
-Invoke these three forked analyzer skills **in parallel** using the Skill tool. Each runs in its own isolated context with the strategy and ADR content.
+Invoke these three forked analyzer skills **in parallel** using the Skill tool. Each runs in its own isolated context, reading the strategy/ADR from the paths passed to it.
 
-Pass full strategy (and ADR if available) inline in skill arguments. Also pass Step 1.5 JSON extractions to relevant analyzers as ground truth (do not re-derive).
+Pass `<feature_name>/.source-strategy.md` (+ ADR path if provided) as file paths — do not inline the strategy text. Also pass Step 1.5 JSON extractions as ground truth (do not re-derive).
 
 - **`test-plan.analyze.endpoints`**: Pass strategy + ADR + `ac_json` + `oos_json` + `nfr_json`. Extracts feature scope (in-scope, out-of-scope, grounded test objectives) and e2e test surface. Produces findings for Sections 1 and 4.
 - **`test-plan.analyze.risks`**: Pass strategy + ADR + `nfr_json`. Determines e2e/UI test levels, types, priorities, risks with mitigations, and NFR assessments. Produces findings for Sections 2, 7, and 8.
@@ -244,7 +247,7 @@ Once all three sub-agents return:
 
 ### Step 3: Generate Files
 
-1. Create feature directory using Bash: `mkdir -p -- "$feature_name/test_cases"` (in `target_dir` from Step 0.3)
+1. Ensure `test_cases/` exists: `mkdir -p -- "$feature_dir/test_cases"`
 2. Read the template from `${CLAUDE_SKILL_DIR}/test-plan-template.md` using the Read tool
 3. Generate `<feature_name>/TestPlan.md` by filling in the template with the gathered information. Follow the template structure exactly — do not add, remove, or reorder sections. Do NOT write frontmatter manually — Step 3.1 handles it.
    - **Line length**: Wrap all prose lines to a maximum of 100 characters. This does not apply to tables, code blocks, or headings — only paragraph text and list items.
@@ -280,12 +283,12 @@ fi
     source_type=$SOURCE_TYPE \
     status=Draft \
     author="<team_name>" \
-    components="<comma-separated component names from Jira, or []>" \
+    components="$components" \
     additional_docs="<comma-separated list of doc links, or []>")
 (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/version.py set <absolute_path_to_output_dir>/<feature_name>/TestPlan.md 1.0.0)
 ```
 
-- `components`: comma-separated list of component names from Jira Components field (e.g., `"AI Hub,Model Serving"`). Use `[]` if none.
+- `components`: from Step 1.5 — empty string coerces to `[]`.
 - `additional_docs`: include ADR link and any other document links provided by the user. Use `[]` if none.
 - `last_updated` is auto-set to today's date by the script.
 - `reviewers` defaults to `[]`.

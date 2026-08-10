@@ -11,6 +11,7 @@ Usage:
     uv run python scripts/parse_strat.py workflow-inputs <strat_file>
     uv run python scripts/parse_strat.py resolve-local <jira_key>
     uv run python scripts/parse_strat.py new-strat-tmp
+    uv run python scripts/parse_strat.py save-snapshot <strategy_file> <feature_dir>
 """
 
 import argparse
@@ -22,6 +23,7 @@ import secrets
 import sys
 from pathlib import Path
 
+from scripts.fetch_issue import parse_components
 from scripts.utils.repo_utils import get_git_root
 from scripts.utils.schemas import SCHEMAS
 from scripts.utils.strat_utils import parse_acceptance_criteria, parse_nfr, parse_out_of_scope, workflow_inputs
@@ -29,15 +31,16 @@ from scripts.utils.strat_utils import parse_acceptance_criteria, parse_nfr, pars
 JIRA_KEY_RE = re.compile(SCHEMAS["test-plan"]["source_key"]["pattern"])
 
 
-def _load_strat_content(raw_path: str) -> str:
-    """Read strat_file after confirming it resolves inside a permitted location.
+def _permitted_strat_path(raw_path: str) -> Path:
+    """Resolve raw_path and confirm it sits inside a permitted location, shared by every
+    subcommand that touches a strategy file on disk.
 
     Every documented caller passes one of exactly two paths: the persistent local cache
     `<repo_root>/artifacts/strat-tasks/<KEY>.md`, or an ephemeral fetch written to
     `<repo_root>/artifacts/strat-tasks/.tmp/` (an application-owned, mode-0700 directory — never
     the shared system temp dir, which any other process could have dropped a readable file into).
     Anything else is rejected so a malformed or malicious strat_file argument can't be used to
-    read arbitrary files off disk.
+    read or move arbitrary files.
     """
     resolved = Path(raw_path).resolve()
     repo_root = get_git_root(str(Path(__file__).resolve().parent))
@@ -50,12 +53,68 @@ def _load_strat_content(raw_path: str) -> str:
     if not any(resolved == root or resolved.is_relative_to(root) for root in allowed_roots):
         raise ValueError("strategy_file_not_permitted")
 
+    return resolved
+
+
+def _load_strat_content(raw_path: str) -> str:
+    """Read strat_file after confirming it resolves inside a permitted location (see
+    _permitted_strat_path)."""
+    resolved = _permitted_strat_path(raw_path)
+
     # O_NOFOLLOW closes the gap between the containment check above and the read: if the final
     # path component was swapped for a symlink in between, the kernel rejects the open instead of
     # silently following it wherever the symlink points.
     fd = os.open(resolved, os.O_RDONLY | os.O_NOFOLLOW)
     with os.fdopen(fd, encoding="utf-8") as f:
         return f.read()
+
+
+def _write_snapshot(snapshot_path: Path, content: str) -> None:
+    """Write content to snapshot_path without ever following a symlink there.
+
+    A pre-existing .source-strategy.md symlink (planted before this call, or substituted after
+    an earlier check) could otherwise redirect the write to overwrite an arbitrary file the
+    process has write access to — O_NOFOLLOW makes the kernel reject the open instead of
+    silently writing through it. Overwriting a real pre-existing snapshot (a normal re-run) is
+    still allowed via O_TRUNC.
+    """
+    fd = os.open(snapshot_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(content)
+
+
+def save_snapshot(strategy_file: str, feature_dir: str) -> dict:
+    """Persist a fetched/cached strategy file as <feature_dir>/.source-strategy.md and extract
+    its RHOAI components in the same call.
+
+    A file under the ephemeral artifacts/strat-tasks/.tmp/ scratch dir is deleted after (nothing
+    else references it); a file directly under artifacts/strat-tasks/ is the shared cache other
+    skills fall back to, so it is left in place.
+    """
+    resolved = _permitted_strat_path(strategy_file)
+    repo_root = get_git_root(str(Path(__file__).resolve().parent))
+    tmp_root = (Path(repo_root) / "artifacts" / "strat-tasks" / ".tmp").resolve()
+
+    feature_path = Path(feature_dir)
+    feature_path.mkdir(parents=True, exist_ok=True)
+    snapshot_path = feature_path / ".source-strategy.md"
+
+    # Read via _load_strat_content (not a raw rename/copy of `resolved`): its O_NOFOLLOW open
+    # closes the gap between the containment check above and this read — if the source path was
+    # substituted for a symlink in between, the kernel rejects it instead of following it
+    # wherever it points.
+    content = _load_strat_content(str(resolved))
+    _write_snapshot(snapshot_path, content)
+
+    if resolved.is_relative_to(tmp_root):
+        resolved.unlink()
+        source = "temp"
+    else:
+        source = "cache"
+
+    components = parse_components(content)
+
+    return {"status": "ok", "strategy_file": str(snapshot_path), "source": source, "components": components}
 
 
 def cmd_acceptance_criteria(args):
@@ -166,6 +225,20 @@ def cmd_new_strat_tmp(args):
     sys.exit(0)
 
 
+def cmd_save_snapshot(args):
+    try:
+        result = save_snapshot(args.strategy_file, args.feature_dir)
+    except ValueError:
+        print(json.dumps({"status": "error", "error": "strategy_file_not_permitted"}, indent=2))
+        sys.exit(1)
+    except OSError:
+        print(json.dumps({"status": "error", "error": "snapshot_write_unsafe"}, indent=2))
+        sys.exit(1)
+
+    print(json.dumps(result, indent=2))
+    sys.exit(0)
+
+
 def cmd_workflow_inputs(args):
     try:
         content = _load_strat_content(args.strat_file)
@@ -213,6 +286,13 @@ def main():
         "new-strat-tmp", help="Create a fresh ephemeral strategy file inside the owned .tmp/ cache dir"
     )
     p_new_tmp.set_defaults(func=cmd_new_strat_tmp)
+
+    p_save_snapshot = subparsers.add_parser(
+        "save-snapshot", help="Persist a fetched/cached strategy file as <feature_dir>/.source-strategy.md"
+    )
+    p_save_snapshot.add_argument("strategy_file", help="Path to fetched STRAT markdown file (temp or cache)")
+    p_save_snapshot.add_argument("feature_dir", help="Feature directory to snapshot into")
+    p_save_snapshot.set_defaults(func=cmd_save_snapshot)
 
     args = parser.parse_args()
     args.func(args)

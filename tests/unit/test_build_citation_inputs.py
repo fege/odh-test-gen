@@ -33,27 +33,21 @@ class TestBuildCitationInputs:
         assert result["ac_coverage_result"]["ac_count"] == 2
         assert result["interface_coverage_result"]["valid"] is True
 
-    def test_degraded_mode_without_strategy_skips_ac_coverage(self, tmp_path):
-        write_testplan_with_objectives(tmp_path / "TestPlan.md", "1. Verify something (AC: #1 — cited)\n")
-
-        result = build_citation_inputs(str(tmp_path), None)
-
-        assert result["status"] == "degraded"
-        assert result["ac_coverage_result"] is None
-        assert result["ac_citations_result"]["valid"] is True  # presence-only fallback
-
     def test_missing_testplan_is_an_ordinary_invalid_result_not_an_execution_failure(self, tmp_path):
-        result = build_citation_inputs(str(tmp_path), None)  # no TestPlan.md written
+        strategy_file = tmp_path / "strategy.md"
+        strategy_file.write_text(STRATEGY_CONTENT)
 
-        assert result["status"] == "degraded"
+        result = build_citation_inputs(str(tmp_path), str(strategy_file))  # no TestPlan.md written
+
+        assert result["status"] == "ok"
         assert result["ac_citations_result"]["valid"] is False
         assert "error" in result["ac_citations_result"]
 
-    def test_unreadable_strategy_file_raises_instead_of_downgrading_to_degraded_mode(self, tmp_path):
+    def test_unreadable_strategy_file_raises(self, tmp_path):
         write_testplan_with_objectives(tmp_path / "TestPlan.md", "1. Verify something (AC: #1 — cited)\n")
 
         # A directory can't be read as strategy text — stands in for parse_strat.py crashing on
-        # corrupt/unreadable input. Must raise so the caller stops, not silently go "degraded".
+        # corrupt/unreadable input. Must raise so the caller stops, not silently return a result.
         with pytest.raises(IsADirectoryError):
             build_citation_inputs(str(tmp_path), str(tmp_path))
 
