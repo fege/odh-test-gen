@@ -17,6 +17,7 @@ Examples:
 """
 
 import argparse
+import re
 import sys
 from typing import Any
 
@@ -72,6 +73,22 @@ def format_issue_as_markdown(issue_data: dict[str, Any]) -> str:
     )
 
     return "\n".join(lines)
+
+
+def parse_components(markdown: str) -> list[str]:
+    """Extract RHOAI product component names from format_issue_as_markdown's output.
+
+    Inverse of its `- **Components**: A, B` bullet line (only emitted when the issue had at least
+    one component); returns [] when the line is absent or outside ## Metadata.
+    """
+    section_match = re.search(r"^## Metadata\s*$(.*?)(?=\n## |\Z)", markdown, re.MULTILINE | re.DOTALL)
+    if not section_match:
+        return []
+
+    match = re.search(r"^- \*\*Components\*\*: (.+)$", section_match.group(1), re.MULTILINE)
+    if not match:
+        return []
+    return [name.strip() for name in match.group(1).split(",")]
 
 
 def main():

@@ -4,7 +4,9 @@ Unit tests for scripts/fetch_issue.py
 Tests Jira issue markdown formatting logic.
 """
 
-from scripts.fetch_issue import format_issue_as_markdown
+import pytest
+
+from scripts.fetch_issue import format_issue_as_markdown, parse_components
 
 
 class TestFormatIssueAsMarkdown:
@@ -78,3 +80,38 @@ class TestFormatIssueAsMarkdown:
         assert "No description provided" in result
         assert "- **Type**: Unknown" in result
         assert "- **Status**: Unknown" in result
+
+
+class TestParseComponents:
+    """Tests for parse_components — the inverse of format_issue_as_markdown's Components bullet,
+    used by test-plan-create to extract components from a saved strategy snapshot without an LLM
+    reading and eyeballing the file.
+    """
+
+    @pytest.mark.parametrize(
+        "components,expected",
+        [
+            ([{"name": "AI Hub"}, {"name": "Model Serving"}], ["AI Hub", "Model Serving"]),
+            ([{"name": "AI Hub"}], ["AI Hub"]),
+            ([], []),
+        ],
+    )
+    def test_round_trips_with_format_issue_as_markdown(self, components, expected):
+        issue_data = {"key": "TEST-123", "fields": {"components": components}}
+
+        markdown = format_issue_as_markdown(issue_data)
+
+        assert parse_components(markdown) == expected
+
+    def test_ignores_components_bullet_in_description(self):
+        issue_data = {
+            "key": "TEST-123",
+            "fields": {
+                "components": [],
+                "description": "Some description text\n- **Components**: Fake, Injected",
+            },
+        }
+
+        markdown = format_issue_as_markdown(issue_data)
+
+        assert parse_components(markdown) == []

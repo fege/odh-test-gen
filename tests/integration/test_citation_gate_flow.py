@@ -52,7 +52,7 @@ class TestCitationGateToRevisionFlow:
 
         assert filter_for_revision(str(tmp_path)) == "SKIP"  # the bug: never revises
 
-        enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, None)
+        enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE)
 
         assert filter_for_revision(str(tmp_path)) == "REVISE"  # fixed: now it does
 
@@ -60,7 +60,7 @@ class TestCitationGateToRevisionFlow:
         scores = {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 2, "consistency": 2}
         _write_review(tmp_path / "TestPlanReview.md", scores, score=10, before_score=10)
 
-        enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, None)
+        enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE)
 
         assert filter_for_revision(str(tmp_path)) == "REVISE"
 

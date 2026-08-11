@@ -42,7 +42,7 @@ Install the test-plan package (makes all scripts importable):
 
 If installation fails, inform the user and do NOT proceed. Once installed, all Python scripts will work from any directory.
 
-### Step 1: Read Test Plan and Source Strategy
+### Step 1: Read Test Plan and Resolve Source Strategy
 
 1. Read `<feature_dir>/TestPlan.md`
 2. Read frontmatter to extract `source_key`:
@@ -50,68 +50,53 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
                 uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md source_key)
    ```
-3. Fetch the source strategy from Jira using the `source_key`:
-   ```bash
-   # Fetch strategy and save to temporary file
-   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
-   tmp_result=$(cd "$repo_root" && uv run python scripts/parse_strat.py new-strat-tmp) || exit 1
-   strategy_file=$(echo "$tmp_result" | jq -r '.strategy_file')
-   (cd "$repo_root" && \
-    uv run python scripts/fetch_issue.py "$source_key" --output "$strategy_file") || {
-       echo "Warning: Failed to fetch Jira issue, checking for local file..." >&2
-       rm -f "$strategy_file"
-       strategy_file=""
-   }
-
-   # If fetch failed, check for local strategy file. source_key comes from TestPlan.md
-   # frontmatter — validate its shape and the resolved path's containment before reading, so a
-   # malformed/malicious source_key can't escape artifacts/strat-tasks/ via path traversal.
-   if [ -z "$strategy_file" ] || [ ! -f "$strategy_file" ]; then
-       strat_dir=$(realpath "$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)/artifacts/strat-tasks")
-       if [[ "$source_key" =~ ^[A-Z][A-Z0-9_]+-[0-9]+$ ]]; then
-           local_file="$strat_dir/${source_key}.md"
-       else
-           local_file=""
-       fi
-       if [ -n "$local_file" ] && [ -f "$local_file" ] && [[ "$(realpath "$local_file")" == "$strat_dir"/* ]]; then
-           strategy_content=$(cat "$local_file")
-           strategy_path="$local_file"
-       else
-           echo "Warning: Neither Jira API nor local strategy file available. Grounding and scope fidelity will be scored based on plan consistency only." >&2
-           strategy_content=""
-           strategy_path=""
-       fi
-   else
-       strategy_content=$(cat "$strategy_file")
-       strategy_path="$strategy_file"
-   fi
-   ```
-
-   If neither Jira API nor local file is available, warn the user and proceed — grounding and scope fidelity will be scored based on plan consistency only.
-
-4. Compute AC/NFR citation validity and coverage deterministically (mirrors `test-plan.review` Step 1.5) via `scripts/build_citation_inputs.py`, which derives `ac_count`/`nfr_categories` from `strategy_path` (or runs in degraded mode when it's empty) and calls the three validators directly:
-
+3. Resolve the source strategy via the shared resolver — snapshot-primary: reads
+   `<feature_dir>/.source-strategy.md` if `test-plan.create` already saved one, otherwise fetches
+   from Jira and saves it there for next time. No degraded mode: if neither is available, this is
+   a hard failure.
    ```bash
    repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
-   strategy_arg=()
-   [ -n "$strategy_path" ] && strategy_arg=(--strategy-file "$strategy_path")
+   resolve_result=$(cd "$repo_root" && uv run python scripts/resolve_strategy.py <feature_dir> "$source_key")
+   resolve_exit=$?
 
-   gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> "${strategy_arg[@]}")
-   gate_exit=$?
-   [ -n "$strategy_file" ] && [ -f "$strategy_file" ] && rm "$strategy_file"
-
-   if [ "$gate_exit" -ne 0 ]; then
-       echo "ERROR: scripts/build_citation_inputs.py failed to construct citation gate inputs — stopping." >&2
-       echo "$gate_result" >&2
+   if [ "$resolve_exit" -ne 0 ]; then
+       echo "ERROR: scripts/resolve_strategy.py failed to resolve the source strategy — stopping." >&2
+       echo "$resolve_result" >&2
        exit 1
    fi
 
+   strategy_path=$(echo "$resolve_result" | jq -r '.strategy_file')
+   ```
+
+   `strategy_path` is the persistent, local-only snapshot — it is never deleted.
+
+4. Compute AC/NFR citation validity and coverage deterministically (mirrors `test-plan.review` Step 1.5) via `scripts/build_citation_inputs.py`, which derives `ac_count`/`nfr_categories` from `strategy_path` and calls the three validators directly:
+
+   ```bash
+   gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> --strategy-file "$strategy_path") || {
+       echo "ERROR: scripts/build_citation_inputs.py failed to construct citation gate inputs — stopping." >&2
+       echo "$gate_result" >&2
+       exit 1
+   }
+
    interface_coverage_result=$(echo "$gate_result" | jq -c '.interface_coverage_result')
    ac_citations_result=$(echo "$gate_result" | jq -c '.ac_citations_result')
-   ac_coverage_result=$(echo "$gate_result" | jq -c '.ac_coverage_result // empty')
+   ac_coverage_result=$(echo "$gate_result" | jq -c '.ac_coverage_result')
    ```
 
    A nonzero exit means gate-input construction itself failed (unreadable strategy file, a parsing bug) — that's an execution failure, not data about the test plan, so stop rather than silently falling back to degraded mode.
+
+5. Resolve `additional_docs` from TestPlan.md frontmatter:
+
+   ```bash
+   additional_docs_raw=$(cd "$repo_root" && uv run python scripts/resolve_additional_docs.py <feature_dir>) || {
+       echo "ERROR: scripts/resolve_additional_docs.py failed — stopping." >&2
+       echo "$additional_docs_raw" >&2
+       exit 1
+   }
+
+   additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
+   ```
 
 ### Step 2: Score (fork)
 
@@ -120,15 +105,48 @@ Read the score agent prompt from `skills/test-plan-review/prompts/score-agent.md
 Launch a **forked** score agent with substitutions:
 - `{FEATURE_DIR}` = feature directory path
 - `{TEST_PLAN_PATH}` = `<feature_dir>/TestPlan.md`
-- `{STRATEGY_TEXT}` = raw strategy description text from Step 1
+- `{STRATEGY_FILE_PATH}` = `strategy_path` from Step 1
 - `{CALIBRATION_DIR}` = `skills/test-plan-review/calibration/`
 - `{INTERFACE_COVERAGE_RESULT}` = JSON from Step 1 (`interface_coverage_result`)
 - `{AC_CITATIONS_RESULT}` = JSON from Step 1 (`ac_citations_result`)
-- `{AC_COVERAGE_RESULT}` = JSON from Step 1 (`ac_coverage_result`, or "not computed — degraded mode" if unset)
+- `{AC_COVERAGE_RESULT}` = JSON from Step 1 (`ac_coverage_result`)
+- `{ADDITIONAL_DOCS_CONTENT}` = JSON from Step 1 (`additional_docs_result`)
+
+### Step 2.5: Enforce Citation Gate
+
+The score agent is instructed to cap Scope Fidelity to `<= 1` when `ac_citations_result.valid`/`ac_coverage_result.valid` is false — but LLM compliance isn't guaranteed, and this skill writes no `TestPlanReview.md` for a gate to correct after the fact (unlike `test-plan.review`, which re-applies the rule via `enforce_citation_gate.py` once the file exists). Re-apply it directly against the agent's self-reported scores (each 0-2, from the Score Table in Step 2), before presenting anything.
+
+Write the five rubric scores from the Score Table as a JSON object (use `scope_fidelity` with an underscore, matching the rubric key):
+
+```json
+{"specificity": N, "grounding": N, "scope_fidelity": N, "actionability": N, "consistency": N}
+```
+
+Then pass to the deterministic validator:
+
+```bash
+repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+scores_json='{"specificity": N, "grounding": N, "scope_fidelity": N, "actionability": N, "consistency": N}'
+cap_result=$(cd "$repo_root" && uv run python scripts/cap_scope_fidelity.py \
+    --scores-json "$scores_json" \
+    --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result") || {
+    echo "ERROR: scripts/cap_scope_fidelity.py failed — stopping." >&2
+    echo "$cap_result" >&2
+    exit 1
+}
+cap_status=$(echo "$cap_result" | jq -r '.status')
+if [ "$cap_status" = "error" ]; then
+    echo "ERROR: scripts/cap_scope_fidelity.py returned error — stopping." >&2
+    echo "$cap_result" >&2
+    exit 1
+fi
+```
+
+The Python helper validates that `scores_json` contains exactly five integer scores (0-2 each) before processing — malformed or out-of-range values produce a structured error, not a shell failure. If `cap_status` is `overridden`, Step 3 below presents `cap_result`'s `scores`/`score`/`verdict`/`pass` — not the agent's own numbers — and flags Scope Fidelity as automatically corrected.
 
 ### Step 3: Present Results
 
-Parse the score agent's output and present the results directly to the user:
+Parse the score agent's output and present the results to the user, substituting the Step 2.5 correction where it applies:
 
 ```markdown
 ## Test Plan Score — {feature_name}
@@ -139,7 +157,7 @@ Parse the score agent's output and present the results directly to the user:
 |-----------|-------|-------|
 | Specificity | {n}/2 | {brief rationale} |
 | Grounding | {n}/2 | {brief rationale} |
-| Scope Fidelity | {n}/2 | {brief rationale} |
+| Scope Fidelity | {n}/2 | {brief rationale, or "Automatically corrected — citation/coverage checks failed" if Step 2.5 overrode it} |
 | Actionability | {n}/2 | {brief rationale} |
 | Consistency | {n}/2 | {brief rationale} |
 
@@ -147,7 +165,8 @@ Parse the score agent's output and present the results directly to the user:
 
 ### Verdict
 
-{If >= 8, no zeros: "**Ready** — proceed to test case generation"}
+{If `cap_status` was `overridden`: use `cap_result.verdict`/`cap_result.pass` directly — do not re-derive from the total.}
+{Otherwise — If >= 8, no zeros: "**Ready** — proceed to test case generation"}
 {If = 7, no zeros: "**Revise** — minor improvements needed. Re-run via `/test-plan-create` flow to apply auto-revision, or invoke the internal `test-plan.review` workflow from automation."}
 {If < 7 or any zero: "**Rework** — significant issues. Re-run via `/test-plan-create` flow for remediation, or use automation that calls internal `test-plan.review`."}
 

@@ -13,9 +13,10 @@ prose feedback missed the problem.
 Usage:
     python3 scripts/enforce_citation_gate.py <feature_dir> \
         --ac-citations-result '<json from validate.py ac-citations>' \
-        [--ac-coverage-result '<json from validate.py ac-coverage>']
+        --ac-coverage-result '<json from validate.py ac-coverage>'
 
-Exit code 0 always; prints OVERRIDDEN, OK, or SKIP to stdout.
+Exit code 0 always; prints a JSON object to stdout with `status` one of "overridden", "ok",
+"skip", or "error" (with an `error` message field).
 """
 
 import argparse
@@ -26,12 +27,46 @@ import yaml
 
 
 from scripts.utils.frontmatter_utils import read_frontmatter_validated, update_frontmatter
-from scripts.utils.schemas import ValidationError, compute_verdict_and_pass
+from scripts.utils.schemas import REVIEW_CRITERIA, ValidationError, compute_verdict_and_pass
 
 FEEDBACK_HEADING = "## Section-by-Section Feedback"
 
 
-def _build_feedback_note(ac_citations_result: dict, ac_coverage_result: dict | None) -> str:
+def _require_valid_field(result, name: str) -> None:
+    """Fail closed: reject anything that isn't a dict with a boolean `valid` field, and — for
+    the entry lists _build_feedback_note iterates and indexes directly — reject any entry that
+    isn't shaped the way it expects. A wrong-typed `valid` (e.g. the string "false", which Python
+    truthiness alone would treat as truthy) or a malformed entry (e.g. `null` inside `uncited`)
+    must never be silently accepted: the latter would otherwise raise mid-write, after
+    TestPlanReview.md's frontmatter has already been updated but before the feedback note
+    explaining why is inserted.
+    """
+    if not isinstance(result, dict):
+        raise ValueError(f"{name} must be a JSON object")
+    if not isinstance(result.get("valid"), bool):
+        raise ValueError(f"{name} must have a boolean 'valid' field")
+
+    entry_requirements = (
+        ("uncited", ("text", "line_number")),
+        ("invalid_citations", ("text", "line_number", "reasons")),
+    )
+    for key, required_fields in entry_requirements:
+        entries = result.get(key)
+        if entries is None:
+            continue
+        if not isinstance(entries, list):
+            raise ValueError(f"{name}.{key} must be a list")
+        for entry in entries:
+            if not isinstance(entry, dict) or not all(field in entry for field in required_fields):
+                raise ValueError(f"{name}.{key} entries must be objects with {', '.join(required_fields)}")
+        if key == "invalid_citations":
+            if any(not isinstance(entry["reasons"], list) for entry in entries):
+                raise ValueError(f"{name}.{key} entries must have a list 'reasons' field")
+            if any(not isinstance(r, str) for entry in entries for r in entry["reasons"]):
+                raise ValueError(f"{name}.{key} entries must have a list of string 'reasons'")
+
+
+def _build_feedback_note(ac_citations_result: dict, ac_coverage_result: dict) -> str:
     lines = [
         "**Automated correction (deterministic citation gate)**: Scope Fidelity was capped to "
         "1/2 — the recorded score did not reflect this.",
@@ -44,7 +79,7 @@ def _build_feedback_note(ac_citations_result: dict, ac_coverage_result: dict | N
     if invalid:
         lines.append("\nObjectives with an invalid citation:")
         lines.extend(f"- Line {o['line_number']}: {o['text']} — {', '.join(o['reasons'])}" for o in invalid)
-    missing = (ac_coverage_result or {}).get("missing") or []
+    missing = ac_coverage_result.get("missing") or []
     if missing:
         lines.append(f"\nAC numbers with no citing objective at all: {missing}")
     lines.append(
@@ -69,34 +104,81 @@ def _insert_feedback_note(review_path: str, note: str) -> None:
         f.write(content)
 
 
-def enforce_citation_gate(
-    feature_dir: str, ac_citations_result: dict, ac_coverage_result: dict | None = None
-) -> dict | None:
+def _validate_scores(scores: dict) -> None:
+    """Reject anything that isn't a dict containing exactly the 5 rubric criteria, with each
+    value being an integer in range 0..2 inclusive (rejecting boolean values explicitly).
+    """
+    if not isinstance(scores, dict):
+        raise ValueError("scores must be a JSON object")
+
+    expected = set(REVIEW_CRITERIA)
+    actual = set(scores.keys())
+
+    missing = expected - actual
+    if missing:
+        raise ValueError(f"scores is missing required criteria: {', '.join(sorted(missing))}")
+
+    extra = actual - expected
+    if extra:
+        raise ValueError(f"scores contains unknown criteria: {', '.join(sorted(extra))}")
+
+    for k in REVIEW_CRITERIA:
+        v = scores[k]
+        if type(v) is not int:
+            raise ValueError(f"scores.{k} must be an integer, got {type(v).__name__}")
+        if not (0 <= v <= 2):
+            raise ValueError(f"scores.{k} must be between 0 and 2, got {v}")
+
+
+def cap_scope_fidelity(scores: dict, ac_citations_result: dict, ac_coverage_result: dict) -> dict:
+    """Cap Scope Fidelity to 1 if the deterministic citation checks say it should be, but
+    `scores` says 2. Pure — no file I/O — shared by enforce_citation_gate() (which persists the
+    result to TestPlanReview.md) and test-plan-score (which has no review file and only needs
+    the corrected numbers to present).
+    """
+    _validate_scores(scores)
+    _require_valid_field(ac_citations_result, "ac_citations_result")
+    _require_valid_field(ac_coverage_result, "ac_coverage_result")
+
+    citations_ok = ac_citations_result["valid"] and ac_coverage_result["valid"]
+    scores = dict(scores)
+    if citations_ok or scores.get("scope_fidelity", 0) <= 1:
+        return {"overridden": False, "scores": scores}
+
+    scores["scope_fidelity"] = 1
+    verdict, score, passed = compute_verdict_and_pass(scores)
+    return {"overridden": True, "scores": scores, "score": score, "pass": passed, "verdict": verdict}
+
+
+def enforce_citation_gate(feature_dir: str, ac_citations_result: dict, ac_coverage_result: dict) -> dict | None:
     """Cap Scope Fidelity to 1 if the deterministic citation checks say it should be, but the
     persisted review score says 2. Returns None if TestPlanReview.md doesn't exist.
     """
+    _require_valid_field(ac_citations_result, "ac_citations_result")
+    _require_valid_field(ac_coverage_result, "ac_coverage_result")
+
     review_path = os.path.join(feature_dir, "TestPlanReview.md")
     if not os.path.exists(review_path):
         return None
 
     data, _ = read_frontmatter_validated(review_path, "test-plan-review")
+    old_score = data.get("score")
 
-    citations_ok = ac_citations_result.get("valid", True) and (
-        ac_coverage_result is None or ac_coverage_result.get("valid", True)
-    )
-    scores = dict(data.get("scores", {}))
-    if citations_ok or scores.get("scope_fidelity", 0) <= 1:
+    result = cap_scope_fidelity(data.get("scores", {}), ac_citations_result, ac_coverage_result)
+    if not result["overridden"]:
         return {"overridden": False}
 
-    old_score = data.get("score")
-    scores["scope_fidelity"] = 1
-    verdict, score, passed = compute_verdict_and_pass(scores)
-
+    scores, score, passed, verdict = result["scores"], result["score"], result["pass"], result["verdict"]
     updates = {"scores": scores, "score": score, "pass": passed, "verdict": verdict}
 
-    # A first-pass review sets before_score/before_scores equal to score, as a same-cycle
-    # mirror (see review-agent.md), not a genuine prior-cycle baseline. Left uncorrected, the
-    # lowered score would look like a regression to filter_for_revision.py and get skipped.
+    # Built before update_frontmatter runs, deliberately: if this raises on a malformed result
+    # that somehow slipped past _require_valid_field, the frontmatter must not already be
+    # written — a half-applied override (corrected score, no explanatory note) is worse than no
+    # override at all.
+    note = _build_feedback_note(ac_citations_result, ac_coverage_result)
+
+    # A first-pass review sets before_score/before_scores equal to score not a genuine prior-cycle baseline.
+    # Left uncorrected, the lowered score would look like a regression to filter_for_revision.py and get skipped.
     if data.get("before_score") == old_score:
         updates["before_score"] = score
         before_scores = dict(data.get("before_scores") or {})
@@ -105,48 +187,65 @@ def enforce_citation_gate(
             updates["before_scores"] = before_scores
 
     update_frontmatter(review_path, updates, "test-plan-review")
-    _insert_feedback_note(review_path, _build_feedback_note(ac_citations_result, ac_coverage_result))
+    _insert_feedback_note(review_path, note)
 
     return {"overridden": True, "scores": scores, "score": score, "pass": passed, "verdict": verdict}
+
+
+def _fail(message: str) -> None:
+    """Report a machine-readable error on stdout (for the calling skill) and a matching
+    diagnostic on stderr (for a human watching logs), then exit 0 — a broken gate must not abort
+    the review run, but it must never look like a clean OK/SKIP/overridden result either.
+    """
+    print(f"enforce_citation_gate: {message}", file=sys.stderr)
+    print(json.dumps({"status": "error", "error": message}))
+    sys.exit(0)
 
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("feature_dir")
     parser.add_argument("--ac-citations-result", required=True, help="JSON from validate.py ac-citations")
-    parser.add_argument("--ac-coverage-result", default=None, help="JSON from validate.py ac-coverage")
-    args = parser.parse_args()
+    parser.add_argument("--ac-coverage-result", required=True, help="JSON from validate.py ac-coverage")
+    try:
+        args = parser.parse_args()
+    except SystemExit as exc:
+        if exc.code == 0:
+            raise
+        _fail("missing or invalid arguments")
 
-    # exit 0 on input errors keeps the review run alive; stderr diagnostic ensures the
-    # broken input/file is visible rather than silently skipping the safety gate.
     try:
         ac_citations = json.loads(args.ac_citations_result)
     except json.JSONDecodeError as exc:
-        print(f"enforce_citation_gate: malformed --ac-citations-result JSON: {exc}", file=sys.stderr)
-        sys.exit(0)
-    if not isinstance(ac_citations, dict):
-        print("enforce_citation_gate: --ac-citations-result must be a JSON object", file=sys.stderr)
-        sys.exit(0)
+        _fail(f"malformed --ac-citations-result JSON: {exc}")
+    try:
+        _require_valid_field(ac_citations, "--ac-citations-result")
+    except ValueError as exc:
+        _fail(str(exc))
 
     try:
-        ac_coverage = json.loads(args.ac_coverage_result) if args.ac_coverage_result else None
+        ac_coverage = json.loads(args.ac_coverage_result)
     except json.JSONDecodeError as exc:
-        print(f"enforce_citation_gate: malformed --ac-coverage-result JSON: {exc}", file=sys.stderr)
-        sys.exit(0)
-    if ac_coverage is not None and not isinstance(ac_coverage, dict):
-        print("enforce_citation_gate: --ac-coverage-result must be a JSON object", file=sys.stderr)
-        sys.exit(0)
+        _fail(f"malformed --ac-coverage-result JSON: {exc}")
+    try:
+        _require_valid_field(ac_coverage, "--ac-coverage-result")
+    except ValueError as exc:
+        _fail(str(exc))
 
     try:
         result = enforce_citation_gate(args.feature_dir, ac_citations, ac_coverage)
-    except (ValidationError, OSError, yaml.YAMLError) as exc:
-        print(f"enforce_citation_gate: invalid TestPlanReview.md: {exc}", file=sys.stderr)
-        sys.exit(0)
+    except (ValidationError, OSError, yaml.YAMLError, ValueError) as exc:
+        _fail(f"invalid TestPlanReview.md: {exc}")
 
     if result is None:
-        print("SKIP")
-        sys.exit(0)
-    print("OVERRIDDEN" if result["overridden"] else "OK")
+        print(json.dumps({"status": "skip"}))
+    elif result["overridden"]:
+        payload = {"status": "overridden"}
+        payload.update({k: v for k, v in result.items() if k != "overridden"})
+        print(json.dumps(payload))
+    else:
+        print(json.dumps({"status": "ok"}))
+    sys.exit(0)
 
 
 if __name__ == "__main__":
