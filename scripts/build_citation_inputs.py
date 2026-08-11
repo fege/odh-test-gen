@@ -17,6 +17,7 @@ import json
 import sys
 from pathlib import Path
 
+from scripts.utils.snapshot_io import read_file_nofollow, require_feature_snapshot
 from scripts.utils.strat_utils import gate_inputs
 from scripts.validate import validate_ac_citations, validate_ac_coverage, validate_interface_coverage
 
@@ -25,7 +26,8 @@ def build_citation_inputs(feature_dir: str, strategy_file: str) -> dict:
     testplan_path = str(Path(feature_dir) / "TestPlan.md")
     interface_coverage_result = validate_interface_coverage(testplan_path)
 
-    inputs = gate_inputs(Path(strategy_file).read_text())
+    safe_path = require_feature_snapshot(feature_dir, strategy_file)
+    inputs = gate_inputs(read_file_nofollow(safe_path))
     ac_count = inputs["ac_count"]
     nfr_categories = inputs["nfr_categories"]
 

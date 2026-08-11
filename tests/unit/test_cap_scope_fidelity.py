@@ -1,16 +1,34 @@
 """Unit tests for scripts/cap_scope_fidelity.py — the stateless CLI wrapper around
 enforce_citation_gate.cap_scope_fidelity(), for callers with no TestPlanReview.md to persist to
 (test-plan-score, which presents a rubric assessment directly without writing a review file).
+
+Scores are passed as five required integer args (--specificity, --grounding, --scope-fidelity,
+--actionability, --consistency). No JSON assembly is involved.
 """
 
 import json
 import sys
+
+import pytest
 
 from scripts.cap_scope_fidelity import main
 
 VALID_CITATIONS = {"valid": True, "total": 5, "cited": 5, "uncited": [], "invalid_citations": []}
 VALID_COVERAGE = {"valid": True, "ac_count": 5, "covered": [1, 2, 3, 4, 5], "missing": []}
 INVALID_CITATIONS = {"valid": False, "total": 5, "cited": 0, "uncited": [], "invalid_citations": []}
+
+ALL_TWOS_ARGS = [
+    "--specificity",
+    "2",
+    "--grounding",
+    "2",
+    "--scope-fidelity",
+    "2",
+    "--actionability",
+    "2",
+    "--consistency",
+    "2",
+]
 
 
 def _run(argv, capsys):
@@ -28,67 +46,109 @@ def _run(argv, capsys):
     return json.loads(capsys.readouterr().out)
 
 
-class TestCapScopeFidelityCLI:
-    def test_ok_status_when_no_override_needed(self, capsys):
-        scores = {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 2, "consistency": 2}
+class TestCapScopeFidelityVerdict:
+    """Cluster A: valid input → correct status/scores/verdict."""
 
+    @pytest.mark.parametrize(
+        "citations, expected_status",
+        [
+            pytest.param(VALID_CITATIONS, "ok", id="ok-when-citations-valid"),
+            pytest.param(INVALID_CITATIONS, "overridden", id="overridden-when-citations-invalid"),
+        ],
+    )
+    def test_verdict(self, citations, expected_status, capsys):
         output = _run(
             [
-                "--scores",
-                json.dumps(scores),
+                *ALL_TWOS_ARGS,
                 "--ac-citations-result",
-                json.dumps(VALID_CITATIONS),
+                json.dumps(citations),
                 "--ac-coverage-result",
                 json.dumps(VALID_COVERAGE),
             ],
             capsys,
         )
 
-        assert output == {"status": "ok", "scores": scores}
+        assert output["status"] == expected_status
+        if expected_status == "ok":
+            expected_scores = {
+                "specificity": 2,
+                "grounding": 2,
+                "scope_fidelity": 2,
+                "actionability": 2,
+                "consistency": 2,
+            }
+            assert output == {"status": "ok", "scores": expected_scores}
+        else:
+            assert output["scores"]["scope_fidelity"] == 1
+            assert output["score"] == 9
+            assert output["verdict"] == "Ready"
+            assert output["pass"] is True
 
-    def test_overridden_status_when_citations_invalid(self, capsys):
-        scores = {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 2, "consistency": 2}
 
+class TestCapScopeFidelityStructuredErrors:
+    """Cluster B: input passes argparse but fails downstream validation → structured error
+    (exit 0, status "error").
+    """
+
+    @pytest.mark.parametrize(
+        "argv_fragment, expected_substring",
+        [
+            pytest.param(
+                ["--grounding", "3"],
+                "between 0 and 2",
+                id="out-of-range-score",
+            ),
+            pytest.param(
+                ["--specificity", "-1"],
+                "between 0 and 2",
+                id="negative-score",
+            ),
+        ],
+    )
+    def test_score_validation_error(self, argv_fragment, expected_substring, capsys):
+        """Out-of-range values pass argparse type=int but are caught by _validate_scores."""
+        # Build argv: start from ALL_TWOS_ARGS, override with the fragment
+        argv = list(ALL_TWOS_ARGS)
+        # Replace the value for the arg in the fragment
+        for i in range(0, len(argv_fragment), 2):
+            flag = argv_fragment[i]
+            value = argv_fragment[i + 1]
+            idx = argv.index(flag)
+            argv[idx + 1] = value
+        argv.extend(["--ac-citations-result", json.dumps(VALID_CITATIONS)])
+        argv.extend(["--ac-coverage-result", json.dumps(VALID_COVERAGE)])
+
+        output = _run(argv, capsys)
+
+        assert output["status"] == "error"
+        assert expected_substring in output["error"]
+
+    @pytest.mark.parametrize(
+        "citations_arg, coverage_arg",
+        [
+            pytest.param("NOT-JSON{{{", json.dumps(VALID_COVERAGE), id="ac-citations"),
+            pytest.param(json.dumps(VALID_CITATIONS), "NOT-JSON{{{", id="ac-coverage"),
+        ],
+    )
+    def test_malformed_json_result_arg(self, citations_arg, coverage_arg, capsys):
         output = _run(
             [
-                "--scores",
-                json.dumps(scores),
+                *ALL_TWOS_ARGS,
                 "--ac-citations-result",
-                json.dumps(INVALID_CITATIONS),
+                citations_arg,
                 "--ac-coverage-result",
-                json.dumps(VALID_COVERAGE),
-            ],
-            capsys,
-        )
-
-        assert output["status"] == "overridden"
-        assert output["scores"]["scope_fidelity"] == 1
-        assert output["score"] == 9
-        assert output["verdict"] == "Ready"
-        assert output["pass"] is True
-
-    def test_malformed_scores_json_exits_zero_with_error_status(self, capsys):
-        output = _run(
-            [
-                "--scores",
-                "NOT-VALID-JSON{{{",
-                "--ac-citations-result",
-                json.dumps(VALID_CITATIONS),
-                "--ac-coverage-result",
-                json.dumps(VALID_COVERAGE),
+                coverage_arg,
             ],
             capsys,
         )
 
         assert output["status"] == "error"
+        assert "malformed" in output["error"]
 
-    def test_missing_valid_field_exits_zero_with_error_status(self, capsys):
-        scores = {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 2, "consistency": 2}
-
+    def test_missing_valid_field_in_ac_citations(self, capsys):
         output = _run(
             [
-                "--scores",
-                json.dumps(scores),
+                *ALL_TWOS_ARGS,
                 "--ac-citations-result",
                 json.dumps({"total": 5}),
                 "--ac-coverage-result",
@@ -99,3 +159,58 @@ class TestCapScopeFidelityCLI:
 
         assert output["status"] == "error"
         assert "valid" in output["error"]
+
+
+class TestCapScopeFidelityArgparseRejection:
+    """Cluster C: argparse-level rejection → SystemExit code 2 (before any application logic)."""
+
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            pytest.param(
+                [
+                    "--specificity",
+                    "foo",
+                    "--grounding",
+                    "2",
+                    "--scope-fidelity",
+                    "2",
+                    "--actionability",
+                    "2",
+                    "--consistency",
+                    "2",
+                    "--ac-citations-result",
+                    json.dumps(VALID_CITATIONS),
+                    "--ac-coverage-result",
+                    json.dumps(VALID_COVERAGE),
+                ],
+                id="non-integer-value",
+            ),
+            pytest.param(
+                [
+                    "--grounding",
+                    "2",
+                    "--scope-fidelity",
+                    "2",
+                    "--actionability",
+                    "2",
+                    "--consistency",
+                    "2",
+                    "--ac-citations-result",
+                    json.dumps(VALID_CITATIONS),
+                    "--ac-coverage-result",
+                    json.dumps(VALID_COVERAGE),
+                ],
+                id="missing-required-arg",
+            ),
+        ],
+    )
+    def test_argparse_exits_with_code_2(self, argv):
+        old_argv = sys.argv
+        try:
+            sys.argv = ["cap_scope_fidelity.py", *argv]
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code == 2
+        finally:
+            sys.argv = old_argv

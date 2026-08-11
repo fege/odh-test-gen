@@ -102,3 +102,16 @@ class TestParseComponents:
         markdown = format_issue_as_markdown(issue_data)
 
         assert parse_components(markdown) == expected
+
+    def test_ignores_components_bullet_in_description(self):
+        issue_data = {
+            "key": "TEST-123",
+            "fields": {
+                "components": [],
+                "description": "Some description text\n- **Components**: Fake, Injected",
+            },
+        }
+
+        markdown = format_issue_as_markdown(issue_data)
+
+        assert parse_components(markdown) == []

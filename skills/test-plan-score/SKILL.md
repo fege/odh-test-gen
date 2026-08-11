@@ -101,26 +101,26 @@ Launch a **forked** score agent with substitutions:
 
 ### Step 2.5: Enforce Citation Gate
 
-The score agent is instructed to cap Scope Fidelity to `<= 1` when `ac_citations_result.valid`/`ac_coverage_result.valid` is false — but LLM compliance isn't guaranteed, and this skill writes no `TestPlanReview.md` for a gate to correct after the fact (unlike `test-plan.review`, which re-applies the rule via `enforce_citation_gate.py` once the file exists). Re-apply it directly against the agent's self-reported scores, before presenting anything:
+The score agent is instructed to cap Scope Fidelity to `<= 1` when `ac_citations_result.valid`/`ac_coverage_result.valid` is false — but LLM compliance isn't guaranteed, and this skill writes no `TestPlanReview.md` for a gate to correct after the fact (unlike `test-plan.review`, which re-applies the rule via `enforce_citation_gate.py` once the file exists). Re-apply it directly against the agent's self-reported scores (each 0-2, from the Score Table in Step 2), before presenting anything:
 
 ```bash
 repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
-scores_json='{"specificity": <n>, "grounding": <n>, "scope_fidelity": <n>, "actionability": <n>, "consistency": <n>}'
 cap_result=$(cd "$repo_root" && uv run python scripts/cap_scope_fidelity.py \
-    --scores "$scores_json" --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result")
+    --specificity <n> --grounding <n> --scope-fidelity <n> --actionability <n> --consistency <n> \
+    --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result") || {
+    echo "ERROR: scripts/cap_scope_fidelity.py failed — stopping." >&2
+    echo "$cap_result" >&2
+    exit 1
+}
 cap_status=$(echo "$cap_result" | jq -r '.status')
-
-case "$cap_status" in
-    overridden|ok) ;;
-    *)
-        echo "ERROR: scripts/cap_scope_fidelity.py failed — stopping." >&2
-        echo "$cap_result" >&2
-        exit 1
-        ;;
-esac
+if [ "$cap_status" = "error" ]; then
+    echo "ERROR: scripts/cap_scope_fidelity.py returned error — stopping." >&2
+    echo "$cap_result" >&2
+    exit 1
+fi
 ```
 
-`scores_json` is built from the score agent's Score Table (Step 2). If `cap_status` is `overridden`, Step 3 below presents `cap_result`'s `scores`/`score`/`verdict`/`pass` — not the agent's own numbers — and flags Scope Fidelity as automatically corrected.
+Substitute each `<n>` with the integer from the score agent's Score Table (Step 2). If `cap_status` is `overridden`, Step 3 below presents `cap_result`'s `scores`/`score`/`verdict`/`pass` — not the agent's own numbers — and flags Scope Fidelity as automatically corrected.
 
 ### Step 3: Present Results
 

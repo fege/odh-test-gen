@@ -9,12 +9,12 @@ enforce_citation_gate.py uses (that one also persists the result to disk).
 
 Usage:
     uv run python scripts/cap_scope_fidelity.py \
-        --scores '<json dict of the 5 rubric scores>' \
+        --specificity N --grounding N --scope-fidelity N --actionability N --consistency N \
         --ac-citations-result '<json from validate.py ac-citations>' \
         --ac-coverage-result '<json from validate.py ac-coverage>'
 
-Exit code 0 always; prints a JSON object to stdout with `status` one of "overridden", "ok", or
-"error" (with an `error` message field).
+Exit code 0 with a JSON object to stdout: `status` is "overridden", "ok", or "error" (with an
+`error` message field). Exit code 2 from argparse on missing/non-integer args.
 """
 
 import argparse
@@ -32,17 +32,22 @@ def _fail(message: str) -> None:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--scores", required=True, help="JSON dict of the 5 rubric scores")
+    parser.add_argument("--specificity", type=int, required=True, help="Specificity score (0-2)")
+    parser.add_argument("--grounding", type=int, required=True, help="Grounding score (0-2)")
+    parser.add_argument("--scope-fidelity", type=int, required=True, help="Scope Fidelity score (0-2)")
+    parser.add_argument("--actionability", type=int, required=True, help="Actionability score (0-2)")
+    parser.add_argument("--consistency", type=int, required=True, help="Consistency score (0-2)")
     parser.add_argument("--ac-citations-result", required=True, help="JSON from validate.py ac-citations")
     parser.add_argument("--ac-coverage-result", required=True, help="JSON from validate.py ac-coverage")
     args = parser.parse_args()
 
-    try:
-        scores = json.loads(args.scores)
-    except json.JSONDecodeError as exc:
-        _fail(f"malformed --scores JSON: {exc}")
-    if not isinstance(scores, dict):
-        _fail("--scores must be a JSON object")
+    scores = {
+        "specificity": args.specificity,
+        "grounding": args.grounding,
+        "scope_fidelity": args.scope_fidelity,
+        "actionability": args.actionability,
+        "consistency": args.consistency,
+    }
 
     try:
         ac_citations = json.loads(args.ac_citations_result)

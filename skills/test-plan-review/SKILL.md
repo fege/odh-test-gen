@@ -86,6 +86,18 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
    A nonzero exit means gate-input construction itself failed (unreadable strategy file, a parsing bug) — that's an execution failure, not data about the test plan, so stop rather than silently falling back to degraded mode. With the pre-create-cases guards, `valid: true` is expected before test cases exist — both Section 9.2 (Test Cases column blank) and Section 6.2 are recognized as not-yet-populated and skipped. A `valid: false` here signals a genuine coverage gap; pass it as data to the score agent.
 
+5. Resolve `additional_docs` from TestPlan.md frontmatter deterministically — path validation and file reading happen in Python, not in the LLM prompt. The script reads frontmatter itself (the LLM is not in the trust path for path resolution):
+
+   ```bash
+   additional_docs_raw=$(cd "$repo_root" && uv run python scripts/resolve_additional_docs.py <feature_dir>) || {
+       echo "ERROR: scripts/resolve_additional_docs.py failed — stopping review." >&2
+       echo "$additional_docs_raw" >&2
+       exit 1
+   }
+
+   additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
+   ```
+
 ### Step 2: Score (fork)
 
 Read the score agent prompt from `${CLAUDE_SKILL_DIR}/prompts/score-agent.md`.
@@ -98,6 +110,7 @@ Launch a **forked** score agent with these substitutions:
 - `{INTERFACE_COVERAGE_RESULT}` = JSON from Step 1.5 (`interface_coverage_result`)
 - `{AC_CITATIONS_RESULT}` = JSON from Step 1.5 (`ac_citations_result`)
 - `{AC_COVERAGE_RESULT}` = JSON from Step 1.5 (`ac_coverage_result`)
+- `{ADDITIONAL_DOCS_CONTENT}` = JSON from Step 1.5 (`additional_docs_result`)
 
 The score agent evaluates the test plan against a 5-criterion rubric (specificity, grounding, scope fidelity, actionability, consistency) and returns a structured assessment with per-criterion scores and a grounding cross-reference table.
 
@@ -221,7 +234,7 @@ Delete the existing review file to force a clean re-assessment:
 rm <feature_dir>/TestPlanReview.md
 ```
 
-Re-run the Step 1.5 validation commands against the revised `TestPlan.md` — the revise agent (4b) may have edited Section 4, 6.2, 9.2, or citations, so `interface_coverage_result`, `ac_citations_result`, and `ac_coverage_result` must be recomputed before re-scoring (same as Step 1.5).
+Re-run the Step 1.5 validation commands against the revised `TestPlan.md` — the revise agent (4b) may have edited Section 4, 6.2, 9.2, or citations, so `interface_coverage_result`, `ac_citations_result`, `ac_coverage_result`, and `additional_docs_result` must be recomputed before re-scoring (same as Step 1.5).
 
 Repeat Step 2 (score agent) with the revised TestPlan.md and the recomputed results.
 

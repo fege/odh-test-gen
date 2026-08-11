@@ -27,7 +27,7 @@ import yaml
 
 
 from scripts.utils.frontmatter_utils import read_frontmatter_validated, update_frontmatter
-from scripts.utils.schemas import ValidationError, compute_verdict_and_pass
+from scripts.utils.schemas import REVIEW_CRITERIA, ValidationError, compute_verdict_and_pass
 
 FEEDBACK_HEADING = "## Section-by-Section Feedback"
 
@@ -59,8 +59,11 @@ def _require_valid_field(result, name: str) -> None:
         for entry in entries:
             if not isinstance(entry, dict) or not all(field in entry for field in required_fields):
                 raise ValueError(f"{name}.{key} entries must be objects with {', '.join(required_fields)}")
-        if key == "invalid_citations" and any(not isinstance(entry["reasons"], list) for entry in entries):
-            raise ValueError(f"{name}.{key} entries must have a list 'reasons' field")
+        if key == "invalid_citations":
+            if any(not isinstance(entry["reasons"], list) for entry in entries):
+                raise ValueError(f"{name}.{key} entries must have a list 'reasons' field")
+            if any(not isinstance(r, str) for entry in entries for r in entry["reasons"]):
+                raise ValueError(f"{name}.{key} entries must have a list of string 'reasons'")
 
 
 def _build_feedback_note(ac_citations_result: dict, ac_coverage_result: dict) -> str:
@@ -101,12 +104,39 @@ def _insert_feedback_note(review_path: str, note: str) -> None:
         f.write(content)
 
 
+def _validate_scores(scores: dict) -> None:
+    """Reject anything that isn't a dict containing exactly the 5 rubric criteria, with each
+    value being an integer in range 0..2 inclusive (rejecting boolean values explicitly).
+    """
+    if not isinstance(scores, dict):
+        raise ValueError("scores must be a JSON object")
+
+    expected = set(REVIEW_CRITERIA)
+    actual = set(scores.keys())
+
+    missing = expected - actual
+    if missing:
+        raise ValueError(f"scores is missing required criteria: {', '.join(sorted(missing))}")
+
+    extra = actual - expected
+    if extra:
+        raise ValueError(f"scores contains unknown criteria: {', '.join(sorted(extra))}")
+
+    for k in REVIEW_CRITERIA:
+        v = scores[k]
+        if type(v) is not int:
+            raise ValueError(f"scores.{k} must be an integer, got {type(v).__name__}")
+        if not (0 <= v <= 2):
+            raise ValueError(f"scores.{k} must be between 0 and 2, got {v}")
+
+
 def cap_scope_fidelity(scores: dict, ac_citations_result: dict, ac_coverage_result: dict) -> dict:
     """Cap Scope Fidelity to 1 if the deterministic citation checks say it should be, but
     `scores` says 2. Pure — no file I/O — shared by enforce_citation_gate() (which persists the
     result to TestPlanReview.md) and test-plan-score (which has no review file and only needs
     the corrected numbers to present).
     """
+    _validate_scores(scores)
     _require_valid_field(ac_citations_result, "ac_citations_result")
     _require_valid_field(ac_coverage_result, "ac_coverage_result")
 
@@ -199,7 +229,7 @@ def main():
 
     try:
         result = enforce_citation_gate(args.feature_dir, ac_citations, ac_coverage)
-    except (ValidationError, OSError, yaml.YAMLError) as exc:
+    except (ValidationError, OSError, yaml.YAMLError, ValueError) as exc:
         _fail(f"invalid TestPlanReview.md: {exc}")
 
     if result is None:

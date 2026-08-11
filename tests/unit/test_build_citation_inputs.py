@@ -22,7 +22,7 @@ STRATEGY_CONTENT = (
 class TestBuildCitationInputs:
     def test_ok_path_computes_ac_count_and_validator_results(self, tmp_path):
         write_testplan_with_objectives(tmp_path / "TestPlan.md", objectives_citing_every_ac(2, ["Upgrade"]))
-        strategy_file = tmp_path / "strategy.md"
+        strategy_file = tmp_path / ".source-strategy.md"
         strategy_file.write_text(STRATEGY_CONTENT)
 
         result = build_citation_inputs(str(tmp_path), str(strategy_file))
@@ -34,7 +34,7 @@ class TestBuildCitationInputs:
         assert result["interface_coverage_result"]["valid"] is True
 
     def test_missing_testplan_is_an_ordinary_invalid_result_not_an_execution_failure(self, tmp_path):
-        strategy_file = tmp_path / "strategy.md"
+        strategy_file = tmp_path / ".source-strategy.md"
         strategy_file.write_text(STRATEGY_CONTENT)
 
         result = build_citation_inputs(str(tmp_path), str(strategy_file))  # no TestPlan.md written
@@ -46,16 +46,17 @@ class TestBuildCitationInputs:
     def test_unreadable_strategy_file_raises(self, tmp_path):
         write_testplan_with_objectives(tmp_path / "TestPlan.md", "1. Verify something (AC: #1 — cited)\n")
 
-        # A directory can't be read as strategy text — stands in for parse_strat.py crashing on
-        # corrupt/unreadable input. Must raise so the caller stops, not silently return a result.
-        with pytest.raises(IsADirectoryError):
+        # A directory path fails the require_feature_snapshot filename check before the read is
+        # attempted — the containment policy rejects it with ValueError rather than letting
+        # IsADirectoryError surface from the read.
+        with pytest.raises(ValueError, match="snapshot filename must be .source-strategy.md"):
             build_citation_inputs(str(tmp_path), str(tmp_path))
 
 
 class TestBuildCitationInputsCLI:
     def test_ok_path_prints_status_ok_and_exits_zero(self, tmp_path, capsys):
         write_testplan_with_objectives(tmp_path / "TestPlan.md", objectives_citing_every_ac(2, ["Upgrade"]))
-        strategy_file = tmp_path / "strategy.md"
+        strategy_file = tmp_path / ".source-strategy.md"
         strategy_file.write_text(STRATEGY_CONTENT)
 
         old_argv = sys.argv
@@ -95,3 +96,95 @@ class TestBuildCitationInputsCLI:
         output = json.loads(capsys.readouterr().out)
         assert output["status"] == "error"
         assert isinstance(output["error"], str) and output["error"]
+
+
+class TestBuildCitationInputsContainment:
+    """Verify that require_feature_snapshot + read_file_nofollow reject unsafe strategy_file
+    paths — symlinks pointing outside feature_dir and wrong filenames.
+    """
+
+    def test_rejects_symlink_pointing_outside_feature_dir(self, tmp_path):
+        # feature_dir is a subdirectory of tmp_path; the symlink target sits OUTSIDE it (a
+        # sibling directory).  resolve() dereferences the symlink, so require_feature_snapshot
+        # sees a path outside feature_dir and raises ValueError.
+        feature_dir = tmp_path / "feature"
+        feature_dir.mkdir()
+        write_testplan_with_objectives(feature_dir / "TestPlan.md", "1. Verify something (AC: #1 — cited)\n")
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        real_file = outside / ".source-strategy.md"
+        real_file.write_text(STRATEGY_CONTENT)
+        link = feature_dir / ".source-strategy.md"
+        link.symlink_to(real_file)
+
+        with pytest.raises(ValueError, match="not inside feature_dir"):
+            build_citation_inputs(str(feature_dir), str(link))
+
+    def test_rejects_wrong_filename(self, tmp_path):
+        write_testplan_with_objectives(tmp_path / "TestPlan.md", "1. Verify something (AC: #1 — cited)\n")
+        wrong_name = tmp_path / "strategy.md"
+        wrong_name.write_text(STRATEGY_CONTENT)
+
+        with pytest.raises(ValueError, match="snapshot filename must be .source-strategy.md"):
+            build_citation_inputs(str(tmp_path), str(wrong_name))
+
+    def test_symlink_outside_feature_dir_cli_exits_one(self, tmp_path, capsys):
+        # feature_dir is a subdirectory of tmp_path; the symlink target sits OUTSIDE it.
+        feature_dir = tmp_path / "feature"
+        feature_dir.mkdir()
+        write_testplan_with_objectives(feature_dir / "TestPlan.md", "1. Verify something (AC: #1 — cited)\n")
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        real_file = outside / ".source-strategy.md"
+        real_file.write_text(STRATEGY_CONTENT)
+        link = feature_dir / ".source-strategy.md"
+        link.symlink_to(real_file)
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["build_citation_inputs.py", str(feature_dir), "--strategy-file", str(link)]
+            try:
+                main()
+            except SystemExit as exc:
+                assert exc.code == 1
+            else:
+                raise AssertionError("main() must exit with code 1")
+        finally:
+            sys.argv = old_argv
+
+        output = json.loads(capsys.readouterr().out)
+        assert output == {"status": "error", "error": "citation_input_construction_failed"}
+
+    def test_wrong_filename_cli_exits_one(self, tmp_path, capsys):
+        write_testplan_with_objectives(tmp_path / "TestPlan.md", "1. Verify something (AC: #1 — cited)\n")
+        wrong_name = tmp_path / "strategy.md"
+        wrong_name.write_text(STRATEGY_CONTENT)
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["build_citation_inputs.py", str(tmp_path), "--strategy-file", str(wrong_name)]
+            try:
+                main()
+            except SystemExit as exc:
+                assert exc.code == 1
+            else:
+                raise AssertionError("main() must exit with code 1")
+        finally:
+            sys.argv = old_argv
+
+        output = json.loads(capsys.readouterr().out)
+        assert output == {"status": "error", "error": "citation_input_construction_failed"}
+
+    def test_rejects_symlink_to_target_inside_feature_dir(self, tmp_path):
+        # Pins the is_symlink() branch in require_feature_snapshot
+        # The symlink target is INSIDE feature_dir
+        feature_dir = tmp_path / "feature"
+        feature_dir.mkdir()
+        write_testplan_with_objectives(feature_dir / "TestPlan.md", "1. Verify something (AC: #1 — cited)\n")
+        real_file = feature_dir / "real-strategy.md"
+        real_file.write_text(STRATEGY_CONTENT)
+        link = feature_dir / ".source-strategy.md"
+        link.symlink_to(real_file)
+
+        with pytest.raises(ValueError, match="is a symlink"):
+            build_citation_inputs(str(feature_dir), str(link))

@@ -19,6 +19,7 @@ import requests
 
 from scripts.fetch_issue import format_issue_as_markdown
 from scripts.jira_utils import get_issue
+from scripts.utils.snapshot_io import write_snapshot_nofollow
 
 SNAPSHOT_NAME = ".source-strategy.md"
 
@@ -30,13 +31,20 @@ def resolve_strategy(feature_dir: str, jira_key: str) -> dict:
     """
     snapshot_path = Path(feature_dir) / SNAPSHOT_NAME
 
+    # is_symlink() does NOT follow the link — it checks the entry itself.  A symlink here
+    # (planted or substituted) must not be trusted as a snapshot hit: is_file() follows
+    # symlinks and would return True for a symlink-to-regular-file, silently accepting a
+    # redirected snapshot.  Reject outright so the write path (O_NOFOLLOW) runs and raises.
+    if snapshot_path.is_symlink():
+        raise OSError(f"snapshot path is a symlink (rejected for safety): {snapshot_path}")
+
     if snapshot_path.is_file():
         return {"status": "ok", "source": "snapshot", "strategy_file": str(snapshot_path)}
 
     issue_data = get_issue(jira_key)
 
     snapshot_path.parent.mkdir(parents=True, exist_ok=True)
-    snapshot_path.write_text(format_issue_as_markdown(issue_data))
+    write_snapshot_nofollow(snapshot_path, format_issue_as_markdown(issue_data))
     return {"status": "ok", "source": "refetch", "strategy_file": str(snapshot_path)}
 
 

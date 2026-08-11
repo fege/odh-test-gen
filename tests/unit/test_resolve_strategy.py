@@ -150,3 +150,83 @@ class TestResolveStrategyCLI:
             sys.argv = old_argv
 
         assert json.loads(capsys.readouterr().out) == {"status": "failed", "error": "snapshot_write_failed"}
+
+
+class TestResolveStrategySymlinkRejection:
+    """Verify that write_snapshot_nofollow (O_NOFOLLOW) rejects a pre-existing symlink at the
+    snapshot path — both a regular-file symlink and a dangling symlink must raise OSError (ELOOP),
+    mapped to snapshot_write_failed at the CLI level.
+    """
+
+    @patch("scripts.jira_utils.api_call_with_retry")
+    def test_refetch_rejects_symlink_to_regular_file(self, mock_api_call, tmp_path):
+        mock_api_call.return_value = {
+            "key": "RHAISTRAT-1746",
+            "fields": {"summary": "Vector store registration"},
+        }
+        victim = tmp_path / "victim.md"
+        victim.write_text("must not be overwritten")
+        (tmp_path / ".source-strategy.md").symlink_to(victim)
+
+        with pytest.raises(OSError):
+            resolve_strategy(str(tmp_path), "RHAISTRAT-1746")
+
+        assert victim.read_text() == "must not be overwritten"
+
+    @patch("scripts.jira_utils.api_call_with_retry")
+    def test_refetch_rejects_dangling_symlink(self, mock_api_call, tmp_path):
+        mock_api_call.return_value = {
+            "key": "RHAISTRAT-1746",
+            "fields": {"summary": "Vector store registration"},
+        }
+        (tmp_path / ".source-strategy.md").symlink_to(tmp_path / "nonexistent.md")
+
+        with pytest.raises(OSError):
+            resolve_strategy(str(tmp_path), "RHAISTRAT-1746")
+
+    @patch("scripts.jira_utils.api_call_with_retry")
+    def test_refetch_symlink_cli_exits_one_with_snapshot_write_failed(self, mock_api_call, tmp_path, capsys):
+        mock_api_call.return_value = {
+            "key": "RHAISTRAT-1746",
+            "fields": {"summary": "Vector store registration"},
+        }
+        victim = tmp_path / "victim.md"
+        victim.write_text("must not be overwritten")
+        (tmp_path / ".source-strategy.md").symlink_to(victim)
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["resolve_strategy.py", str(tmp_path), "RHAISTRAT-1746"]
+            try:
+                main()
+            except SystemExit as exc:
+                assert exc.code == 1
+            else:
+                raise AssertionError("main() must exit with code 1")
+        finally:
+            sys.argv = old_argv
+
+        assert json.loads(capsys.readouterr().out) == {"status": "failed", "error": "snapshot_write_failed"}
+        assert victim.read_text() == "must not be overwritten"
+
+    @patch("scripts.jira_utils.api_call_with_retry")
+    def test_refetch_dangling_symlink_cli_exits_one_with_snapshot_write_failed(self, mock_api_call, tmp_path, capsys):
+        mock_api_call.return_value = {
+            "key": "RHAISTRAT-1746",
+            "fields": {"summary": "Vector store registration"},
+        }
+        (tmp_path / ".source-strategy.md").symlink_to(tmp_path / "nonexistent.md")
+
+        old_argv = sys.argv
+        try:
+            sys.argv = ["resolve_strategy.py", str(tmp_path), "RHAISTRAT-1746"]
+            try:
+                main()
+            except SystemExit as exc:
+                assert exc.code == 1
+            else:
+                raise AssertionError("main() must exit with code 1")
+        finally:
+            sys.argv = old_argv
+
+        assert json.loads(capsys.readouterr().out) == {"status": "failed", "error": "snapshot_write_failed"}

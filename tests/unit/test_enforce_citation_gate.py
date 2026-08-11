@@ -114,6 +114,11 @@ class TestCapScopeFidelity:
                 VALID_COVERAGE,
                 id="invalid_citation_missing_reasons",
             ),
+            pytest.param(
+                {"valid": False, "invalid_citations": [{"text": "x", "line_number": 1, "reasons": [None]}]},
+                VALID_COVERAGE,
+                id="null_reasons_element_in_invalid_citations",
+            ),
         ],
     )
     def test_malformed_result_raises(self, citations_result, coverage_result):
@@ -121,6 +126,43 @@ class TestCapScopeFidelity:
 
         with pytest.raises(ValueError):
             cap_scope_fidelity(scores, citations_result, coverage_result)
+
+    @pytest.mark.parametrize(
+        "invalid_scores",
+        [
+            pytest.param({"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 2}, id="missing_key"),
+            pytest.param(
+                {
+                    "specificity": 2,
+                    "grounding": 2,
+                    "scope_fidelity": 2,
+                    "actionability": 2,
+                    "consistency": 2,
+                    "extra": 1,
+                },
+                id="extra_key",
+            ),
+            pytest.param(
+                {"specificity": 2, "grounding": True, "scope_fidelity": 2, "actionability": 2, "consistency": 2},
+                id="bool_value",
+            ),
+            pytest.param(
+                {"specificity": 2, "grounding": "2", "scope_fidelity": 2, "actionability": 2, "consistency": 2},
+                id="str_value",
+            ),
+            pytest.param(
+                {"specificity": 3, "grounding": 2, "scope_fidelity": 2, "actionability": 2, "consistency": 2},
+                id="out_of_range_high",
+            ),
+            pytest.param(
+                {"specificity": -1, "grounding": 2, "scope_fidelity": 2, "actionability": 2, "consistency": 2},
+                id="out_of_range_low",
+            ),
+        ],
+    )
+    def test_invalid_scores_raises(self, invalid_scores):
+        with pytest.raises(ValueError):
+            cap_scope_fidelity(invalid_scores, VALID_CITATIONS, VALID_COVERAGE)
 
 
 class TestEnforceCitationGate:
@@ -306,6 +348,11 @@ class TestEnforceCitationGateFailsClosedOnMalformedResults:
                 {"valid": False, "invalid_citations": [{"text": "x", "line_number": 1}]},
                 VALID_COVERAGE,
                 id="invalid_citation_missing_reasons",
+            ),
+            pytest.param(
+                {"valid": False, "invalid_citations": [{"text": "x", "line_number": 1, "reasons": [None]}]},
+                VALID_COVERAGE,
+                id="null_reasons_element_in_invalid_citations",
             ),
         ],
     )
