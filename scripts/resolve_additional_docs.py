@@ -88,7 +88,7 @@ def resolve_additional_docs(feature_dir: str) -> dict:
     # raises FileNotFoundError when the file doesn't exist.
     try:
         data, _ = read_frontmatter(str(testplan_path))
-    except yaml.YAMLError as exc:
+    except (yaml.YAMLError, UnicodeDecodeError) as exc:
         raise ValueError("invalid_frontmatter") from exc
 
     if not data:
