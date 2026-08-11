@@ -684,5 +684,5 @@ class TestCmdSaveSnapshot:
         exit_code, output = run_cli(main, ["save-snapshot", str(strategy_file), str(feature_dir)])
 
         assert exit_code == 1
-        assert output["status"] == "error"
+        assert output == {"status": "error", "error": "snapshot_write_unsafe"}
         assert secret_file.read_text() == "TOP SECRET — must never be overwritten"

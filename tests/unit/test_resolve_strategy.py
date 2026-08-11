@@ -153,36 +153,33 @@ class TestResolveStrategyCLI:
 
 
 class TestResolveStrategySymlinkRejection:
-    """Verify that write_snapshot_nofollow (O_NOFOLLOW) rejects a pre-existing symlink at the
-    snapshot path — both a regular-file symlink and a dangling symlink must raise OSError (ELOOP),
-    mapped to snapshot_write_failed at the CLI level.
+    """Verify that resolve_strategy's is_symlink() guard rejects a pre-existing symlink at the
+    snapshot path before any Jira fetch or write — both a regular-file symlink and a dangling
+    symlink must raise OSError, mapped to snapshot_write_failed at the CLI level.
+    (write_snapshot_nofollow's own O_NOFOLLOW backstop is covered in tests/unit/test_snapshot_io.py.)
     """
 
     @patch("scripts.jira_utils.api_call_with_retry")
     def test_refetch_rejects_symlink_to_regular_file(self, mock_api_call, tmp_path):
-        mock_api_call.return_value = {
-            "key": "RHAISTRAT-1746",
-            "fields": {"summary": "Vector store registration"},
-        }
         victim = tmp_path / "victim.md"
         victim.write_text("must not be overwritten")
         (tmp_path / ".source-strategy.md").symlink_to(victim)
 
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match="snapshot path is a symlink"):
             resolve_strategy(str(tmp_path), "RHAISTRAT-1746")
 
         assert victim.read_text() == "must not be overwritten"
+        mock_api_call.assert_not_called()
 
     @patch("scripts.jira_utils.api_call_with_retry")
     def test_refetch_rejects_dangling_symlink(self, mock_api_call, tmp_path):
-        mock_api_call.return_value = {
-            "key": "RHAISTRAT-1746",
-            "fields": {"summary": "Vector store registration"},
-        }
         (tmp_path / ".source-strategy.md").symlink_to(tmp_path / "nonexistent.md")
 
-        with pytest.raises(OSError):
+        with pytest.raises(OSError, match="snapshot path is a symlink"):
             resolve_strategy(str(tmp_path), "RHAISTRAT-1746")
+
+        assert not (tmp_path / "nonexistent.md").exists()
+        mock_api_call.assert_not_called()
 
     @patch("scripts.jira_utils.api_call_with_retry")
     def test_refetch_symlink_cli_exits_one_with_snapshot_write_failed(self, mock_api_call, tmp_path, capsys):

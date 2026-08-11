@@ -107,10 +107,10 @@ Launch a **forked** score agent with these substitutions:
 - `{TEST_PLAN_PATH}` = `<feature_dir>/TestPlan.md`
 - `{STRATEGY_FILE_PATH}` = `strategy_file_path` from Step 1
 - `{CALIBRATION_DIR}` = `${CLAUDE_SKILL_DIR}/calibration/`
-- `{INTERFACE_COVERAGE_RESULT}` = JSON from Step 1.5 (`interface_coverage_result`)
-- `{AC_CITATIONS_RESULT}` = JSON from Step 1.5 (`ac_citations_result`)
-- `{AC_COVERAGE_RESULT}` = JSON from Step 1.5 (`ac_coverage_result`)
-- `{ADDITIONAL_DOCS_CONTENT}` = JSON from Step 1.5 (`additional_docs_result`)
+- `{INTERFACE_COVERAGE_RESULT}` = JSON from Step 1 (`interface_coverage_result`)
+- `{AC_CITATIONS_RESULT}` = JSON from Step 1 (`ac_citations_result`)
+- `{AC_COVERAGE_RESULT}` = JSON from Step 1 (`ac_coverage_result`)
+- `{ADDITIONAL_DOCS_CONTENT}` = JSON from Step 1 (`additional_docs_result`)
 
 The score agent evaluates the test plan against a 5-criterion rubric (specificity, grounding, scope fidelity, actionability, consistency) and returns a structured assessment with per-criterion scores and a grounding cross-reference table.
 
@@ -127,7 +127,7 @@ The score agent evaluates the test plan against a 5-criterion rubric (specificit
 | 3.2 Test Data | Are test data requirements concrete enough to act on? |
 | 4 Interfaces Under Test | Are entries grounded in source documents, not fabricated? |
 | 6.1 E2E Scenarios | Is the E2E Scenario Summary populated with TC-E2E-* entries? (Note: expected to be empty until create-cases runs) |
-| 6.2 E2E Coverage | Does each interface from Section 4 have E2E scenario coverage in Section 6.2? Checked deterministically via `interface-coverage` (Step 1.5), not LLM table-reading. (Note: expected to be empty until create-cases runs) |
+| 6.2 E2E Coverage | Does each interface from Section 4 have E2E scenario coverage in Section 6.2? Checked deterministically via `interface-coverage` (Step 1), not LLM table-reading. (Note: expected to be empty until create-cases runs) |
 | 7.1 Disconnected | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
 | 7.2 Upgrade | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
 | 7.3 Performance | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
@@ -151,7 +151,7 @@ The review agent writes `<feature_dir>/TestPlanReview.md` with rubric scores, fe
 - Do the interfaces in Section 4 align with the scope in Section 1.2?
 - Do the test levels in Section 2.1 match the interface types in Section 4?
 - Are priority assignments in Section 6.1 consistent with the definitions in Section 2.3?
-- Does Section 9.2 list all interfaces from Section 4? (deterministic — from the `interface-coverage` result computed in Step 1.5, not re-derived)
+- Does Section 9.2 list all interfaces from Section 4? (deterministic — from the `interface-coverage` result computed in Step 1, not re-derived)
 - Are NFR categories in Section 7 consistent with the feature scope? (e.g., a feature that pulls images should not mark Disconnected as N/A)
 - Does Section 6.2 E2E Coverage Matrix include all interfaces from Section 4? (deterministic — from the `interface-coverage` result; expected unpopulated until create-cases runs)
 
@@ -234,7 +234,28 @@ Delete the existing review file to force a clean re-assessment:
 rm <feature_dir>/TestPlanReview.md
 ```
 
-Re-run the Step 1.5 validation commands against the revised `TestPlan.md` — the revise agent (4b) may have edited Section 4, 6.2, 9.2, or citations, so `interface_coverage_result`, `ac_citations_result`, `ac_coverage_result`, and `additional_docs_result` must be recomputed before re-scoring (same as Step 1.5).
+Recompute validation results against the revised `TestPlan.md` — the revise agent (4b) may have edited Section 4, 6.2, 9.2, or citations, so all four must be refreshed before re-scoring:
+
+```bash
+repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> --strategy-file "$strategy_file_path") || {
+    echo "ERROR: scripts/build_citation_inputs.py failed — stopping review." >&2
+    echo "$gate_result" >&2
+    exit 1
+}
+
+interface_coverage_result=$(echo "$gate_result" | jq -c '.interface_coverage_result')
+ac_citations_result=$(echo "$gate_result" | jq -c '.ac_citations_result')
+ac_coverage_result=$(echo "$gate_result" | jq -c '.ac_coverage_result')
+
+additional_docs_raw=$(cd "$repo_root" && uv run python scripts/resolve_additional_docs.py <feature_dir>) || {
+    echo "ERROR: scripts/resolve_additional_docs.py failed — stopping review." >&2
+    echo "$additional_docs_raw" >&2
+    exit 1
+}
+
+additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
+```
 
 Repeat Step 2 (score agent) with the revised TestPlan.md and the recomputed results.
 

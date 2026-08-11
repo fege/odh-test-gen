@@ -39,6 +39,7 @@ def write_snapshot_nofollow(path: os.PathLike | str, content: str) -> None:
     file (a normal re-run) is still allowed via ``O_TRUNC``.
     """
     fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    os.fchmod(fd, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(content)
 
@@ -58,14 +59,17 @@ def require_within_feature_dir(feature_dir: os.PathLike | str, path: os.PathLike
        symlink entry outright, even when its target happens to be inside the
        tree.  ``read_file_nofollow``'s ``O_NOFOLLOW`` remains the TOCTOU
        backstop at open time.
+    3. **Regular file** — a FIFO, device, or directory is rejected.
+       ``O_NOFOLLOW`` does not reject a FIFO, and a blocking read on one would
+       hang the caller.
 
     The returned path is built from ``parent.resolve() / name`` (resolves
     directory traversals without following a symlink at the final component).
 
     Raises:
-        ValueError: with a stable reason code (``outside_feature_dir`` or
-            ``symlink``) — never leaks the resolved absolute path in the
-            message.
+        ValueError: with a stable reason code (``outside_feature_dir``,
+            ``symlink``, or ``not_regular_file``) — never leaks the resolved
+            absolute path in the message.
     """
     p = Path(path)
 
@@ -77,6 +81,9 @@ def require_within_feature_dir(feature_dir: os.PathLike | str, path: os.PathLike
 
     if p.is_symlink():
         raise ValueError("symlink")
+
+    if p.exists() and not p.is_file():
+        raise ValueError("not_regular_file")
 
     resolved_path = p.parent.resolve() / p.name
     return resolved_path
@@ -127,4 +134,6 @@ def require_feature_snapshot(feature_dir: os.PathLike | str, path: os.PathLike |
             raise ValueError(f"snapshot path {resolved_target} is not inside feature_dir {resolved_dir}") from None
         if reason == "symlink":
             raise ValueError(f"snapshot path is a symlink (rejected for safety): {p}") from None
+        if reason == "not_regular_file":
+            raise ValueError(f"snapshot path is not a regular file: {p}") from None
         raise

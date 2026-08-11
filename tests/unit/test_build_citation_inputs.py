@@ -3,6 +3,7 @@ inputs (ac_count/nfr_categories + validator results) from a resolved strategy fi
 """
 
 import json
+import re
 import sys
 
 import pytest
@@ -43,13 +44,12 @@ class TestBuildCitationInputs:
         assert result["ac_citations_result"]["valid"] is False
         assert "error" in result["ac_citations_result"]
 
-    def test_unreadable_strategy_file_raises(self, tmp_path):
+    def test_directory_path_fails_filename_check(self, tmp_path):
         write_testplan_with_objectives(tmp_path / "TestPlan.md", "1. Verify something (AC: #1 — cited)\n")
 
         # A directory path fails the require_feature_snapshot filename check before the read is
-        # attempted — the containment policy rejects it with ValueError rather than letting
-        # IsADirectoryError surface from the read.
-        with pytest.raises(ValueError, match="snapshot filename must be .source-strategy.md"):
+        # attempted.
+        with pytest.raises(ValueError, match=re.escape("snapshot filename must be .source-strategy.md")):
             build_citation_inputs(str(tmp_path), str(tmp_path))
 
 
@@ -125,7 +125,7 @@ class TestBuildCitationInputsContainment:
         wrong_name = tmp_path / "strategy.md"
         wrong_name.write_text(STRATEGY_CONTENT)
 
-        with pytest.raises(ValueError, match="snapshot filename must be .source-strategy.md"):
+        with pytest.raises(ValueError, match=re.escape("snapshot filename must be .source-strategy.md")):
             build_citation_inputs(str(tmp_path), str(wrong_name))
 
     def test_symlink_outside_feature_dir_cli_exits_one(self, tmp_path, capsys):

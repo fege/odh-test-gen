@@ -86,6 +86,18 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
    A nonzero exit means gate-input construction itself failed (unreadable strategy file, a parsing bug) — that's an execution failure, not data about the test plan, so stop rather than silently falling back to degraded mode.
 
+5. Resolve `additional_docs` from TestPlan.md frontmatter:
+
+   ```bash
+   additional_docs_raw=$(cd "$repo_root" && uv run python scripts/resolve_additional_docs.py <feature_dir>) || {
+       echo "ERROR: scripts/resolve_additional_docs.py failed — stopping." >&2
+       echo "$additional_docs_raw" >&2
+       exit 1
+   }
+
+   additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
+   ```
+
 ### Step 2: Score (fork)
 
 Read the score agent prompt from `skills/test-plan-review/prompts/score-agent.md`.
@@ -98,15 +110,25 @@ Launch a **forked** score agent with substitutions:
 - `{INTERFACE_COVERAGE_RESULT}` = JSON from Step 1 (`interface_coverage_result`)
 - `{AC_CITATIONS_RESULT}` = JSON from Step 1 (`ac_citations_result`)
 - `{AC_COVERAGE_RESULT}` = JSON from Step 1 (`ac_coverage_result`)
+- `{ADDITIONAL_DOCS_CONTENT}` = JSON from Step 1 (`additional_docs_result`)
 
 ### Step 2.5: Enforce Citation Gate
 
-The score agent is instructed to cap Scope Fidelity to `<= 1` when `ac_citations_result.valid`/`ac_coverage_result.valid` is false — but LLM compliance isn't guaranteed, and this skill writes no `TestPlanReview.md` for a gate to correct after the fact (unlike `test-plan.review`, which re-applies the rule via `enforce_citation_gate.py` once the file exists). Re-apply it directly against the agent's self-reported scores (each 0-2, from the Score Table in Step 2), before presenting anything:
+The score agent is instructed to cap Scope Fidelity to `<= 1` when `ac_citations_result.valid`/`ac_coverage_result.valid` is false — but LLM compliance isn't guaranteed, and this skill writes no `TestPlanReview.md` for a gate to correct after the fact (unlike `test-plan.review`, which re-applies the rule via `enforce_citation_gate.py` once the file exists). Re-apply it directly against the agent's self-reported scores (each 0-2, from the Score Table in Step 2), before presenting anything.
+
+Write the five rubric scores from the Score Table as a JSON object (use `scope_fidelity` with an underscore, matching the rubric key):
+
+```json
+{"specificity": N, "grounding": N, "scope_fidelity": N, "actionability": N, "consistency": N}
+```
+
+Then pass to the deterministic validator:
 
 ```bash
 repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+scores_json='{"specificity": N, "grounding": N, "scope_fidelity": N, "actionability": N, "consistency": N}'
 cap_result=$(cd "$repo_root" && uv run python scripts/cap_scope_fidelity.py \
-    --specificity <n> --grounding <n> --scope-fidelity <n> --actionability <n> --consistency <n> \
+    --scores-json "$scores_json" \
     --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result") || {
     echo "ERROR: scripts/cap_scope_fidelity.py failed — stopping." >&2
     echo "$cap_result" >&2
@@ -120,7 +142,7 @@ if [ "$cap_status" = "error" ]; then
 fi
 ```
 
-Substitute each `<n>` with the integer from the score agent's Score Table (Step 2). If `cap_status` is `overridden`, Step 3 below presents `cap_result`'s `scores`/`score`/`verdict`/`pass` — not the agent's own numbers — and flags Scope Fidelity as automatically corrected.
+The Python helper validates that `scores_json` contains exactly five integer scores (0-2 each) before processing — malformed or out-of-range values produce a structured error, not a shell failure. If `cap_status` is `overridden`, Step 3 below presents `cap_result`'s `scores`/`score`/`verdict`/`pass` — not the agent's own numbers — and flags Scope Fidelity as automatically corrected.
 
 ### Step 3: Present Results
 

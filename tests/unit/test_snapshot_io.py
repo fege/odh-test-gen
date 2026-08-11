@@ -2,11 +2,18 @@
 feature-dir containment policy for strategy snapshots.
 """
 
+import os
+import re
 import stat
 
 import pytest
 
-from scripts.utils.snapshot_io import read_file_nofollow, require_feature_snapshot, write_snapshot_nofollow
+from scripts.utils.snapshot_io import (
+    read_file_nofollow,
+    require_feature_snapshot,
+    require_within_feature_dir,
+    write_snapshot_nofollow,
+)
 
 
 class TestReadFileNofollow:
@@ -43,6 +50,15 @@ class TestWriteSnapshotNofollow:
 
         assert target.read_text() == "new"
 
+    def test_enforces_mode_0600_on_preexisting_file(self, tmp_path):
+        target = tmp_path / "snapshot.md"
+        target.write_text("old")
+        target.chmod(0o644)
+
+        write_snapshot_nofollow(target, "new")
+
+        assert stat.S_IMODE(target.stat().st_mode) == 0o600
+
     def test_rejects_preexisting_symlink_to_regular_file(self, tmp_path):
         real = tmp_path / "victim.md"
         real.write_text("must not be overwritten")
@@ -75,7 +91,7 @@ class TestRequireFeatureSnapshot:
         wrong_name = tmp_path / "strategy.md"
         wrong_name.write_text("content")
 
-        with pytest.raises(ValueError, match="snapshot filename must be .source-strategy.md"):
+        with pytest.raises(ValueError, match=re.escape("snapshot filename must be .source-strategy.md")):
             require_feature_snapshot(tmp_path, wrong_name)
 
     def test_rejects_path_escaping_feature_dir(self, tmp_path):
@@ -97,3 +113,19 @@ class TestRequireFeatureSnapshot:
 
         with pytest.raises(ValueError, match="not inside feature_dir"):
             require_feature_snapshot(feature_dir, feature_dir / ".." / ".source-strategy.md")
+
+    def test_rejects_fifo_snapshot(self, tmp_path):
+        fifo = tmp_path / ".source-strategy.md"
+        os.mkfifo(fifo)
+
+        with pytest.raises(ValueError, match="not a regular file"):
+            require_feature_snapshot(tmp_path, fifo)
+
+
+class TestRequireWithinFeatureDir:
+    def test_rejects_directory(self, tmp_path):
+        subdir = tmp_path / "subdir"
+        subdir.mkdir()
+
+        with pytest.raises(ValueError, match="not_regular_file"):
+            require_within_feature_dir(tmp_path, subdir)

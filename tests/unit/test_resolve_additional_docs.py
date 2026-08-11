@@ -159,8 +159,26 @@ class TestResolveAdditionalDocs:
 
         assert result == {"status": "ok", "docs": []}
 
-    def test_missing_testplan_raises(self, tmp_path):
-        with pytest.raises(FileNotFoundError):
+    @pytest.mark.parametrize(
+        "content,exc_type,match",
+        [
+            (None, FileNotFoundError, None),
+            (
+                "---\nfeature: Test\nsource_key: K\nversion: 1.0.0\n"
+                "status: Draft\nlast_updated: 2026-08-11\nauthor: QE\n"
+                "additional_docs: spec.md\n---\n\n# Test Plan\n",
+                ValueError,
+                "invalid_additional_docs",
+            ),
+            ("---\nadditional_docs: [\n---\n\n# Test Plan\n", ValueError, "invalid_frontmatter"),
+        ],
+        ids=["missing_testplan", "scalar_additional_docs", "malformed_yaml"],
+    )
+    def test_invalid_input_raises(self, tmp_path, content, exc_type, match):
+        if content is not None:
+            (tmp_path / "TestPlan.md").write_text(content)
+
+        with pytest.raises(exc_type, match=match):
             resolve_additional_docs(str(tmp_path))
 
     def test_nonexistent_local_file_is_skipped_unreadable(self, tmp_path):

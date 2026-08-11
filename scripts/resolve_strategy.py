@@ -62,6 +62,9 @@ def main():
     except OSError:
         print(json.dumps({"status": "failed", "error": "snapshot_write_failed"}, indent=2))
         sys.exit(1)
+    except Exception:
+        print(json.dumps({"status": "failed", "error": "strategy_resolution_failed"}, indent=2))
+        sys.exit(1)
 
     print(json.dumps(result, indent=2))
     sys.exit(0)

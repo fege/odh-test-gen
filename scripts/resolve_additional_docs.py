@@ -24,15 +24,17 @@ import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+import yaml
+
 from scripts.utils.frontmatter_utils import read_frontmatter
 from scripts.utils.snapshot_io import read_file_nofollow, require_within_feature_dir
 
 
 def _is_url(entry: str) -> bool:
-    """Return True if *entry* looks like a URL (has a scheme with ``://``)."""
+    """Return True if *entry* is an http(s) URL."""
     try:
         parsed = urlparse(entry)
-        return parsed.scheme in ("http", "https") or bool(parsed.scheme and parsed.netloc)
+        return parsed.scheme in ("http", "https") and bool(parsed.netloc)
     except Exception:
         return False
 
@@ -84,12 +86,19 @@ def resolve_additional_docs(feature_dir: str) -> dict:
 
     # read_frontmatter returns ({}, body) when no frontmatter is found, and
     # raises FileNotFoundError when the file doesn't exist.
-    data, _ = read_frontmatter(str(testplan_path))
+    try:
+        data, _ = read_frontmatter(str(testplan_path))
+    except yaml.YAMLError as exc:
+        raise ValueError("invalid_frontmatter") from exc
 
     if not data:
         raise ValueError("no_frontmatter")
 
-    additional_docs = data.get("additional_docs", []) or []
+    additional_docs = data.get("additional_docs", [])
+    if additional_docs is None:
+        additional_docs = []
+    if not isinstance(additional_docs, list) or not all(isinstance(entry, str) for entry in additional_docs):
+        raise ValueError("invalid_additional_docs")
 
     docs = [_resolve_entry(str(entry), feature_dir) for entry in additional_docs]
 
@@ -108,8 +117,9 @@ def main():
     except FileNotFoundError:
         print(json.dumps({"status": "error", "error": "testplan_not_found"}))
         sys.exit(1)
-    except ValueError:
-        print(json.dumps({"status": "error", "error": "invalid_frontmatter"}))
+    except ValueError as exc:
+        # Every ValueError raised by resolve_additional_docs is a stable, path-free code.
+        print(json.dumps({"status": "error", "error": str(exc)}))
         sys.exit(1)
     except Exception:
         print(json.dumps({"status": "error", "error": "unexpected_failure"}))

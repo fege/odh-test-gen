@@ -9,12 +9,12 @@ enforce_citation_gate.py uses (that one also persists the result to disk).
 
 Usage:
     uv run python scripts/cap_scope_fidelity.py \
-        --specificity N --grounding N --scope-fidelity N --actionability N --consistency N \
+        --scores-json '{"specificity":2,"grounding":2,"scope_fidelity":2,"actionability":2,"consistency":2}' \
         --ac-citations-result '<json from validate.py ac-citations>' \
         --ac-coverage-result '<json from validate.py ac-coverage>'
 
 Exit code 0 with a JSON object to stdout: `status` is "overridden", "ok", or "error" (with an
-`error` message field). Exit code 2 from argparse on missing/non-integer args.
+`error` message field). Exit code 2 from argparse on missing args.
 """
 
 import argparse
@@ -32,22 +32,18 @@ def _fail(message: str) -> None:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--specificity", type=int, required=True, help="Specificity score (0-2)")
-    parser.add_argument("--grounding", type=int, required=True, help="Grounding score (0-2)")
-    parser.add_argument("--scope-fidelity", type=int, required=True, help="Scope Fidelity score (0-2)")
-    parser.add_argument("--actionability", type=int, required=True, help="Actionability score (0-2)")
-    parser.add_argument("--consistency", type=int, required=True, help="Consistency score (0-2)")
+    parser.add_argument("--scores-json", required=True, help="JSON object with five rubric scores (0-2 each)")
     parser.add_argument("--ac-citations-result", required=True, help="JSON from validate.py ac-citations")
     parser.add_argument("--ac-coverage-result", required=True, help="JSON from validate.py ac-coverage")
     args = parser.parse_args()
 
-    scores = {
-        "specificity": args.specificity,
-        "grounding": args.grounding,
-        "scope_fidelity": args.scope_fidelity,
-        "actionability": args.actionability,
-        "consistency": args.consistency,
-    }
+    try:
+        scores = json.loads(args.scores_json)
+    except json.JSONDecodeError as exc:
+        _fail(f"malformed --scores-json: {exc}")
+
+    if not isinstance(scores, dict):
+        _fail("--scores-json must be a JSON object")
 
     try:
         ac_citations = json.loads(args.ac_citations_result)

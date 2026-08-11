@@ -207,7 +207,12 @@ def main():
     parser.add_argument("feature_dir")
     parser.add_argument("--ac-citations-result", required=True, help="JSON from validate.py ac-citations")
     parser.add_argument("--ac-coverage-result", required=True, help="JSON from validate.py ac-coverage")
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except SystemExit as exc:
+        if exc.code == 0:
+            raise
+        _fail("missing or invalid arguments")
 
     try:
         ac_citations = json.loads(args.ac_citations_result)
