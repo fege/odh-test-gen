@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from scripts import preserve_review_state
-from scripts.utils.frontmatter_utils import read_frontmatter_validated, write_frontmatter
+from scripts.utils.frontmatter_utils import read_frontmatter_validated, write_frontmatter_with_body
 
 
 def _base_review_payload():
@@ -14,7 +14,7 @@ def _base_review_payload():
         "source_key": "RHAISTRAT-1290",
         "score": 8,
         "pass": True,
-        "verdict": "Ready",
+        "verdict": "Revise",
         "scores": {
             "specificity": 2,
             "grounding": 2,
@@ -32,12 +32,8 @@ def _base_review_payload():
 
 def _write_review(feature_dir, revision_history):
     review_path = os.path.join(feature_dir, "TestPlanReview.md")
-    with open(review_path, "w", encoding="utf-8") as f:
-        f.write(
-            f"## Test Plan Review\n\n## Revision History\n{revision_history}\n\n## Notes\n- review body placeholder\n"
-        )
-    write_frontmatter(review_path, _base_review_payload(), "test-plan-review")
-    return review_path
+    body = f"## Test Plan Review\n\n## Revision History\n{revision_history}\n\n## Notes\n- review body placeholder\n"
+    return write_frontmatter_with_body(review_path, body, _base_review_payload(), "test-plan-review")
 
 
 def _write_state(feature_dir, revision_history):

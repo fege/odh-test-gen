@@ -57,8 +57,8 @@ Parse the total score and per-criterion scores from the assessment:
 
 | Verdict | Condition |
 |---------|-----------|
-| **Ready** | Total >= 8 AND no criterion scored 0 |
-| **Revise** | Total = 7 AND no criterion scored 0 |
+| **Ready** | Total >= 8 AND no criterion scored 0 AND actionability == 2 |
+| **Revise** | Total >= 7 AND no criterion scored 0 (but not meeting Ready bar) |
 | **Rework** | Total < 7 OR any criterion scored 0 |
 
 ## Step 5: Set Frontmatter

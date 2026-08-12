@@ -7,11 +7,10 @@ proving the fix means proving the corrected score actually flips that decision, 
 enforce_citation_gate computes the right numbers in isolation.
 """
 
-from pathlib import Path
-
 from scripts.enforce_citation_gate import enforce_citation_gate
 from scripts.filter_for_revision import filter_for_revision
-from scripts.utils.frontmatter_utils import write_frontmatter
+from scripts.utils.frontmatter_utils import write_frontmatter_with_body
+from tests.helpers import build_review_payload
 
 VALID_CITATIONS = {"valid": True, "total": 5, "cited": 5, "uncited": [], "invalid_citations": []}
 VALID_COVERAGE = {"valid": True, "ac_count": 5, "covered": [1, 2, 3, 4, 5], "missing": []}
@@ -25,22 +24,9 @@ INVALID_CITATIONS = {
 
 
 def _write_review(path, scores, score=None, verdict="Ready", passed=True, before_score=None):
-    data = {
-        "feature": "Test",
-        "source_key": "RHAISTRAT-1",
-        "score": score if score is not None else sum(scores.values()),
-        "pass": passed,
-        "verdict": verdict,
-        "scores": scores,
-        "auto_revised": False,
-        "last_updated": "2026-08-06",
-    }
-    if before_score is not None:
-        data["before_score"] = before_score
-        data["before_scores"] = dict(scores)
-    Path(path).write_text("## Rubric Scores\n\n## Section-by-Section Feedback\n\nAll criteria passed.\n")
-    write_frontmatter(str(path), data, "test-plan-review")
-    return str(path)
+    data = build_review_payload(scores, score=score, verdict=verdict, passed=passed, before_score=before_score)
+    body = "## Rubric Scores\n\n## Section-by-Section Feedback\n\nAll criteria passed.\n"
+    return write_frontmatter_with_body(str(path), body, data, "test-plan-review")
 
 
 class TestCitationGateToRevisionFlow:

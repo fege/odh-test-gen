@@ -14,11 +14,11 @@
 | Actionability | 1 | Specific tools named (podman 4.x+, oc 4.16+, MLflow 2.x, Python 3.11+). Test users have personas with named roles (Alex=developer, Paula=platform engineer). However: OpenShift version is "4.16+" (range, not pinned), RHOAI version not specified, "latest stable release as of test execution" is vague, model server is "TBD", GenAI Studio access "permissions TBD". | A platform engineer could start provisioning but would ask: "Which exact RHOAI version?", "Which model server?", "What are GenAI Studio permissions?" The TBDs are acknowledged but not marked with what document would resolve them. |
 | Consistency | 2 | Section 4 has 7 entries; Section 9.2 lists all 7 with mapped test cases. Test levels (Functional, Integration, E2E, Compliance, API) match the interface types in Section 4 (Config, REST, Method, UI). Priority assignments in Section 4 match the definitions in Section 2.3 (P0 = deployment/discovery blockers, P1 = workflow blockers). | All four cross-checks pass (six in modern rubric, but this plan predates Section 6/7). No orphan endpoints, no mismatched priorities. |
 
-**Total: 8/10 — Verdict: Ready**
+**Total: 8/10 — Verdict: Revise**
 
 ## Key Observations
 
 - This is a well-structured test plan with strong specificity and scope fidelity
 - The main weakness is grounding: several technical details are reasonable inferences rather than verbatim strategy content
-- Actionability loses a point for multiple "TBD" items without resolution paths
+- Actionability scores 1/2 (below the gate for Ready). Although the total qualifies (8/10), the actionability==2 requirement means this plan receives a **Revise** verdict — it needs clarification on "TBD" items (RHOAI version, model server, GenAI Studio permissions) before proceeding to test case generation.
 - The test plan was generated with test cases already populated, which strengthens the consistency score (Section 9.2 has mapped TCs)

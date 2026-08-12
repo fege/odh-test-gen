@@ -35,6 +35,34 @@ def objectives_citing_every_ac(ac_count, nfr_categories):
     return "\n".join(lines) + "\n"
 
 
+def build_review_payload(
+    scores,
+    score=None,
+    verdict="Ready",
+    passed=True,
+    before_score=None,
+    before_scores=None,
+    feature="Test",
+    source_key="RHAISTRAT-1",
+    last_updated="2026-08-06",
+):
+    """Build a test-plan-review frontmatter payload dict from scores/verdict."""
+    data = {
+        "feature": feature,
+        "source_key": source_key,
+        "score": score if score is not None else sum(scores.values()),
+        "pass": passed,
+        "verdict": verdict,
+        "scores": scores,
+        "auto_revised": False,
+        "last_updated": last_updated,
+    }
+    if before_score is not None:
+        data["before_score"] = before_score
+        data["before_scores"] = before_scores or dict(scores)
+    return data
+
+
 def add_feature(repo_path, feature_name, files):
     """Add a feature directory with specified files to a repo."""
     feature = Path(repo_path) / feature_name

@@ -102,6 +102,18 @@ def write_frontmatter(path, data, schema_type):
         f.write(content)
 
 
+def write_frontmatter_with_body(path, body, data, schema_type):
+    """Write a fresh file with the given body text, then attach validated frontmatter to it.
+
+    Equivalent to writing body then calling write_frontmatter, but avoids that two-step dance at
+    every call site that needs to seed both body and frontmatter for a new file.
+    """
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(body)
+    write_frontmatter(path, data, schema_type)
+    return str(path)
+
+
 def update_frontmatter(path, updates, schema_type):
     """Update specific frontmatter fields in an existing file.
 
