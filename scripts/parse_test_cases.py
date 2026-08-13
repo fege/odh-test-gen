@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 
+from scripts.utils.error_utils import exit_error
 from scripts.utils.frontmatter_utils import read_frontmatter
 from scripts.utils.tc_parser import parse_tc_file
 
@@ -37,8 +38,7 @@ def parse_test_cases(feature_dir: str, tc_ids: list[str]) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) < 3:
-        print("Usage: python scripts/parse_test_cases.py <feature_dir> <tc_id_1> [tc_id_2 ...]", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: python scripts/parse_test_cases.py <feature_dir> <tc_id_1> [tc_id_2 ...]")
 
     feature_dir = sys.argv[1]
     tc_ids = sys.argv[2:]
@@ -47,8 +47,7 @@ def main():
         result = parse_test_cases(feature_dir, tc_ids)
         print(result)
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
 
 
 if __name__ == "__main__":

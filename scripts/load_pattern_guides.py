@@ -22,6 +22,8 @@ import json
 import sys
 from pathlib import Path
 
+from scripts.utils.error_utils import exit_error
+
 
 def load_pattern_guides(repo_path: str, framework: str) -> str:
     """
@@ -103,8 +105,7 @@ def load_pattern_guides(repo_path: str, framework: str) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) != 3:
-        print("Usage: python scripts/load_pattern_guides.py <repo_path> <framework>", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: python scripts/load_pattern_guides.py <repo_path> <framework>")
 
     repo_path = sys.argv[1]
     framework = sys.argv[2]
@@ -113,8 +114,7 @@ def main():
         result = load_pattern_guides(repo_path, framework)
         print(result)
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
 
 
 if __name__ == "__main__":

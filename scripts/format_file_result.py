@@ -5,6 +5,8 @@ import json
 import sys
 from pathlib import Path
 
+from scripts.utils.error_utils import exit_error
+
 
 def format_file_result(metadata: dict) -> str:
     """
@@ -40,8 +42,7 @@ def format_file_result(metadata: dict) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) != 2:
-        print("Usage: python scripts/format_file_result.py <metadata.json|-}", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: python scripts/format_file_result.py <metadata.json|->")
 
     metadata_file = sys.argv[1]
 
@@ -57,11 +58,9 @@ def main():
         print(result)
 
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
     except Exception as e:
-        print(f"Unexpected error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Unexpected error: {e}")
 
 
 if __name__ == "__main__":

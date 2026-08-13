@@ -86,6 +86,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+from scripts.utils.error_utils import exit_error, exit_error_multiline
 from scripts.utils.repo_utils import (
     clone_repo,
     find_known_repo,
@@ -114,8 +115,7 @@ def cmd_find_known(args):
         print(json.dumps(result, indent=2))
         return 0 if path else 1
     except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        return 1
+        exit_error(f"Error: {e}")
 
 
 def cmd_find_target(args):
@@ -135,8 +135,7 @@ def cmd_clone(args):
         print(result)
         return 0
     else:
-        print(f"Failed to clone {args.repo_url}", file=sys.stderr)
-        return 1
+        exit_error(f"Failed to clone {args.repo_url}")
 
 
 def cmd_locate_feature_dir(args):
@@ -174,8 +173,7 @@ def _handle_github_pr(owner, repo, pr_number):
 
         return _handle_github_branch(owner, repo, branch_name)
     except (subprocess.CalledProcessError, json.JSONDecodeError, KeyError) as e:
-        print(f"ERROR: Failed to fetch PR {pr_number}: {e}", file=sys.stderr)
-        return 1
+        exit_error(f"ERROR: Failed to fetch PR {pr_number}: {e}")
 
 
 def stage_artifacts(repo_path, feature_name):
@@ -538,28 +536,31 @@ def _handle_github_branch(owner, repo, branch):
     if repo_path:
         # Repo exists locally - use safe checkout
         if safe_checkout_branch(repo_path, branch, remote="origin") != 0:
-            return 1
+            exit_error("Branch checkout failed")
     else:
         # Clone repo to ~/Code
         repo_url = f"https://github.com/{owner}/{repo}.git"
         target_path = os.path.expanduser(f"~/Code/{repo}")
         repo_path = clone_repo(repo_url, target_path)
         if not repo_path:
-            print(f"ERROR: Failed to clone {repo_url}", file=sys.stderr)
-            return 1
+            exit_error(f"ERROR: Failed to clone {repo_url}")
 
         # Checkout branch
         try:
             subprocess.run(["git", "checkout", branch], cwd=repo_path, check=True, capture_output=True)
         except subprocess.CalledProcessError as e:
-            print(f"ERROR: Failed to checkout branch {branch}: {e}", file=sys.stderr)
-            return 1
+            exit_error(f"ERROR: Failed to checkout branch {branch}: {e}")
 
     # Find TestPlan.md in the repository (pass branch for disambiguation)
     feature_dir = _find_testplan_in_repo(repo_path, branch_hint=branch)
     if not feature_dir:
-        print(f"ERROR: TestPlan.md not found in {repo_path}", file=sys.stderr)
-        return 1
+        exit_error_multiline(
+            [
+                f"ERROR: TestPlan.md not found in {repo_path}",
+                "",
+                "Please check that the repository has a valid test plan directory.",
+            ]
+        )
 
     # Output results
     result = {"feature_dir": feature_dir, "source_type": "github", "repo_owner": owner, "repo_name": repo}
@@ -579,8 +580,7 @@ def _handle_local_path(path):
     # Verify TestPlan.md exists
     testplan_path = os.path.join(path, "TestPlan.md")
     if not os.path.isfile(testplan_path):
-        print(f"ERROR: TestPlan.md not found at {path}", file=sys.stderr)
-        return 1
+        exit_error(f"ERROR: TestPlan.md not found at {path}")
 
     # Output results
     result = {"feature_dir": path, "source_type": "local"}
@@ -760,8 +760,7 @@ def cmd_safe_checkout(args):
 
     # Verify it's a git repo
     if not os.path.isdir(os.path.join(repo_path, ".git")):
-        print(f"ERROR: Not a git repository: {repo_path}", file=sys.stderr)
-        return 1
+        exit_error(f"ERROR: Not a git repository: {repo_path}")
 
     return safe_checkout_branch(repo_path, branch, remote)
 

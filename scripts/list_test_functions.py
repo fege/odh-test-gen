@@ -26,6 +26,8 @@ import json
 import sys
 from pathlib import Path
 
+from scripts.utils.error_utils import exit_error
+
 
 def list_test_functions(file_path: str) -> str:
     """
@@ -78,8 +80,7 @@ def list_test_functions(file_path: str) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) != 2:
-        print("Usage: python scripts/list_test_functions.py <test_file.py>", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: python scripts/list_test_functions.py <test_file.py>")
 
     file_path = sys.argv[1]
 
@@ -87,11 +88,9 @@ def main():
         result = list_test_functions(file_path)
         print(result)
     except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
     except Exception as e:
-        print(f"Unexpected error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Unexpected error: {e}")
 
 
 if __name__ == "__main__":

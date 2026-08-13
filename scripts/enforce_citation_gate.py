@@ -25,7 +25,7 @@ import os
 import sys
 import yaml
 
-
+from scripts.utils.error_utils import exit_graceful
 from scripts.utils.frontmatter_utils import read_frontmatter_validated, update_frontmatter
 from scripts.utils.schemas import REVIEW_CRITERIA, ValidationError, compute_verdict_and_pass
 
@@ -194,12 +194,11 @@ def enforce_citation_gate(feature_dir: str, ac_citations_result: dict, ac_covera
 
 def _fail(message: str) -> None:
     """Report a machine-readable error on stdout (for the calling skill) and a matching
-    diagnostic on stderr (for a human watching logs), then exit 0 — a broken gate must not abort
+    diagnostic on stderr (for a human watching logs), then exit — a broken gate must not abort
     the review run, but it must never look like a clean OK/SKIP/overridden result either.
     """
-    print(f"enforce_citation_gate: {message}", file=sys.stderr)
     print(json.dumps({"status": "error", "error": message}))
-    sys.exit(0)
+    exit_graceful(f"enforce_citation_gate: {message}")
 
 
 def main():

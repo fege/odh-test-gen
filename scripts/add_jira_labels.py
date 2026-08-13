@@ -27,6 +27,7 @@ import json
 import sys
 
 from scripts.jira_utils import add_labels
+from scripts.utils.error_utils import exit_error_with_json
 
 
 RUBRIC_LABELS = {
@@ -56,7 +57,12 @@ Examples:
     parser.add_argument("--verdict", help="Review verdict (Ready, Revise, or Rework)")
     parser.add_argument("labels", nargs="*", help="One or more labels to add")
 
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except SystemExit as e:
+        if e.code != 0:
+            exit_error_with_json(json_output={"status": "failed", "error": "invalid_arguments"})
+        sys.exit(0)
 
     labels = list(args.labels)
     stale_rubric_labels = []
@@ -75,13 +81,12 @@ Examples:
             # add_labels would persist both and leave conflicting rubric state.
             conflicting = (set(labels) & set(RUBRIC_LABELS.values())) - {verdict_label}
             if conflicting:
-                message = "conflicting_rubric_labels"
                 print(
                     f"Error: literal rubric label(s) {sorted(conflicting)} conflict with "
                     f"--verdict {args.verdict} ({verdict_label})",
                     file=sys.stderr,
                 )
-                print(json.dumps({"status": "error", "error": message}))
+                print(json.dumps({"status": "error", "error": "conflicting_rubric_labels"}))
                 return 1
 
             labels.insert(0, verdict_label)
@@ -91,21 +96,21 @@ Examples:
 
     if not labels:
         if args.verdict is not None and rubric_label_for_verdict(args.verdict) is None:
-            message = "invalid_verdict"
             print(f"Error: invalid verdict '{args.verdict}' and no other labels to add", file=sys.stderr)
+            print(json.dumps({"status": "error", "error": "invalid_verdict"}))
+            return 1
         else:
-            message = "No labels to add (no --verdict match and no literal labels given)"
-            print(f"Error: {message}", file=sys.stderr)
-        print(json.dumps({"status": "error", "error": message}))
-        return 1
+            print("Error: No labels to add (no --verdict match and no literal labels given)", file=sys.stderr)
+            print(json.dumps({"status": "error", "error": "no_labels_to_add"}))
+            return 1
 
     try:
         add_labels(args.issue_key, labels, remove=stale_rubric_labels)
         print(f"✓ Added {len(labels)} label(s) to {args.issue_key}", file=sys.stderr)
         return 0
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        print(json.dumps({"status": "error", "error": str(e)}))
+    except Exception:
+        print("Error: Failed to add labels to Jira issue", file=sys.stderr)
+        print(json.dumps({"status": "error", "error": "add_labels_failed"}))
         return 1
 
 

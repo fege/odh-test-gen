@@ -14,6 +14,7 @@ import os
 import re
 import sys
 
+from scripts.utils.error_utils import exit_error
 from scripts.utils.frontmatter_utils import read_frontmatter, update_frontmatter
 
 
@@ -142,8 +143,7 @@ def restore(feature_dir):
 
 def main():
     if len(sys.argv) != 3:
-        print("Usage: preserve_review_state.py save|restore <feature_dir>", file=sys.stderr)
-        sys.exit(2)
+        exit_error("Usage: preserve_review_state.py save|restore <feature_dir>")
 
     action = sys.argv[1]
     feature_dir = sys.argv[2]
@@ -153,8 +153,7 @@ def main():
     elif action == "restore":
         restore(feature_dir)
     else:
-        print(f"Unknown action: {action}", file=sys.stderr)
-        sys.exit(2)
+        exit_error(f"Unknown action: {action}")
 
 
 if __name__ == "__main__":

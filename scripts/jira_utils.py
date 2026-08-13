@@ -16,6 +16,8 @@ from urllib.parse import quote
 
 import requests
 
+from scripts.utils.error_utils import exit_error
+
 
 def require_env(var_name: str) -> str:
     """
@@ -32,8 +34,7 @@ def require_env(var_name: str) -> str:
     """
     value = os.getenv(var_name)
     if not value:
-        print(f"Error: {var_name} environment variable is required", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {var_name} environment variable is required")
     return value
 
 
@@ -143,6 +144,8 @@ def api_call_with_retry(
 
             # Don't retry auth errors (401, 403) - credentials won't fix themselves
             if e.response.status_code in (401, 403):
+                # For auth errors, we still want to raise the exception rather than exit
+                # since callers may want to handle it, so keep this as a print
                 print(
                     f"Authentication error ({e.response.status_code}): Check JIRA_URL, JIRA_USER, JIRA_TOKEN",
                     file=sys.stderr,

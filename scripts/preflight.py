@@ -28,6 +28,7 @@ import json
 import sys
 
 from scripts.detect_components import detect_components
+from scripts.utils.error_utils import exit_error
 from scripts.utils.repo_utils import find_known_repo
 from scripts.validate import validate_feature_dir
 
@@ -73,8 +74,7 @@ def run_preflight(feature_dir: str) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) != 2:
-        print("Usage: python scripts/preflight.py <feature_dir>", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: python scripts/preflight.py <feature_dir>")
 
     feature_dir = sys.argv[1]
 
@@ -87,8 +87,7 @@ def main():
         sys.exit(0 if data.get("valid") else 1)
 
     except Exception as e:
-        print(json.dumps({"valid": False, "error": f"Unexpected error: {e}"}, indent=2), file=sys.stderr)
-        sys.exit(1)
+        exit_error(json.dumps({"valid": False, "error": f"Unexpected error: {e}"}, indent=2))
 
 
 if __name__ == "__main__":

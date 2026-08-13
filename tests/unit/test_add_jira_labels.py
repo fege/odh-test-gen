@@ -125,9 +125,7 @@ class TestMain:
         mock_add_labels.assert_not_called()
         captured = capsys.readouterr()
         assert "No labels to add" in captured.err
-        output = json.loads(captured.out)
-        assert output["status"] == "error"
-        assert "No labels to add" in output["error"]
+        assert json.loads(captured.out) == {"status": "error", "error": "no_labels_to_add"}
 
     @patch("scripts.add_jira_labels.add_labels")
     def test_main_add_labels_failure_emits_json_error_on_stdout(self, mock_add_labels, monkeypatch, capsys):
@@ -136,6 +134,5 @@ class TestMain:
 
         assert main() == 1
         captured = capsys.readouterr()
-        assert "Jira API unreachable" in captured.err
-        output = json.loads(captured.out)
-        assert output == {"status": "error", "error": "Jira API unreachable"}
+        assert "Failed to add labels" in captured.err
+        assert json.loads(captured.out) == {"status": "error", "error": "add_labels_failed"}
