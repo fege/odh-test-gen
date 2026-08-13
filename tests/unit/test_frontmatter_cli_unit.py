@@ -168,4 +168,5 @@ def test_set_oserror_emits_structured_json(monkeypatch, capsys, tmp_path):
     assert exc_info.value.code == 1
     captured = capsys.readouterr()
     assert "replace failed" in captured.err
+    assert "Traceback (most recent call last):" not in captured.err
     assert json.loads(captured.out) == {"status": "failed", "error": "write_failed"}
