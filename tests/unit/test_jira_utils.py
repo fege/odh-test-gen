@@ -342,6 +342,36 @@ class TestAddLabels:
 
     @patch("scripts.jira_utils.api_call_with_retry")
     @patch("scripts.jira_utils.get_issue")
+    def test_add_labels_removes_stale_before_adding_replacement(self, mock_get_issue, mock_api_call):
+        """A verdict change (e.g. Ready -> Revise) must replace the old rubric label, not
+        accumulate alongside it — regression test for the CodeRabbit finding on PR #46.
+        """
+        mock_get_issue.return_value = {
+            "key": "TEST-123",
+            "fields": {"labels": ["test-plan-rubric-pass", "unrelated-label"]},
+        }
+        mock_api_call.return_value = None  # 204 No Content
+
+        add_labels("TEST-123", ["test-plan-rubric-revise"], remove=["test-plan-rubric-pass"])
+
+        call_args = mock_api_call.call_args
+        labels = call_args[1]["json_data"]["fields"]["labels"]
+        assert labels == ["unrelated-label", "test-plan-rubric-revise"]
+
+    @patch("scripts.jira_utils.api_call_with_retry")
+    @patch("scripts.jira_utils.get_issue")
+    def test_add_labels_remove_is_noop_when_label_not_present(self, mock_get_issue, mock_api_call):
+        mock_get_issue.return_value = {"key": "TEST-123", "fields": {"labels": ["unrelated-label"]}}
+        mock_api_call.return_value = None
+
+        add_labels("TEST-123", ["test-plan-rubric-pass"], remove=["test-plan-rubric-revise"])
+
+        call_args = mock_api_call.call_args
+        labels = call_args[1]["json_data"]["fields"]["labels"]
+        assert labels == ["unrelated-label", "test-plan-rubric-pass"]
+
+    @patch("scripts.jira_utils.api_call_with_retry")
+    @patch("scripts.jira_utils.get_issue")
     def test_add_labels_url_encodes_crafted_key(self, mock_get_issue, mock_api_call):
         mock_get_issue.return_value = {"key": "PROJ-1/injected?x=y", "fields": {"labels": []}}
         mock_api_call.return_value = None  # 204 No Content

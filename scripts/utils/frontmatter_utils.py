@@ -103,14 +103,22 @@ def write_frontmatter(path, data, schema_type):
 
 
 def write_frontmatter_with_body(path, body, data, schema_type):
-    """Write a fresh file with the given body text, then attach validated frontmatter to it.
+    """Write a fresh file with the given body text and validated frontmatter, in one shot.
 
     Equivalent to writing body then calling write_frontmatter, but avoids that two-step dance at
     every call site that needs to seed both body and frontmatter for a new file.
     """
+    apply_defaults(data, schema_type)
+    if errors := validate(data, schema_type):
+        raise ValidationError("Frontmatter validation failed:\n" + "\n".join(f"  - {e}" for e in errors))
+
+    # Validate before touching disk: a failure here must never leave an existing file
+    # truncated to body-only content with its frontmatter gone.
+    yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
+    content = f"---\n{yaml_str}---\n{body}"
+
     with open(path, "w", encoding="utf-8") as f:
-        f.write(body)
-    write_frontmatter(path, data, schema_type)
+        f.write(content)
     return str(path)
 
 

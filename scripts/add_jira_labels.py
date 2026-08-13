@@ -23,6 +23,7 @@ Exit codes:
 """
 
 import argparse
+import json
 import sys
 
 from scripts.jira_utils import add_labels
@@ -58,23 +59,30 @@ Examples:
     args = parser.parse_args()
 
     labels = list(args.labels)
+    stale_rubric_labels = []
 
     if args.verdict:
         if verdict_label := rubric_label_for_verdict(args.verdict):
             labels.insert(0, verdict_label)
+            # Rubric labels are mutually exclusive: a verdict change must replace the
+            # previous one, not accumulate alongside it (add_labels only ever appends).
+            stale_rubric_labels = [label for label in RUBRIC_LABELS.values() if label != verdict_label]
         else:
             print(f"Warning: Unexpected verdict '{args.verdict}', skipping rubric label", file=sys.stderr)
 
     if not labels:
-        print("Error: No labels to add (no --verdict match and no literal labels given)", file=sys.stderr)
+        message = "No labels to add (no --verdict match and no literal labels given)"
+        print(f"Error: {message}", file=sys.stderr)
+        print(json.dumps({"status": "error", "error": message}))
         return 1
 
     try:
-        add_labels(args.issue_key, labels)
+        add_labels(args.issue_key, labels, remove=stale_rubric_labels)
         print(f"✓ Added {len(labels)} label(s) to {args.issue_key}", file=sys.stderr)
         return 0
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
+        print(json.dumps({"status": "error", "error": str(e)}))
         return 1
 
 

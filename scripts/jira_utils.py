@@ -185,17 +185,20 @@ def get_issue(issue_key: str, fields: str | None = None) -> dict[str, Any]:
     return api_call_with_retry(endpoint, params=params)
 
 
-def add_labels(issue_key: str, labels: list[str]) -> None:
+def add_labels(issue_key: str, labels: list[str], remove: list[str] | None = None) -> None:
     """
-    Add labels to a Jira issue.
+    Add labels to a Jira issue, optionally dropping a set of stale labels first.
 
-    This function fetches the current labels and merges them with the new labels
-    to avoid removing existing labels. Preserves label order and only makes API
-    calls when labels actually change.
+    This function fetches the current labels, drops any in `remove`, then merges
+    in `labels` to avoid clobbering unrelated existing labels. Preserves label
+    order and only makes API calls when labels actually change.
 
     Args:
         issue_key: The Jira issue key (e.g., 'PROJ-123')
         labels: List of labels to add
+        remove: Optional list of labels to strip before adding, e.g. a previous
+            state label superseded by one of `labels` (rubric verdict labels are
+            mutually exclusive — an issue must never carry more than one at once)
 
     Raises:
         requests.HTTPError: If the request fails
@@ -204,8 +207,8 @@ def add_labels(issue_key: str, labels: list[str]) -> None:
     issue = get_issue(issue_key, fields="labels")
     existing_labels = issue.get("fields", {}).get("labels", [])
 
-    # Merge labels preserving order (append new ones at end, deduplicate)
-    all_labels = existing_labels.copy()
+    # Drop stale labels, then merge in the new ones preserving order (append at end, deduplicate)
+    all_labels = [label for label in existing_labels if label not in (remove or [])]
     for label in labels:
         if label not in all_labels:
             all_labels.append(label)
