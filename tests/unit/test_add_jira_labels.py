@@ -99,6 +99,33 @@ class TestMain:
         assert "conflict" in captured.err
         assert json.loads(captured.out) == {"status": "error", "error": "conflicting_rubric_labels"}
 
+    @patch("scripts.add_jira_labels.add_labels")
+    def test_main_positional_rubric_label_removes_stale_without_verdict(self, mock_add_labels, monkeypatch):
+        """A lone positional rubric label must still clear the other rubric labels."""
+        monkeypatch.setattr(
+            "sys.argv",
+            ["add_jira_labels.py", "RHAISTRAT-400", "test-plan-rubric-pass", "test-plan-auto-created"],
+        )
+
+        assert main() == 0
+        mock_add_labels.assert_called_once_with(
+            "RHAISTRAT-400",
+            ["test-plan-rubric-pass", "test-plan-auto-created"],
+            remove=["test-plan-rubric-revise", "test-plan-rubric-fail"],
+        )
+
+    @patch("scripts.add_jira_labels.add_labels")
+    def test_main_rejects_multiple_positional_rubric_labels(self, mock_add_labels, monkeypatch, capsys):
+        """Two different positional rubric labels must fail before Jira."""
+        monkeypatch.setattr(
+            "sys.argv",
+            ["add_jira_labels.py", "RHAISTRAT-400", "test-plan-rubric-pass", "test-plan-rubric-fail"],
+        )
+
+        assert main() == 1
+        mock_add_labels.assert_not_called()
+        assert json.loads(capsys.readouterr().out) == {"status": "error", "error": "conflicting_rubric_labels"}
+
     @pytest.mark.parametrize(
         "extra_argv",
         [

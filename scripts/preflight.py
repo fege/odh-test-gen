@@ -28,7 +28,7 @@ import json
 import sys
 
 from scripts.detect_components import detect_components
-from scripts.utils.error_utils import exit_error
+from scripts.utils.error_utils import exit_error, exit_error_with_json
 from scripts.utils.repo_utils import find_known_repo
 from scripts.validate import validate_feature_dir
 
@@ -86,8 +86,11 @@ def main():
         data = json.loads(result)
         sys.exit(0 if data.get("valid") else 1)
 
-    except Exception as e:
-        exit_error(json.dumps({"valid": False, "error": f"Unexpected error: {e}"}, indent=2))
+    except Exception:
+        exit_error_with_json(
+            {"valid": False, "error": "unexpected_error"},
+            message="preflight: unexpected error",
+        )
 
 
 if __name__ == "__main__":

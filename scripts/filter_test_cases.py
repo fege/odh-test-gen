@@ -74,7 +74,7 @@ def filter_test_cases(feature_dir: str, tc_ids: list[str]) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) < 2:
-        exit_error("Usage: python scripts/filter_test_cases.py <feature_dir> [tc_id ...]", file=sys.stderr)
+        exit_error("Usage: python scripts/filter_test_cases.py <feature_dir> [tc_id ...]")
 
     feature_dir = sys.argv[1]
     tc_ids = sys.argv[2:]  # Can be empty
@@ -83,9 +83,9 @@ def main():
         result = filter_test_cases(feature_dir, tc_ids)
         print(result)
     except FileNotFoundError as e:
-        exit_error(f"Error: {e}", file=sys.stderr)
+        exit_error(f"Error: {e}")
     except Exception as e:
-        exit_error(f"Unexpected error: {e}", file=sys.stderr)
+        exit_error(f"Unexpected error: {e}")
 
 
 if __name__ == "__main__":

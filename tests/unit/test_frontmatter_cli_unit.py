@@ -12,7 +12,7 @@ import pytest
 
 from scripts import frontmatter
 from scripts.utils.frontmatter_utils import write_frontmatter
-from tests.constants import VALID_TEST_PLAN_DATA, VALID_TEST_PLAN_REVIEW_DATA
+from tests.constants import VALID_TEST_GAPS_DATA, VALID_TEST_PLAN_DATA, VALID_TEST_PLAN_REVIEW_DATA
 
 
 class TestReadFieldArgument:
@@ -168,4 +168,24 @@ def test_set_oserror_emits_structured_json(monkeypatch, capsys, tmp_path):
     assert exc_info.value.code == 1
     captured = capsys.readouterr()
     assert "replace failed" in captured.err
+    assert "Traceback" not in captured.err
     assert json.loads(captured.out) == {"status": "failed", "error": "write_failed"}
+
+
+def test_set_invalid_coerce_emits_structured_json(monkeypatch, capsys, tmp_path):
+    """Bad typed field values must not dump a traceback from int()/bool parsing."""
+    path = tmp_path / "TestPlanGaps.md"
+    write_frontmatter(path, VALID_TEST_GAPS_DATA, "test-gaps")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["frontmatter.py", "set", str(path), "gap_count=abc"],
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        frontmatter.main()
+
+    assert exc_info.value.code == 1
+    captured = capsys.readouterr()
+    assert "Traceback" not in captured.err
+    assert json.loads(captured.out) == {"status": "failed", "error": "invalid_field_value"}

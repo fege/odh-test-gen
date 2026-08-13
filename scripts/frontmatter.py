@@ -148,11 +148,25 @@ def cmd_set(args):
                 exit_error(f"Error: unknown sub-field '{child}' for '{parent}'")
             if parent not in data:
                 data[parent] = {}
-            data[parent][child] = _coerce_value(value_str, parent_spec["fields"][child])
+            try:
+                data[parent][child] = _coerce_value(value_str, parent_spec["fields"][child])
+            except ValueError as e:
+                exit_error_with_json(
+                    json_output={"status": "failed", "error": "invalid_field_value"},
+                    message=f"Error: {e}",
+                    indent=None,
+                )
         else:
             if field_name not in schema:
                 exit_error(f"Error: unknown field '{field_name}' for schema '{schema_type}'")
-            data[field_name] = _coerce_value(value_str, schema[field_name])
+            try:
+                data[field_name] = _coerce_value(value_str, schema[field_name])
+            except ValueError as e:
+                exit_error_with_json(
+                    json_output={"status": "failed", "error": "invalid_field_value"},
+                    message=f"Error: {e}",
+                    indent=None,
+                )
 
     # Auto-set last_updated if not explicitly provided and schema has it
     if "last_updated" in schema and "last_updated" not in data:

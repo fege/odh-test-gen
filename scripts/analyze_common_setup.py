@@ -45,13 +45,13 @@ def analyze_common_setup(feature_dir: str) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) < 2:
-        exit_error("Usage: python scripts/analyze_common_setup.py <feature_dir>", file=sys.stderr)
+        exit_error("Usage: python scripts/analyze_common_setup.py <feature_dir>")
 
     try:
         result = analyze_common_setup(sys.argv[1])
         print(result)
     except Exception as e:
-        exit_error(f"Error: {e}", file=sys.stderr)
+        exit_error(f"Error: {e}")
 
 
 if __name__ == "__main__":

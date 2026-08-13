@@ -49,7 +49,6 @@ def main():
     if len(sys.argv) != 4:
         exit_error(
             "Usage: python scripts/extract_and_format_conventions.py <feature_dir> <repo_name> <odh_test_context_path>",
-            file=sys.stderr,
         )
 
     feature_dir = sys.argv[1]
@@ -62,10 +61,10 @@ def main():
         if markdown:
             print(markdown)
         else:
-            exit_error(f"# No conventions found for {repo_name}", file=sys.stderr)
+            exit_error(f"# No conventions found for {repo_name}")
 
     except Exception as e:
-        exit_error(f"Error: {e}", file=sys.stderr)
+        exit_error(f"Error: {e}")
 
 
 if __name__ == "__main__":

@@ -90,7 +90,7 @@ def detect_components(feature_dir: str) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) != 2:
-        exit_error("Usage: python scripts/detect_components.py <feature_dir>", file=sys.stderr)
+        exit_error("Usage: python scripts/detect_components.py <feature_dir>")
 
     feature_dir = sys.argv[1]
 
@@ -98,9 +98,9 @@ def main():
         result = detect_components(feature_dir)
         print(result)
     except FileNotFoundError as e:
-        exit_error(f"Error: {e}", file=sys.stderr)
+        exit_error(f"Error: {e}")
     except Exception as e:
-        exit_error(f"Unexpected error: {e}", file=sys.stderr)
+        exit_error(f"Unexpected error: {e}")
 
 
 if __name__ == "__main__":

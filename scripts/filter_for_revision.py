@@ -59,7 +59,7 @@ def filter_for_revision(feature_dir: str) -> str:
 
 def main():
     if len(sys.argv) != 2:
-        exit_error("Usage: filter_for_revision.py <feature_dir>", file=sys.stderr)
+        exit_error("Usage: filter_for_revision.py <feature_dir>")
 
     result = filter_for_revision(sys.argv[1])
     print(result)

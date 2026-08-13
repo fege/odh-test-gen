@@ -65,7 +65,6 @@ Examples:
         sys.exit(0)
 
     labels = list(args.labels)
-    stale_rubric_labels = []
 
     if args.verdict is not None:
         verdict_label = rubric_label_for_verdict(args.verdict)
@@ -77,22 +76,24 @@ Examples:
                 file=sys.stderr,
             )
         else:
-            # Literal rubric labels must not disagree with --verdict; otherwise
-            # add_labels would persist both and leave conflicting rubric state.
-            conflicting = (set(labels) & set(RUBRIC_LABELS.values())) - {verdict_label}
-            if conflicting:
-                print(
-                    f"Error: literal rubric label(s) {sorted(conflicting)} conflict with "
-                    f"--verdict {args.verdict} ({verdict_label})",
-                    file=sys.stderr,
-                )
-                print(json.dumps({"status": "error", "error": "conflicting_rubric_labels"}))
-                return 1
-
             labels.insert(0, verdict_label)
-            # Rubric labels are mutually exclusive: a verdict change must replace the
-            # previous one, not accumulate alongside it (add_labels only ever appends).
-            stale_rubric_labels = [label for label in RUBRIC_LABELS.values() if label != verdict_label]
+
+    # Rubric labels are mutually exclusive whether they come from --verdict or positionals.
+    # Without this, `add_jira_labels.py ISSUE test-plan-rubric-pass` (or two rubric literals)
+    # would append without clearing the previous rubric state.
+    unique_rubrics = list(dict.fromkeys(label for label in labels if label in RUBRIC_LABELS.values()))
+    if len(unique_rubrics) > 1:
+        print(
+            f"Error: conflicting rubric labels {unique_rubrics}; pass exactly one "
+            f"(or use --verdict Ready|Revise|Rework)",
+            file=sys.stderr,
+        )
+        print(json.dumps({"status": "error", "error": "conflicting_rubric_labels"}))
+        return 1
+
+    stale_rubric_labels = (
+        [label for label in RUBRIC_LABELS.values() if label != unique_rubrics[0]] if unique_rubrics else []
+    )
 
     if not labels:
         if args.verdict is not None and rubric_label_for_verdict(args.verdict) is None:
