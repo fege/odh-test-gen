@@ -134,6 +134,11 @@ class TestPlanSchemaValidation:
         # Should still add other defaults
         assert result["additional_docs"] == []
 
+    def test_apply_defaults_unknown_schema_raises_value_error(self):
+        """Unknown schema_type must raise ValueError (same contract as validate)."""
+        with pytest.raises(ValueError, match="Unknown schema type"):
+            apply_defaults({}, "not-a-real-schema")
+
 
 class TestCaseSchemaValidation:
     """Test the test-case schema validation rules."""

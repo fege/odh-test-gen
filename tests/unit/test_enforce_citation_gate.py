@@ -233,10 +233,27 @@ class TestEnforceCitationGate:
         assert result["overridden"] is True
         assert result["scores"]["scope_fidelity"] == 1
 
-    def test_override_can_flip_verdict_from_ready_to_revise(self, tmp_path):
-        # specificity=2, grounding=2, scope_fidelity=2, actionability=1, consistency=1 -> tot 8 (Revise actionability=1)
+    def test_override_recomputes_score_but_verdict_stays_revise(self, tmp_path):
+        # specificity=2, grounding=2, scope_fidelity=2, actionability=1, consistency=1 -> tot 8, but
+        # actionability=1 fails the Ready gate so the starting verdict is already Revise, not Ready.
         scores = {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 1, "consistency": 1}
         _write_review(tmp_path / "TestPlanReview.md", scores, score=8, verdict="Revise", passed=True)
+
+        result = enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE)
+
+        assert result["scores"]["scope_fidelity"] == 1
+        assert result["score"] == 7
+        assert result["verdict"] == "Revise"
+        assert result["pass"] is True
+
+    def test_override_can_flip_verdict_from_ready_to_revise(self, tmp_path):
+        # specificity=1, grounding=1, scope_fidelity=2, actionability=2, consistency=2 -> tot 8, no
+        # zero, actionability=2 -> starting verdict is genuinely Ready. A defect that caps
+        # scope_fidelity but never recalls compute_verdict_and_pass would leave verdict="Ready"
+        # here, unlike test_override_recomputes_score_but_verdict_stays_revise above where the
+        # persisted verdict coincidentally matches even without recomputation.
+        scores = {"specificity": 1, "grounding": 1, "scope_fidelity": 2, "actionability": 2, "consistency": 2}
+        _write_review(tmp_path / "TestPlanReview.md", scores, score=8, verdict="Ready", passed=True)
 
         result = enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE)
 

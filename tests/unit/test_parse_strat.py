@@ -580,7 +580,7 @@ class TestCmdNewStratTmp:
         assert exit_code == 1
         assert output == {"created": False, "error": "strategy_tmp_unavailable"}
         assert (attacker_dir.stat().st_mode & 0o777) != 0o700
-        assert list(attacker_dir.iterdir()) == []
+        assert not list(attacker_dir.iterdir())
 
 
 class TestCmdSaveSnapshot:

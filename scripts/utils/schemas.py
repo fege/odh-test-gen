@@ -562,7 +562,13 @@ def apply_defaults(data, schema_type):
     """Apply default values for missing optional fields.
 
     Modifies data in-place and returns it.
+
+    Raises:
+        ValueError: if schema_type is unknown
     """
+    if schema_type not in SCHEMAS:
+        raise ValueError(f"Unknown schema type: {schema_type}. Valid types: {list(SCHEMAS.keys())}")
+
     schema = SCHEMAS[schema_type]
     for field_name, field_spec in schema.items():
         if field_name not in data and "default" in field_spec:
