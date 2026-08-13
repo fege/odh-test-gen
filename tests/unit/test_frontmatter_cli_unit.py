@@ -145,3 +145,27 @@ def test_set_version_field_rejected():
     finally:
         sys.argv = old_argv
         sys.stdout = old_stdout
+
+
+def test_set_oserror_emits_structured_json(monkeypatch, capsys, tmp_path):
+    """Filesystem failures from atomic writers must not dump a traceback."""
+    path = tmp_path / "TestPlan.md"
+    write_frontmatter(path, VALID_TEST_PLAN_DATA, "test-plan")
+
+    def boom(*_args, **_kwargs):
+        raise OSError("replace failed")
+
+    monkeypatch.setattr(frontmatter, "update_frontmatter", boom)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["frontmatter.py", "set", str(path), "status=Draft"],
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        frontmatter.main()
+
+    assert exc_info.value.code == 1
+    captured = capsys.readouterr()
+    assert "replace failed" in captured.err
+    assert json.loads(captured.out) == {"status": "failed", "error": "write_failed"}

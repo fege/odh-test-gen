@@ -61,8 +61,16 @@ Examples:
     labels = list(args.labels)
     stale_rubric_labels = []
 
-    if args.verdict:
-        if verdict_label := rubric_label_for_verdict(args.verdict):
+    if args.verdict is not None:
+        verdict_label = rubric_label_for_verdict(args.verdict)
+        if verdict_label is None:
+            # Skills always pass --verdict "$verdict"; unrecognized values must skip the
+            # rubric stamp without blocking literal labels (e.g. test-plan-auto-revised).
+            print(
+                f"Warning: Unexpected verdict '{args.verdict}', skipping rubric label",
+                file=sys.stderr,
+            )
+        else:
             # Literal rubric labels must not disagree with --verdict; otherwise
             # add_labels would persist both and leave conflicting rubric state.
             conflicting = (set(labels) & set(RUBRIC_LABELS.values())) - {verdict_label}
@@ -80,12 +88,14 @@ Examples:
             # Rubric labels are mutually exclusive: a verdict change must replace the
             # previous one, not accumulate alongside it (add_labels only ever appends).
             stale_rubric_labels = [label for label in RUBRIC_LABELS.values() if label != verdict_label]
-        else:
-            print(f"Warning: Unexpected verdict '{args.verdict}', skipping rubric label", file=sys.stderr)
 
     if not labels:
-        message = "No labels to add (no --verdict match and no literal labels given)"
-        print(f"Error: {message}", file=sys.stderr)
+        if args.verdict is not None and rubric_label_for_verdict(args.verdict) is None:
+            message = "invalid_verdict"
+            print(f"Error: invalid verdict '{args.verdict}' and no other labels to add", file=sys.stderr)
+        else:
+            message = "No labels to add (no --verdict match and no literal labels given)"
+            print(f"Error: {message}", file=sys.stderr)
         print(json.dumps({"status": "error", "error": message}))
         return 1
 

@@ -171,18 +171,20 @@ def cmd_set(args):
     if "last_updated" in schema and "last_updated" not in data:
         data["last_updated"] = date.today().isoformat()
 
-    if os.path.exists(args.file):
-        try:
+    try:
+        if os.path.exists(args.file):
             update_frontmatter(args.file, data, schema_type)
-        except ValidationError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
-    else:
-        try:
+        else:
             write_frontmatter(args.file, data, schema_type)
-        except ValidationError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
+    except ValidationError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except OSError as e:
+        # Atomic writers re-raise filesystem failures; keep them typed for library
+        # callers, but never dump a traceback from the CLI entry point.
+        print(f"Error: {e}", file=sys.stderr)
+        print(json.dumps({"status": "failed", "error": "write_failed"}))
+        sys.exit(1)
 
     print(f"OK: {args.file}")
 

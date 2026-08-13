@@ -39,7 +39,7 @@ class TestMain:
                 id="verdict_and_literal_combined",
             ),
             pytest.param(
-                ["--verdict", "Bogus", "test-plan-auto-revised"],
+                ["--verdict", "Typo", "test-plan-auto-revised"],
                 0,
                 ["test-plan-auto-revised"],
                 [],
@@ -102,13 +102,24 @@ class TestMain:
     @pytest.mark.parametrize(
         "extra_argv",
         [
-            pytest.param([], id="no_verdict_no_labels_is_an_error"),
-            pytest.param(["--verdict", "Bogus"], id="unrecognized_verdict_with_no_literal_labels_is_an_error"),
+            pytest.param(["--verdict", "Bogus"], id="unrecognized_verdict_alone"),
+            pytest.param(["--verdict", ""], id="empty_verdict"),
         ],
     )
     @patch("scripts.add_jira_labels.add_labels")
-    def test_main_no_labels_emits_json_error_on_stdout(self, mock_add_labels, monkeypatch, capsys, extra_argv):
+    def test_main_invalid_verdict_alone_emits_json_error(self, mock_add_labels, monkeypatch, capsys, extra_argv):
+        """Unrecognized --verdict with nothing else to stamp is a structured failure."""
         monkeypatch.setattr("sys.argv", ["add_jira_labels.py", "RHAISTRAT-400", *extra_argv])
+
+        assert main() == 1
+        mock_add_labels.assert_not_called()
+        captured = capsys.readouterr()
+        assert "Unexpected verdict" in captured.err
+        assert json.loads(captured.out) == {"status": "error", "error": "invalid_verdict"}
+
+    @patch("scripts.add_jira_labels.add_labels")
+    def test_main_no_labels_emits_json_error_on_stdout(self, mock_add_labels, monkeypatch, capsys):
+        monkeypatch.setattr("sys.argv", ["add_jira_labels.py", "RHAISTRAT-400"])
 
         assert main() == 1
         mock_add_labels.assert_not_called()
