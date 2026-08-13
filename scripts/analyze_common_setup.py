@@ -5,6 +5,7 @@ import json
 import sys
 from pathlib import Path
 
+from scripts.utils.error_utils import exit_error
 from scripts.parse_test_cases import parse_test_cases
 from scripts.utils.test_analyzer import identify_common_setup_requirements
 
@@ -44,15 +45,13 @@ def analyze_common_setup(feature_dir: str) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python scripts/analyze_common_setup.py <feature_dir>", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: python scripts/analyze_common_setup.py <feature_dir>")
 
     try:
         result = analyze_common_setup(sys.argv[1])
         print(result)
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
 
 
 if __name__ == "__main__":

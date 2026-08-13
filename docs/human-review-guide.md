@@ -7,8 +7,9 @@
 > | Label | Meaning |
 > |-------|---------|
 > | `test-plan-auto-created` | AI generated the test plan |
-> | `test-plan-rubric-pass` | Automated rubric scored >= 8/10, no zeros |
-> | `test-plan-rubric-fail` | Automated rubric scored < 7 or a criterion scored 0 |
+> | `test-plan-rubric-pass` | Automated rubric scored >= 8/10, no zeros, AND actionability == 2 |
+> | `test-plan-rubric-revise` | Automated rubric scored Revise verdict (qualifying total but a criterion below 2, most notably actionability=1) |
+> | `test-plan-rubric-fail` | Automated rubric scored < 7, or any criterion scored 0 |
 > | `test-plan-auto-revised` | AI applied at least one auto-revision cycle |
 > | `test-plan-human-reviewed` | Human has reviewed and approved |
 
@@ -57,8 +58,10 @@ Every test plan -- whether triggered manually or by the agentic CI
 pipeline -- has already passed through automated generation and scoring.
 The path forward depends on the rubric verdict:
 
-- **Rubric-pass** (>= 8/10, no zeros) -- The plan meets baseline
+- **Rubric-pass** (>= 8/10, no zeros, actionability == 2) -- The plan meets baseline
   quality. Review for domain accuracy, then approve or request changes.
+- **Rubric-revise** (total >= 7, no zeros, but not Ready) -- The plan qualifies but has
+  minor improvements needed. Review and decide whether to iterate or approve as-is.
 - **Rubric-fail** (< 7 or any zero) -- The automated review flagged
   significant issues. These need source documents (ADR, API spec,
   design doc) or manual correction before approval.
@@ -81,9 +84,15 @@ each scored 0-2.
 
 | Verdict | Trigger | Meaning |
 |---------|---------|---------|
-| **Ready** | total >= 8, no zeros | Baseline quality met -- proceed to review |
-| **Revise** | total = 7, no zeros | Minor improvements needed |
+| **Ready** | total >= 8, no zeros, actionability == 2 | Baseline quality met -- proceed to review |
+| **Revise** | total >= 7, no zeros (but not Ready) | Minor improvements needed |
 | **Rework** | total < 7 or any zero | Significant issues -- needs source docs |
+
+> **Note**: The frontmatter `pass` boolean is a lower floor (total >= 7, no
+> zeros) than the `test-plan-rubric-pass` Jira label (>= 8, no zeros, AND
+> actionability == 2). A Revise-verdict plan can have `pass: true` while
+> still being labeled `test-plan-rubric-revise` -- the two are intentionally
+> decoupled, not inconsistent.
 
 ## Setup
 

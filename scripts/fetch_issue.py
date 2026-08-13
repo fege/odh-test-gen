@@ -22,6 +22,7 @@ import sys
 from typing import Any
 
 from scripts.jira_utils import get_issue
+from scripts.utils.error_utils import exit_error
 
 
 def format_issue_as_markdown(issue_data: dict[str, Any]) -> str:
@@ -116,8 +117,7 @@ def main():
             print(markdown)
 
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
 
 
 if __name__ == "__main__":

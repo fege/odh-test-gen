@@ -306,21 +306,32 @@ def compute_verdict_and_pass(scores: dict) -> tuple[str, int, bool]:
     Implements the rubric rules documented in
     ``skills/test-plan-review/prompts/review-agent.md`` (Step 4 — Determine
     Verdict, Step 5 — ``pass`` definition).  Any future rubric change MUST
-    update both that prompt and this function together.
+    update this function AND ALSO synchronize:
+    ``skills/test-plan-review/prompts/review-agent.md``,
+    ``skills/test-plan-score/SKILL.md``, and
+    ``docs/human-review-guide.md`` — each independently restates the verdict
+    table and must stay in sync.
 
     Args:
         scores: dict mapping each criterion name to its int score (0-2).
+        The verdict is computed from the total and the no_zero flag, with an
+        additional gate on actionability==2 for the Ready verdict:
+        - Ready: total >= 8 AND no criterion scored 0 AND actionability == 2
+        - Revise: total >= 7 AND no criterion scored 0 (but not Ready)
+        - Rework: total < 7 OR any criterion scored 0
 
     Returns:
         (verdict, total_score, passed) where *verdict* is one of
         ``"Ready"``/``"Revise"``/``"Rework"``, *total_score* is the sum of
-        all criterion scores, and *passed* is the rubric-pass boolean.
+        all criterion scores, and *passed* is the rubric-pass boolean
+        (unchanged — actionability does not gate pass).
     """
     total = sum(scores[k] for k in REVIEW_CRITERIA)
     no_zero = all(scores[k] > 0 for k in REVIEW_CRITERIA)
-    if total >= 8 and no_zero:
+    actionability_ok = scores["actionability"] == 2
+    if total >= 8 and no_zero and actionability_ok:
         verdict = "Ready"
-    elif total == 7 and no_zero:
+    elif total >= 7 and no_zero:
         verdict = "Revise"
     else:
         verdict = "Rework"
@@ -551,7 +562,13 @@ def apply_defaults(data, schema_type):
     """Apply default values for missing optional fields.
 
     Modifies data in-place and returns it.
+
+    Raises:
+        ValueError: if schema_type is unknown
     """
+    if schema_type not in SCHEMAS:
+        raise ValueError(f"Unknown schema type: {schema_type}. Valid types: {list(SCHEMAS.keys())}")
+
     schema = SCHEMAS[schema_type]
     for field_name, field_spec in schema.items():
         if field_name not in data and "default" in field_spec:

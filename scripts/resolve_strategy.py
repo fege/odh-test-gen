@@ -19,6 +19,7 @@ import requests
 
 from scripts.fetch_issue import format_issue_as_markdown
 from scripts.jira_utils import get_issue
+from scripts.utils.error_utils import exit_error_with_json
 from scripts.utils.snapshot_io import write_snapshot_nofollow
 
 SNAPSHOT_NAME = ".source-strategy.md"
@@ -57,14 +58,11 @@ def main():
     try:
         result = resolve_strategy(args.feature_dir, args.jira_key)
     except requests.RequestException:
-        print(json.dumps({"status": "failed", "error": "jira_fetch_failed"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"status": "failed", "error": "jira_fetch_failed"})
     except OSError:
-        print(json.dumps({"status": "failed", "error": "snapshot_write_failed"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"status": "failed", "error": "snapshot_write_failed"})
     except Exception:
-        print(json.dumps({"status": "failed", "error": "strategy_resolution_failed"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"status": "failed", "error": "strategy_resolution_failed"})
 
     print(json.dumps(result, indent=2))
     sys.exit(0)

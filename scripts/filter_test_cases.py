@@ -19,6 +19,7 @@ import json
 import sys
 from pathlib import Path
 
+from scripts.utils.error_utils import exit_error
 from scripts.utils.frontmatter_utils import read_frontmatter
 
 
@@ -73,8 +74,7 @@ def filter_test_cases(feature_dir: str, tc_ids: list[str]) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) < 2:
-        print("Usage: python scripts/filter_test_cases.py <feature_dir> [tc_id ...]", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: python scripts/filter_test_cases.py <feature_dir> [tc_id ...]")
 
     feature_dir = sys.argv[1]
     tc_ids = sys.argv[2:]  # Can be empty
@@ -83,11 +83,9 @@ def main():
         result = filter_test_cases(feature_dir, tc_ids)
         print(result)
     except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
     except Exception as e:
-        print(f"Unexpected error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Unexpected error: {e}")
 
 
 if __name__ == "__main__":

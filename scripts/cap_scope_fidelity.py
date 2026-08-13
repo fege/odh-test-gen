@@ -22,12 +22,12 @@ import json
 import sys
 
 from scripts.enforce_citation_gate import cap_scope_fidelity
+from scripts.utils.error_utils import exit_graceful
 
 
 def _fail(message: str) -> None:
-    print(f"cap_scope_fidelity: {message}", file=sys.stderr)
     print(json.dumps({"status": "error", "error": message}))
-    sys.exit(0)
+    exit_graceful(f"cap_scope_fidelity: {message}")
 
 
 def main():

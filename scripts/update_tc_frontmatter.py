@@ -29,6 +29,7 @@ import json
 import sys
 from pathlib import Path
 
+from scripts.utils.error_utils import exit_error
 from scripts.utils.frontmatter_utils import update_frontmatter
 
 
@@ -82,8 +83,7 @@ def update_tc_frontmatter(feature_dir: str, updates: list[dict]) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) != 3:
-        print("Usage: python scripts/update_tc_frontmatter.py <feature_dir> <updates.json>", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: python scripts/update_tc_frontmatter.py <feature_dir> <updates.json>")
 
     feature_dir = sys.argv[1]
     updates_file = sys.argv[2]
@@ -100,11 +100,9 @@ def main():
         print(result)
 
     except (FileNotFoundError, json.JSONDecodeError) as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
     except Exception as e:
-        print(f"Unexpected error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Unexpected error: {e}")
 
 
 if __name__ == "__main__":

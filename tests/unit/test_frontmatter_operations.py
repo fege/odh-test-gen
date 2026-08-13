@@ -6,11 +6,15 @@ Tests read, write, update, and schema detection functions for test-plan artifact
 
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
+
+import pytest
 
 from scripts.utils.frontmatter_utils import (
     read_frontmatter,
     update_frontmatter,
     write_frontmatter,
+    write_frontmatter_with_body,
 )
 from tests.constants import VALID_TEST_PLAN_DATA
 
@@ -36,6 +40,24 @@ class TestFrontmatterReadWrite:
             content = test_file.read_text()
             assert content.startswith("---\n"), "File should start with frontmatter delimiter"
             assert "\n---\n" in content, "File should have closing frontmatter delimiter"
+
+    def test_failed_atomic_replace_preserves_existing_file(self):
+        """If os.replace fails, the original review file and no leftover temps remain."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            test_file = Path(tmpdir) / "TestPlanReview.md"
+            original_body = "## Original review\n"
+            write_frontmatter_with_body(test_file, original_body, VALID_TEST_PLAN_DATA, "test-plan")
+            original_content = test_file.read_text()
+
+            with patch("scripts.utils.frontmatter_utils.os.replace", side_effect=OSError("replace failed")):
+                with pytest.raises(OSError, match="replace failed"):
+                    write_frontmatter_with_body(
+                        test_file, "## Replacement that must not land\n", VALID_TEST_PLAN_DATA, "test-plan"
+                    )
+
+            assert test_file.read_text() == original_content
+            leftovers = [p for p in Path(tmpdir).iterdir() if p.name != test_file.name]
+            assert leftovers == [], f"expected no leftover temp files, found {leftovers}"
 
 
 class TestFrontmatterUpdate:

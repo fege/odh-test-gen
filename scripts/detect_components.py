@@ -14,6 +14,7 @@ import sys
 from pathlib import Path
 
 from scripts.utils.component_map import get_repo_for_component
+from scripts.utils.error_utils import exit_error
 from scripts.utils.frontmatter_utils import read_frontmatter
 from scripts.utils.repo_discovery import extract_repo_indicators
 
@@ -89,8 +90,7 @@ def detect_components(feature_dir: str) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) != 2:
-        print("Usage: python scripts/detect_components.py <feature_dir>", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: python scripts/detect_components.py <feature_dir>")
 
     feature_dir = sys.argv[1]
 
@@ -98,11 +98,9 @@ def main():
         result = detect_components(feature_dir)
         print(result)
     except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
     except Exception as e:
-        print(f"Unexpected error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Unexpected error: {e}")
 
 
 if __name__ == "__main__":

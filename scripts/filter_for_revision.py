@@ -17,6 +17,7 @@ Exit code 0 in all cases; check stdout for the decision.
 import os
 import sys
 
+from scripts.utils.error_utils import exit_error
 from scripts.utils.frontmatter_utils import read_frontmatter_validated, update_frontmatter
 
 
@@ -58,8 +59,7 @@ def filter_for_revision(feature_dir: str) -> str:
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: filter_for_revision.py <feature_dir>", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: filter_for_revision.py <feature_dir>")
 
     result = filter_for_revision(sys.argv[1])
     print(result)

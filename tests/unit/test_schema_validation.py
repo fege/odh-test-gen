@@ -8,7 +8,13 @@ schema type detection from filenames.
 
 import pytest
 
-from scripts.utils.schemas import apply_defaults, detect_schema_type, get_schema_yaml, validate
+from scripts.utils.schemas import (
+    apply_defaults,
+    compute_verdict_and_pass,
+    detect_schema_type,
+    get_schema_yaml,
+    validate,
+)
 from tests.constants import VALID_TEST_CASE_DATA, VALID_TEST_GAPS_DATA, VALID_TEST_PLAN_DATA
 
 
@@ -128,6 +134,11 @@ class TestPlanSchemaValidation:
         # Should still add other defaults
         assert result["additional_docs"] == []
 
+    def test_apply_defaults_unknown_schema_raises_value_error(self):
+        """Unknown schema_type must raise ValueError (same contract as validate)."""
+        with pytest.raises(ValueError, match="Unknown schema type"):
+            apply_defaults({}, "not-a-real-schema")
+
 
 class TestCaseSchemaValidation:
     """Test the test-case schema validation rules."""
@@ -207,3 +218,72 @@ class TestGapsSchemaValidation:
             assert any(field_name in err for err in errors), (
                 f"Expected {field_name}={field_value} to fail with {field_name} error, got: {errors}"
             )
+
+
+class TestComputeVerdictAndPass:
+    """Test verdict derivation and pass logic with actionability gating."""
+
+    @pytest.mark.parametrize(
+        "scores,expected_verdict,expected_total,expected_passed,test_case_description",
+        [
+            # actionability=1 with high total -> Revise (not Ready)
+            (
+                {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 1, "consistency": 2},
+                "Revise",
+                9,
+                True,
+                "actionability=1, total=9 -> Revise (core new behavior), passed=True",
+            ),
+            # actionability=1, total=8 exactly -> Revise
+            (
+                {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 1, "consistency": 1},
+                "Revise",
+                8,
+                True,
+                "actionability=1, total=8 (boundary) -> Revise",
+            ),
+            # actionability=2, total=8 -> Ready (must remain unaffected)
+            (
+                {"specificity": 2, "grounding": 2, "scope_fidelity": 1, "actionability": 2, "consistency": 1},
+                "Ready",
+                8,
+                True,
+                "actionability=2, total=8 -> Ready (control, proves gate doesn't over-trigger)",
+            ),
+            # actionability=1, total=7 -> Revise
+            (
+                {"specificity": 2, "grounding": 2, "scope_fidelity": 1, "actionability": 1, "consistency": 1},
+                "Revise",
+                7,
+                True,
+                "actionability=1, total=7 -> Revise (unaffected boundary)",
+            ),
+            # actionability=0 anywhere -> Rework regardless of total
+            (
+                {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 0, "consistency": 2},
+                "Rework",
+                8,
+                False,
+                "actionability=0, total=8 -> Rework (no_zero regression guard)",
+            ),
+            # total=6 -> Rework regardless of actionability
+            (
+                {"specificity": 2, "grounding": 1, "scope_fidelity": 1, "actionability": 2, "consistency": 0},
+                "Rework",
+                6,
+                False,
+                "total=6, any distribution -> Rework (unaffected floor)",
+            ),
+        ],
+    )
+    def test_verdict_and_pass_logic(
+        self, scores, expected_verdict, expected_total, expected_passed, test_case_description
+    ):
+        """Test verdict derivation and pass logic for various score combinations."""
+        verdict, total, passed = compute_verdict_and_pass(scores)
+
+        assert verdict == expected_verdict, (
+            f"{test_case_description}: expected verdict={expected_verdict}, got {verdict}"
+        )
+        assert total == expected_total, f"{test_case_description}: expected total={expected_total}, got {total}"
+        assert passed == expected_passed, f"{test_case_description}: expected passed={expected_passed}, got {passed}"

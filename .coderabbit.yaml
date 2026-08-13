@@ -2,6 +2,11 @@
 
 inheritance: true
 
+knowledge_base:
+  opt_out: false
+  learnings:
+    scope: local   # keep learnings repo-scoped
+
 reviews:
   request_changes_workflow: true
 

@@ -169,7 +169,7 @@ def test_validate_local_path_allows_external():
     finally:
         sys.argv = old_argv
         os.environ.clear()
-        os.environ.update(old_env)
+        os.environ |= old_env
 
 
 def test_validate_local_path_blocks_skill_repo():
@@ -183,8 +183,7 @@ def test_validate_local_path_blocks_skill_repo():
         sys.argv = ["repo.py", "validate-local-path", str(Path.cwd())]
         sys.stderr = StringIO()
 
-        exit_code = repo.main()
-        assert exit_code == 1
+        assert repo.main() == 1
 
         error = sys.stderr.getvalue()
         assert "Cannot create artifacts in skill repository" in error
@@ -193,7 +192,7 @@ def test_validate_local_path_blocks_skill_repo():
         sys.argv = old_argv
         sys.stderr = old_stderr
         os.environ.clear()
-        os.environ.update(old_env)
+        os.environ |= old_env
 
 
 def test_validate_remote_allows_external():
@@ -206,13 +205,12 @@ def test_validate_remote_allows_external():
         # Use a neutral external repo (not the default publish target to avoid confusion)
         sys.argv = ["repo.py", "validate-remote", "example-org/external-test-repo"]
 
-        exit_code = repo.main()
-        assert exit_code == 0
+        assert repo.main() == 0
 
     finally:
         sys.argv = old_argv
         os.environ.clear()
-        os.environ.update(old_env)
+        os.environ |= old_env
 
 
 def test_validate_remote_blocks_skill_repo():
@@ -234,8 +232,7 @@ def test_validate_remote_blocks_skill_repo():
         sys.argv = ["repo.py", "validate-remote", skill_remote]
         sys.stderr = StringIO()
 
-        exit_code = repo.main()
-        assert exit_code == 1
+        assert repo.main() == 1
 
         error = sys.stderr.getvalue()
         assert "Cannot publish to skill repository" in error
@@ -244,4 +241,4 @@ def test_validate_remote_blocks_skill_repo():
         sys.argv = old_argv
         sys.stderr = old_stderr
         os.environ.clear()
-        os.environ.update(old_env)
+        os.environ |= old_env

@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from scripts.format_conventions import format_conventions
+from scripts.utils.error_utils import exit_error
 from scripts.utils.repo_utils import extract_conventions_from_context, load_repo_test_context
 
 
@@ -46,11 +47,9 @@ def extract_and_format_conventions(feature_dir: str, repo_name: str, odh_test_co
 def main():
     """CLI entry point."""
     if len(sys.argv) != 4:
-        print(
+        exit_error(
             "Usage: python scripts/extract_and_format_conventions.py <feature_dir> <repo_name> <odh_test_context_path>",
-            file=sys.stderr,
         )
-        sys.exit(1)
 
     feature_dir = sys.argv[1]
     repo_name = sys.argv[2]
@@ -62,12 +61,10 @@ def main():
         if markdown:
             print(markdown)
         else:
-            print(f"# No conventions found for {repo_name}", file=sys.stderr)
-            sys.exit(1)
+            exit_error(f"# No conventions found for {repo_name}")
 
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
 
 
 if __name__ == "__main__":

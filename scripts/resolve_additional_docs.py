@@ -26,6 +26,7 @@ from urllib.parse import urlparse
 
 import yaml
 
+from scripts.utils.error_utils import exit_error_with_json
 from scripts.utils.frontmatter_utils import read_frontmatter
 from scripts.utils.snapshot_io import read_file_nofollow, require_within_feature_dir
 
@@ -115,15 +116,12 @@ def main():
     try:
         result = resolve_additional_docs(args.feature_dir)
     except FileNotFoundError:
-        print(json.dumps({"status": "error", "error": "testplan_not_found"}))
-        sys.exit(1)
+        exit_error_with_json({"status": "error", "error": "testplan_not_found"})
     except ValueError as exc:
         # Every ValueError raised by resolve_additional_docs is a stable, path-free code.
-        print(json.dumps({"status": "error", "error": str(exc)}))
-        sys.exit(1)
+        exit_error_with_json({"status": "error", "error": str(exc)})
     except Exception:
-        print(json.dumps({"status": "error", "error": "unexpected_failure"}))
-        sys.exit(1)
+        exit_error_with_json({"status": "error", "error": "unexpected_failure"})
 
     print(json.dumps(result, indent=2))
     sys.exit(0)

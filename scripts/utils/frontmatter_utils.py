@@ -5,8 +5,11 @@ Handles YAML frontmatter in markdown files (between --- delimiters).
 Uses schemas.py for validation.
 """
 
+import os
 import re
 import sys
+import tempfile
+from pathlib import Path
 
 try:
     import yaml
@@ -24,6 +27,28 @@ from .schemas import ValidationError, apply_defaults, validate
 # ─── Frontmatter Read/Write ────────────────────────────────────────────────────
 
 _FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?\n)---\s*\n", re.DOTALL)
+
+
+def _atomic_write_text(path, content):
+    """Write ``content`` to ``path`` via temp file + os.replace.
+
+    Avoids truncating an existing file before the new content is fully on disk.
+    The temp file lives in the same directory so replace is atomic on the same filesystem.
+    """
+    target = Path(path)
+    fd, temporary_path = tempfile.mkstemp(dir=target.parent, prefix=f".{target.name}.", suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_path, target)
+    except BaseException:
+        try:
+            os.unlink(temporary_path)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def read_frontmatter(path):
@@ -98,8 +123,26 @@ def write_frontmatter(path, data, schema_type):
     yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
     content = f"---\n{yaml_str}---\n{body}"
 
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
+    _atomic_write_text(path, content)
+
+
+def write_frontmatter_with_body(path, body, data, schema_type):
+    """Write a fresh file with the given body text and validated frontmatter, in one shot.
+
+    Equivalent to writing body then calling write_frontmatter, but avoids that two-step dance at
+    every call site that needs to seed both body and frontmatter for a new file.
+    """
+    apply_defaults(data, schema_type)
+    if errors := validate(data, schema_type):
+        raise ValidationError("Frontmatter validation failed:\n" + "\n".join(f"  - {e}" for e in errors))
+
+    # Validate before touching disk: a failure here must never leave an existing file
+    # truncated to body-only content with its frontmatter gone.
+    yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
+    content = f"---\n{yaml_str}---\n{body}"
+
+    _atomic_write_text(path, content)
+    return str(path)
 
 
 def update_frontmatter(path, updates, schema_type):
@@ -134,8 +177,7 @@ def update_frontmatter(path, updates, schema_type):
     yaml_str = yaml.dump(data, default_flow_style=False, sort_keys=False, allow_unicode=True)
     content = f"---\n{yaml_str}---\n{body}"
 
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(content)
+    _atomic_write_text(path, content)
 
 
 # ─── Markdown Linting ─────────────────────────────────────────────────────────

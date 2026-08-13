@@ -412,8 +412,8 @@ After reading the review verdict from `TestPlanReview.md`, stamp the appropriate
 
 **Determine which labels to add:**
 - Verdict **"Ready"** → add label `test-plan-rubric-pass`
+- Verdict **"Revise"** → add label `test-plan-rubric-revise`
 - Verdict **"Rework"** → add label `test-plan-rubric-fail`
-- Verdict **"Revise"** → do not add a rubric label (intermediate state handled by auto-revision)
 - Any other verdict value → log a warning and skip rubric label stamping
 
 **Read frontmatter values explicitly before stamping:**
@@ -425,23 +425,12 @@ source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv ru
 
 **Build label list and apply:**
 ```bash
-if [ "$verdict" = "Ready" ]; then
-    rubric_label="test-plan-rubric-pass"
-elif [ "$verdict" = "Rework" ]; then
-    rubric_label="test-plan-rubric-fail"
+if [ "$auto_revised" = "true" ]; then
+    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+     uv run python scripts/add_jira_labels.py "$source_key" --verdict "$verdict" test-plan-auto-revised)
 else
-    echo "Warning: Unexpected verdict '$verdict', skipping rubric label" >&2
-    rubric_label=""
-fi
-
-if [ -n "$rubric_label" ]; then
-    if [ "$auto_revised" = "true" ]; then
-        (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
-         uv run python scripts/add_jira_labels.py "$source_key" "$rubric_label" test-plan-auto-revised)
-    else
-        (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
-         uv run python scripts/add_jira_labels.py "$source_key" "$rubric_label")
-    fi
+    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+     uv run python scripts/add_jira_labels.py "$source_key" --verdict "$verdict")
 fi
 ```
 

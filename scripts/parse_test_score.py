@@ -21,6 +21,8 @@ import re
 import sys
 from pathlib import Path
 
+from scripts.utils.error_utils import exit_error
+
 
 def parse_test_score(score_file: str) -> str:
     """
@@ -71,8 +73,7 @@ def parse_test_score(score_file: str) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) != 2:
-        print("Usage: python scripts/parse_test_score.py <score_file.md>", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: python scripts/parse_test_score.py <score_file.md>")
 
     score_file = sys.argv[1]
 
@@ -80,11 +81,9 @@ def main():
         result = parse_test_score(score_file)
         print(result)
     except FileNotFoundError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
     except Exception as e:
-        print(f"Unexpected error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Unexpected error: {e}")
 
 
 if __name__ == "__main__":

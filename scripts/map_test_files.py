@@ -33,6 +33,7 @@ import sys
 from functools import partial
 from pathlib import Path
 
+from scripts.utils.error_utils import exit_error
 from scripts.utils.tc_parser import extract_category_from_tc_id, extract_title_from_tc_file
 from scripts.utils.text_utils import sanitize_to_snake_case
 
@@ -154,12 +155,10 @@ def map_test_files(
 def main():
     """CLI entry point."""
     if len(sys.argv) < 4:
-        print(
+        exit_error(
             "Usage: python scripts/map_test_files.py <feature_dir> <strategy>"
-            " <test_dir> [--feature-name NAME] [--tc-ids TC1,TC2,...]",
-            file=sys.stderr,
+            " <test_dir> [--feature-name NAME] [--tc-ids TC1,TC2,...]"
         )
-        sys.exit(1)
 
     feature_dir = sys.argv[1]
     strategy = sys.argv[2]
@@ -184,11 +183,9 @@ def main():
         result = map_test_files(feature_dir, tc_ids, strategy, test_dir, feature_name)
         print(result)
     except (FileNotFoundError, ValueError) as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
     except Exception as e:
-        print(f"Unexpected error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Unexpected error: {e}")
 
 
 if __name__ == "__main__":

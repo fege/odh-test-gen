@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 
 from scripts.fetch_issue import parse_components
+from scripts.utils.error_utils import exit_error_with_json
 from scripts.utils.repo_utils import get_git_root
 from scripts.utils.schemas import SCHEMAS
 from scripts.utils.snapshot_io import read_file_nofollow, write_snapshot_nofollow
@@ -112,8 +113,7 @@ def cmd_acceptance_criteria(args):
     try:
         content = _load_strat_content(args.strat_file)
     except (ValueError, OSError):
-        print(json.dumps({"status": "error", "error": "strategy_file_unreadable"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"status": "error", "error": "strategy_file_unreadable"})
     result = parse_acceptance_criteria(content)
     print(json.dumps(result, indent=2))
     sys.exit(0 if result["found"] and result["count"] > 0 else 1)
@@ -123,8 +123,7 @@ def cmd_nfr(args):
     try:
         content = _load_strat_content(args.strat_file)
     except (ValueError, OSError):
-        print(json.dumps({"status": "error", "error": "strategy_file_unreadable"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"status": "error", "error": "strategy_file_unreadable"})
     result = parse_nfr(content)
     print(json.dumps(result, indent=2))
     sys.exit(0 if result["found"] else 1)
@@ -134,8 +133,7 @@ def cmd_out_of_scope(args):
     try:
         content = _load_strat_content(args.strat_file)
     except (ValueError, OSError):
-        print(json.dumps({"status": "error", "error": "strategy_file_unreadable"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"status": "error", "error": "strategy_file_unreadable"})
     result = parse_out_of_scope(content)
     print(json.dumps(result, indent=2))
     sys.exit(0 if result["found"] else 1)
@@ -143,20 +141,17 @@ def cmd_out_of_scope(args):
 
 def cmd_resolve_local(args):
     if not JIRA_KEY_RE.match(args.jira_key):
-        print(json.dumps({"found": False, "error": "malformed_jira_key"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"found": False, "error": "malformed_jira_key"})
 
     repo_root = get_git_root(str(Path(__file__).resolve().parent))
     if not repo_root:
-        print(json.dumps({"found": False, "error": "repo_root_not_found"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"found": False, "error": "repo_root_not_found"})
 
     strat_dir = (Path(repo_root) / "artifacts" / "strat-tasks").resolve()
     candidate = (strat_dir / f"{args.jira_key}.md").resolve()
 
     if not candidate.is_file() or not (candidate == strat_dir or candidate.is_relative_to(strat_dir)):
-        print(json.dumps({"found": False, "error": "strategy_file_not_found"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"found": False, "error": "strategy_file_not_found"})
 
     print(json.dumps({"found": True, "strategy_file": str(candidate)}, indent=2))
     sys.exit(0)
@@ -178,8 +173,7 @@ def cmd_new_strat_tmp(args):
     """
     repo_root = get_git_root(str(Path(__file__).resolve().parent))
     if not repo_root:
-        print(json.dumps({"created": False, "error": "repo_root_not_found"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"created": False, "error": "repo_root_not_found"})
 
     strat_root = Path(repo_root) / "artifacts" / "strat-tasks"
     strat_root.mkdir(parents=True, exist_ok=True)
@@ -208,8 +202,7 @@ def cmd_new_strat_tmp(args):
         finally:
             os.close(tmp_fd)
     except OSError:
-        print(json.dumps({"created": False, "error": "strategy_tmp_unavailable"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"created": False, "error": "strategy_tmp_unavailable"})
 
     path = str(strat_root / ".tmp" / name)
     print(json.dumps({"created": True, "strategy_file": path}, indent=2))
@@ -220,11 +213,9 @@ def cmd_save_snapshot(args):
     try:
         result = save_snapshot(args.strategy_file, args.feature_dir)
     except ValueError:
-        print(json.dumps({"status": "error", "error": "strategy_file_not_permitted"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"status": "error", "error": "strategy_file_not_permitted"})
     except OSError:
-        print(json.dumps({"status": "error", "error": "snapshot_write_unsafe"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"status": "error", "error": "snapshot_write_unsafe"})
 
     print(json.dumps(result, indent=2))
     sys.exit(0)
@@ -234,8 +225,7 @@ def cmd_workflow_inputs(args):
     try:
         content = _load_strat_content(args.strat_file)
     except (ValueError, OSError):
-        print(json.dumps({"status": "error", "error": "strategy_file_unreadable"}, indent=2))
-        sys.exit(1)
+        exit_error_with_json({"status": "error", "error": "strategy_file_unreadable"})
 
     result = workflow_inputs(content)
     print(json.dumps(result, indent=2))

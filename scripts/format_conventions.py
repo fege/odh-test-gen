@@ -4,6 +4,8 @@
 import json
 import sys
 
+from scripts.utils.error_utils import exit_error
+
 
 def format_conventions(conventions: dict) -> str:
     """
@@ -58,8 +60,7 @@ def format_conventions(conventions: dict) -> str:
 def main():
     """CLI entry point."""
     if len(sys.argv) != 2:
-        print("Usage: python scripts/format_conventions.py <conventions.json|-}", file=sys.stderr)
-        sys.exit(1)
+        exit_error("Usage: python scripts/format_conventions.py <conventions.json|->")
 
     conventions_file = sys.argv[1]
 
@@ -74,8 +75,7 @@ def main():
         print(markdown)
 
     except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
 
 
 if __name__ == "__main__":

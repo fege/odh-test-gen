@@ -10,7 +10,8 @@ from unittest.mock import patch
 import pytest
 
 from scripts.enforce_citation_gate import cap_scope_fidelity, enforce_citation_gate, main
-from scripts.utils.frontmatter_utils import read_frontmatter, write_frontmatter
+from scripts.utils.frontmatter_utils import read_frontmatter, write_frontmatter_with_body
+from tests.helpers import build_review_payload
 
 VALID_CITATIONS = {"valid": True, "total": 5, "cited": 5, "uncited": [], "invalid_citations": []}
 VALID_COVERAGE = {"valid": True, "ac_count": 5, "covered": [1, 2, 3, 4, 5], "missing": []}
@@ -30,24 +31,15 @@ INVALID_COVERAGE = {"valid": False, "ac_count": 5, "covered": [1], "missing": [2
 def _write_review(
     path, scores, score=None, verdict="Ready", passed=True, body=None, before_score=None, before_scores=None
 ):
-    data = {
-        "feature": "Test",
-        "source_key": "RHAISTRAT-1",
-        "score": score if score is not None else sum(scores.values()),
-        "pass": passed,
-        "verdict": verdict,
-        "scores": scores,
-        "auto_revised": False,
-        "last_updated": "2026-08-06",
-    }
-    if before_score is not None:
-        data["before_score"] = before_score
-        data["before_scores"] = before_scores or dict(scores)
-    Path(path).write_text(
-        body or "## Rubric Scores\n\n## Section-by-Section Feedback\n\nAll criteria passed — no improvements needed.\n"
+    data = build_review_payload(
+        scores, score=score, verdict=verdict, passed=passed, before_score=before_score, before_scores=before_scores
     )
-    write_frontmatter(str(path), data, "test-plan-review")
-    return str(path)
+    return write_frontmatter_with_body(
+        path,
+        body or "## Rubric Scores\n\n## Section-by-Section Feedback\n\nAll criteria passed — no improvements needed.\n",
+        data,
+        "test-plan-review",
+    )
 
 
 class TestCapScopeFidelity:
@@ -241,9 +233,26 @@ class TestEnforceCitationGate:
         assert result["overridden"] is True
         assert result["scores"]["scope_fidelity"] == 1
 
-    def test_override_can_flip_verdict_from_ready_to_revise(self, tmp_path):
-        # specificity=2, grounding=2, scope_fidelity=2, actionability=1, consistency=1 -> total 8 (Ready)
+    def test_override_recomputes_score_but_verdict_stays_revise(self, tmp_path):
+        # specificity=2, grounding=2, scope_fidelity=2, actionability=1, consistency=1 -> tot 8, but
+        # actionability=1 fails the Ready gate so the starting verdict is already Revise, not Ready.
         scores = {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 1, "consistency": 1}
+        _write_review(tmp_path / "TestPlanReview.md", scores, score=8, verdict="Revise", passed=True)
+
+        result = enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE)
+
+        assert result["scores"]["scope_fidelity"] == 1
+        assert result["score"] == 7
+        assert result["verdict"] == "Revise"
+        assert result["pass"] is True
+
+    def test_override_can_flip_verdict_from_ready_to_revise(self, tmp_path):
+        # specificity=1, grounding=1, scope_fidelity=2, actionability=2, consistency=2 -> tot 8, no
+        # zero, actionability=2 -> starting verdict is genuinely Ready. A defect that caps
+        # scope_fidelity but never recalls compute_verdict_and_pass would leave verdict="Ready"
+        # here, unlike test_override_recomputes_score_but_verdict_stays_revise above where the
+        # persisted verdict coincidentally matches even without recomputation.
+        scores = {"specificity": 1, "grounding": 1, "scope_fidelity": 2, "actionability": 2, "consistency": 2}
         _write_review(tmp_path / "TestPlanReview.md", scores, score=8, verdict="Ready", passed=True)
 
         result = enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE)

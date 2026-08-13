@@ -31,6 +31,7 @@ import re
 import sys
 from datetime import date
 
+from scripts.utils.error_utils import exit_error
 from scripts.utils.frontmatter_utils import read_frontmatter, update_frontmatter
 from scripts.utils.schemas import SCHEMAS, ValidationError, detect_schema_type
 
@@ -72,31 +73,27 @@ def bump_version(version_str: str, bump_type: str) -> str:
 
 
 def _read_current_version(filepath):
-    """Read and return (old_version, schema_type) from file, or sys.exit(1)."""
+    """Read and return (old_version, schema_type) from file, or exit with error."""
     if not os.path.exists(filepath):
-        print(f"Error: {filepath} not found", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {filepath} not found")
 
     schema_type = detect_schema_type(filepath)
     if not schema_type:
-        print(f"Error: cannot detect schema type from '{filepath}'", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: cannot detect schema type from '{filepath}'")
 
     data, _ = read_frontmatter(filepath)
     if not data:
-        print(f"Error: no frontmatter found in {filepath}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: no frontmatter found in {filepath}")
 
     old_version = data.get("version")
     if old_version is None:
-        print(f"Error: no 'version' field in frontmatter of {filepath}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: no 'version' field in frontmatter of {filepath}")
 
     return str(old_version), schema_type
 
 
 def _write_version(filepath, schema_type, new_version):
-    """Write new version to frontmatter with last_updated, or sys.exit(1)."""
+    """Write new version to frontmatter with last_updated, or exit with error."""
     updates = {"version": new_version}
     schema = SCHEMAS.get(schema_type, {})
     if "last_updated" in schema:
@@ -105,8 +102,7 @@ def _write_version(filepath, schema_type, new_version):
     try:
         update_frontmatter(filepath, updates, schema_type)
     except ValidationError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
 
 
 def cmd_bump(args):
@@ -116,8 +112,7 @@ def cmd_bump(args):
     try:
         new_version = bump_version(old_version, args.bump_type)
     except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
 
     _write_version(args.file, schema_type, new_version)
 
@@ -128,8 +123,7 @@ def cmd_bump(args):
 def cmd_set(args):
     """Set version to an explicit value."""
     if not _SEMVER_RE.match(args.version):
-        print(f"Error: Invalid semver: '{args.version}'", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: Invalid semver: '{args.version}'")
 
     old_version, schema_type = _read_current_version(args.file)
 

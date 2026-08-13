@@ -4,15 +4,12 @@ import tempfile
 import unittest
 
 from scripts.filter_for_revision import filter_for_revision
-from scripts.utils.frontmatter_utils import read_frontmatter_validated, write_frontmatter
+from scripts.utils.frontmatter_utils import read_frontmatter_validated, write_frontmatter_with_body
 
 
 def _write_review(feature_dir, payload):
     review_path = os.path.join(feature_dir, "TestPlanReview.md")
-    with open(review_path, "w", encoding="utf-8") as f:
-        f.write("## Test Plan Review\n")
-    write_frontmatter(review_path, payload, "test-plan-review")
-    return review_path
+    return write_frontmatter_with_body(review_path, "## Test Plan Review\n", payload, "test-plan-review")
 
 
 class TestFilterForRevision(unittest.TestCase):

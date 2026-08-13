@@ -166,8 +166,8 @@ Parse the score agent's output and present the results to the user, substituting
 ### Verdict
 
 {If `cap_status` was `overridden`: use `cap_result.verdict`/`cap_result.pass` directly — do not re-derive from the total.}
-{Otherwise — If >= 8, no zeros: "**Ready** — proceed to test case generation"}
-{If = 7, no zeros: "**Revise** — minor improvements needed. Re-run via `/test-plan-create` flow to apply auto-revision, or invoke the internal `test-plan.review` workflow from automation."}
+{Otherwise — If >= 8, no zeros, and actionability == 2: "**Ready** — proceed to test case generation"}
+{If >= 7, no zeros (but not meeting Ready bar): "**Revise** — minor improvements needed. Re-run via `/test-plan-create` flow to apply auto-revision, or invoke the internal `test-plan.review` workflow from automation."}
 {If < 7 or any zero: "**Rework** — significant issues. Re-run via `/test-plan-create` flow for remediation, or use automation that calls internal `test-plan.review`."}
 
 ### Grounding Cross-Reference

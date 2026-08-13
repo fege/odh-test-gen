@@ -34,4 +34,4 @@
 | Scope Fidelity | 2 | 2 | 0 | Both align well with strategy |
 | Actionability | 1 | 0 | -1 | Example 1 has concrete versions (OCP 4.16+, podman 4.x+, Python 3.11+); Example 2 has "TBD" for most |
 | Consistency | 2 | 1 | -1 | Example 1 has populated TCs and coverage; Example 2 has placeholders and a test-level mismatch |
-| **Total** | **8** | **6** | **-2** | Example 1 passes; Example 2 fails on actionability zero |
+| **Total** | **8** | **6** | **-2** | Example 1 (actionability=1) and Example 2 (actionability=0) both fail to reach Ready; Example 1 lands in Revise, Example 2 in Rework |

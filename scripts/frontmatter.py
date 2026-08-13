@@ -45,6 +45,7 @@ import os
 import sys
 from datetime import date
 
+from scripts.utils.error_utils import exit_error, exit_error_with_json
 from scripts.utils.frontmatter_utils import (
     fix_markdown_body,
     lint_markdown_body,
@@ -81,9 +82,7 @@ def _coerce_value(value_str, field_spec):
         return [v.strip() for v in value_str.split(",") if v.strip()]
 
     if field_type == "string":
-        if value_str.lower() in ("null", "none"):
-            return None
-        return value_str
+        return None if value_str.lower() in ("null", "none") else value_str
 
     return value_str
 
@@ -94,31 +93,26 @@ def cmd_schema(args):
         yaml_str = get_schema_yaml(args.schema_type)
         print(yaml_str)
     except ValueError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
 
 
 def cmd_read(args):
     """Read and display frontmatter from a file."""
     if not os.path.exists(args.file):
-        print(f"Error: {args.file} not found", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {args.file} not found")
 
     schema_type = args.schema_type or detect_schema_type(args.file)
     if not schema_type:
-        print(f"Error: cannot detect schema type from '{args.file}'. Use --schema-type.", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: cannot detect schema type from '{args.file}'. Use --schema-type.")
 
     try:
         data, _ = read_frontmatter_validated(args.file, schema_type)
     except ValidationError as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {e}")
 
     if args.field:
         if args.field not in data:
-            print(f"Error: field '{args.field}' not found in frontmatter", file=sys.stderr)
-            sys.exit(1)
+            exit_error(f"Error: field '{args.field}' not found in frontmatter")
         print(data[args.field])
     else:
         json.dump(data, sys.stdout, indent=2, default=str)
@@ -129,60 +123,74 @@ def cmd_set(args):
     """Set/update frontmatter fields on a file."""
     schema_type = args.schema_type or detect_schema_type(args.file)
     if not schema_type:
-        print(f"Error: cannot detect schema type from '{args.file}'. Use --schema-type.", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: cannot detect schema type from '{args.file}'. Use --schema-type.")
 
     schema = SCHEMAS[schema_type]
 
     data = {}
     for field_value in args.fields:
         if "=" not in field_value:
-            print(f"Error: expected field=value, got '{field_value}'", file=sys.stderr)
-            sys.exit(1)
+            exit_error(f"Error: expected field=value, got '{field_value}'")
 
         field_name, value_str = field_value.split("=", 1)
 
         if field_name == "version":
-            print("Error: use scripts/version.py to manage versions", file=sys.stderr)
-            sys.exit(1)
+            exit_error("Error: use scripts/version.py to manage versions")
 
         if "." in field_name:
             parent, child = field_name.split(".", 1)
             if parent not in schema:
-                print(f"Error: unknown field '{parent}' for schema '{schema_type}'", file=sys.stderr)
-                sys.exit(1)
+                exit_error(f"Error: unknown field '{parent}' for schema '{schema_type}'")
             parent_spec = schema[parent]
             if parent_spec.get("type") != "dict" or "fields" not in parent_spec:
-                print(f"Error: field '{parent}' does not support sub-fields", file=sys.stderr)
-                sys.exit(1)
+                exit_error(f"Error: field '{parent}' does not support sub-fields")
             if child not in parent_spec["fields"]:
-                print(f"Error: unknown sub-field '{child}' for '{parent}'", file=sys.stderr)
-                sys.exit(1)
+                exit_error(f"Error: unknown sub-field '{child}' for '{parent}'")
             if parent not in data:
                 data[parent] = {}
-            data[parent][child] = _coerce_value(value_str, parent_spec["fields"][child])
+            try:
+                data[parent][child] = _coerce_value(value_str, parent_spec["fields"][child])
+            except ValueError as e:
+                exit_error_with_json(
+                    json_output={"status": "failed", "error": "invalid_field_value"},
+                    message=f"Error: {e}",
+                    indent=None,
+                )
         else:
             if field_name not in schema:
-                print(f"Error: unknown field '{field_name}' for schema '{schema_type}'", file=sys.stderr)
-                sys.exit(1)
-            data[field_name] = _coerce_value(value_str, schema[field_name])
+                exit_error(f"Error: unknown field '{field_name}' for schema '{schema_type}'")
+            try:
+                data[field_name] = _coerce_value(value_str, schema[field_name])
+            except ValueError as e:
+                exit_error_with_json(
+                    json_output={"status": "failed", "error": "invalid_field_value"},
+                    message=f"Error: {e}",
+                    indent=None,
+                )
 
     # Auto-set last_updated if not explicitly provided and schema has it
     if "last_updated" in schema and "last_updated" not in data:
         data["last_updated"] = date.today().isoformat()
 
-    if os.path.exists(args.file):
-        try:
+    try:
+        if os.path.exists(args.file):
             update_frontmatter(args.file, data, schema_type)
-        except ValidationError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
-    else:
-        try:
+        else:
             write_frontmatter(args.file, data, schema_type)
-        except ValidationError as e:
-            print(f"Error: {e}", file=sys.stderr)
-            sys.exit(1)
+    except ValidationError as e:
+        exit_error_with_json(
+            json_output={"status": "failed", "error": "write_failed"},
+            message=f"Error: {e}",
+            indent=2,
+        )
+    except OSError as e:
+        # Atomic writers re-raise filesystem failures; keep them typed for library
+        # callers, but never dump a traceback from the CLI entry point.
+        exit_error_with_json(
+            json_output={"status": "failed", "error": "write_failed"},
+            message=f"Error: {e}",
+            indent=2,
+        )
 
     print(f"OK: {args.file}")
 
@@ -193,9 +201,7 @@ def _resolve_config_path(config_file):
         return config_file
     repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     candidate = os.path.join(repo_root, ".markdownlint.yaml")
-    if os.path.exists(candidate):
-        return candidate
-    return None
+    return candidate if os.path.exists(candidate) else None
 
 
 def _print_violations(filepath, failures):
@@ -217,8 +223,7 @@ def _load_body_for_lint(args):
     Returns (config_path, body) or exits/returns None on empty body.
     """
     if not os.path.exists(args.file):
-        print(f"Error: {args.file} not found", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {args.file} not found")
 
     config_path = _resolve_config_path(args.config_file)
 
@@ -278,20 +283,17 @@ def cmd_fix(args):
 def cmd_validate(args):
     """Validate frontmatter without modifying the file."""
     if not os.path.exists(args.file):
-        print(f"Error: {args.file} not found", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: {args.file} not found")
 
     schema_type = args.schema_type or detect_schema_type(args.file)
     if not schema_type:
-        print(f"Error: cannot detect schema type from '{args.file}'. Use --schema-type.", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"Error: cannot detect schema type from '{args.file}'. Use --schema-type.")
 
     try:
         read_frontmatter_validated(args.file, schema_type)
         print(f"OK: {args.file}")
     except ValidationError as e:
-        print(f"FAIL: {e}", file=sys.stderr)
-        sys.exit(1)
+        exit_error(f"FAIL: {e}")
 
 
 def main():
