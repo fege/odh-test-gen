@@ -234,6 +234,29 @@ Before writing each assertion, ask: **"Is this testing what the TC is fundamenta
 
 A test that FAILs for the wrong reason is worse than no test at all. When in doubt, prefer the narrower assertion.
 
+**Test case robustness rules:**
+- **Background processes**: When a TC uses background loops (`&`),
+  capture each PID (`PID_X=$!`), define a `cleanup()` function
+  that kills all PIDs, and register it with
+  `trap cleanup EXIT INT TERM` before starting the loops. This
+  ensures cleanup runs if the test stops early.
+- **Query scoping**: When querying Prometheus or other shared
+  data stores, filter by the specific `job`, `namespace`, and
+  target labels relevant to this test. Do not rely on
+  cluster-wide queries that unrelated workloads could satisfy.
+- **Validate all results**: When asserting label sets, response
+  structure, or field presence, validate ALL entries in a result
+  array (e.g., `jq 'all(...)'`), not just `result[0]`.
+- **Synthetic credentials only**: Never specify production or
+  real user credentials in preconditions or test data. Use
+  test-only API keys, throwaway OIDC tokens from a test IdP,
+  or synthetic identities.
+- **No fallback masking**: When a TC's preconditions guarantee
+  data exists (e.g., traffic is flowing), do not include
+  `or vector(0)` or similar fallbacks in test queries — they
+  mask broken pipelines as passing tests. Fallback behavior
+  should be tested in dedicated edge-case TCs.
+
 **Anti-hallucination rules:**
 - Do NOT invent requirements not present in the test plan
 - Do NOT create test cases for interfaces marked as "pending details" in Section 4
