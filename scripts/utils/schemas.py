@@ -157,7 +157,7 @@ SCHEMAS = {
         "status": {
             "type": "string",
             "required": True,
-            "enum": ["Open", "Partially Resolved", "Resolved"],
+            "enum": ["Open", "Resolved"],
         },
         "gap_count": {
             "type": "int",

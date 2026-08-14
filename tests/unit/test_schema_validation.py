@@ -196,9 +196,10 @@ class TestGapsSchemaValidation:
     @pytest.mark.parametrize(
         "field_name,field_value,should_pass",
         [
-            # status enum validation (Open, Partially Resolved, Resolved)
+            # status enum validation (Open, Resolved) — "Partially Resolved" is unreachable
+            # (gap_count is always an integer count, never a partial state)
             ("status", "Open", True),
-            ("status", "Partially Resolved", True),
+            ("status", "Partially Resolved", False),
             ("status", "Resolved", True),
             ("status", "Closed", False),
         ],

@@ -19,9 +19,7 @@ def extract_section(content: str, heading: str) -> tuple[list[str], int]:
             continue
         if start is not None and pattern.match(line):
             return lines[start:i], start + 1
-    if start is not None:
-        return lines[start:], start + 1
-    return [], 0
+    return (lines[start:], start + 1) if start is not None else ([], 0)
 
 
 def parse_table_rows(section_lines: list) -> list:

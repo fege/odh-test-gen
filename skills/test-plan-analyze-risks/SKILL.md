@@ -122,9 +122,12 @@ component levels.}
 
 ## Gaps
 
-{List every gap found during analysis. Each gap must specify what is missing and what document type could fill it.}
+{List every gap found during analysis. Each gap must specify what is missing and what document
+type could fill it. Pick exactly ONE of: ADR, API spec, feature refinement, design doc — do not
+combine types or add parenthetical elaboration. The "— would be resolved by: {type}" clause is
+mandatory on every bullet — never omit it, even if the doc type feels obvious from context.}
 
-- **{gap description}** — would be resolved by: {ADR / API spec / feature refinement / design doc}
+- **{gap description}** — would be resolved by: {ADR|API spec|feature refinement|design doc}
 
 {If no gaps: "No gaps identified."}
 ```
