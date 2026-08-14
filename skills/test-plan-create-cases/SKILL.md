@@ -241,12 +241,18 @@ A test that FAILs for the wrong reason is worse than no test at all. When in dou
   `trap cleanup EXIT INT TERM` before starting the loops. This
   ensures cleanup runs if the test stops early.
 - **Query scoping**: When querying Prometheus or other shared
-  data stores, filter by the specific `job`, `namespace`, and
-  target labels relevant to this test. Do not rely on
-  cluster-wide queries that unrelated workloads could satisfy.
+  data stores, scope queries to the labels the data store
+  actually exposes (e.g., `namespace`, `job`, `container`,
+  `pod`). Include only the labels that exist in the target
+  metric or data source — do not mandate labels the store
+  does not carry. Do not rely on cluster-wide queries that
+  unrelated workloads could satisfy.
 - **Validate all results**: When asserting label sets, response
-  structure, or field presence, validate ALL entries in a result
-  array (e.g., `jq 'all(...)'`), not just `result[0]`.
+  structure, or field presence, first confirm the result array
+  is non-empty (e.g., `jq '.result | length > 0'`), then
+  validate ALL entries (e.g., `jq '.result | length > 0 and
+  all(...)'`). An empty result silently passes `all(...)`, so
+  the length guard is required.
 - **Synthetic credentials only**: Never specify production or
   real user credentials in preconditions or test data. Use
   test-only API keys, throwaway OIDC tokens from a test IdP,
