@@ -37,10 +37,11 @@ def _permitted_strat_path(raw_path: str) -> Path:
     """Resolve raw_path and confirm it sits inside a permitted location, shared by every
     subcommand that touches a strategy file on disk.
 
-    Every documented caller passes one of exactly two paths: the persistent local cache
-    `<repo_root>/artifacts/strat-tasks/<KEY>.md`, or an ephemeral fetch written to
-    `<repo_root>/artifacts/strat-tasks/.tmp/` (an application-owned, mode-0700 directory — never
-    the shared system temp dir, which any other process could have dropped a readable file into).
+    Permitted locations:
+    - `<repo_root>/artifacts/strat-tasks/<KEY>.md` — persistent local cache
+    - `<repo_root>/artifacts/strat-tasks/.tmp/` — ephemeral fetch (mode-0700, never shared system temp)
+    - `$TEST_PLAN_OUTPUT_DIR/**/.source-strategy.md` — snapshot in user's output directory
+
     Anything else is rejected so a malformed or malicious strat_file argument can't be used to
     read or move arbitrary files.
     """
@@ -51,6 +52,12 @@ def _permitted_strat_path(raw_path: str) -> Path:
 
     strat_root = (Path(repo_root) / "artifacts" / "strat-tasks").resolve()
     allowed_roots = [strat_root, strat_root / ".tmp"]
+
+    # Allow paths under TEST_PLAN_OUTPUT_DIR if set
+    output_dir = os.environ.get("TEST_PLAN_OUTPUT_DIR")
+    if output_dir:
+        output_root = Path(output_dir).resolve()
+        allowed_roots.append(output_root)
 
     if not any(resolved == root or resolved.is_relative_to(root) for root in allowed_roots):
         raise ValueError("strategy_file_not_permitted")
