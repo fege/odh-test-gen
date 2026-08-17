@@ -234,6 +234,37 @@ Before writing each assertion, ask: **"Is this testing what the TC is fundamenta
 
 A test that FAILs for the wrong reason is worse than no test at all. When in doubt, prefer the narrower assertion.
 
+**Test case robustness rules:**
+- **Background processes**: When a TC uses background loops (`&`),
+  capture each PID (`PID_X=$!`), define a `cleanup()` function
+  that kills each PID with `kill "$PID" 2>/dev/null || true`
+  (so a dead PID does not fail the trap), and register it with
+  `trap cleanup EXIT` before starting the loops. Use `EXIT`
+  only — adding `INT` or `TERM` causes cleanup to run on the
+  signal and then again on exit.
+- **Query scoping**: When querying Prometheus or other shared
+  data stores, scope queries to the labels the data store
+  actually exposes (e.g., `namespace`, `job`, `container`,
+  `pod`). Include only the labels that exist in the target
+  metric or data source — do not mandate labels the store
+  does not carry. Do not rely on cluster-wide queries that
+  unrelated workloads could satisfy.
+- **Validate all results**: When asserting label sets, response
+  structure, or field presence, first confirm the result array
+  is non-empty (e.g., `jq '.result | length > 0'`), then
+  validate ALL entries (e.g., `jq '.result | length > 0 and
+  all(...)'`). An empty result silently passes `all(...)`, so
+  the length guard is required.
+- **Synthetic credentials only**: Never specify production or
+  real user credentials in preconditions or test data. Use
+  test-only API keys, throwaway OIDC tokens from a test IdP,
+  or synthetic identities.
+- **No fallback masking**: When a TC's preconditions guarantee
+  data exists (e.g., traffic is flowing), do not include
+  `or vector(0)` or similar fallbacks in test queries — they
+  mask broken pipelines as passing tests. Fallback behavior
+  should be tested in dedicated edge-case TCs.
+
 **Anti-hallucination rules:**
 - Do NOT invent requirements not present in the test plan
 - Do NOT create test cases for interfaces marked as "pending details" in Section 4

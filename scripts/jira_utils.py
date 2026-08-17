@@ -2,10 +2,10 @@
 Core utilities for interacting with the Jira REST API.
 
 This module provides low-level API access functions with retry logic and error handling.
-Environment variables:
-- JIRA_URL: Base URL for the Jira instance (required)
-- JIRA_USER: Username or email for authentication (required)
-- JIRA_TOKEN: API token for authentication (required)
+Environment variables (accepts either naming convention):
+- JIRA_URL or JIRA_BASE_URL: Base URL for the Jira instance (required)
+- JIRA_USER or JIRA_EMAIL: Username or email for authentication (required)
+- JIRA_TOKEN or JIRA_API_TOKEN: API token for authentication (required)
 """
 
 import os
@@ -18,10 +18,20 @@ import requests
 
 from scripts.utils.error_utils import exit_error
 
+_ENV_ALIASES = {
+    "JIRA_URL": "JIRA_BASE_URL",
+    "JIRA_USER": "JIRA_EMAIL",
+    "JIRA_TOKEN": "JIRA_API_TOKEN",
+}
+
 
 def require_env(var_name: str) -> str:
     """
     Require an environment variable to be set.
+
+    Supports aliases: JIRA_URL/JIRA_BASE_URL, JIRA_USER/JIRA_EMAIL,
+    JIRA_TOKEN/JIRA_API_TOKEN. The canonical name is checked first,
+    then the alias.
 
     Args:
         var_name: Name of the environment variable
@@ -30,11 +40,17 @@ def require_env(var_name: str) -> str:
         The value of the environment variable
 
     Raises:
-        SystemExit: If the environment variable is not set
+        SystemExit: If neither the variable nor its alias is set
     """
     value = os.getenv(var_name)
     if not value:
-        exit_error(f"Error: {var_name} environment variable is required")
+        alias = _ENV_ALIASES.get(var_name)
+        if alias:
+            value = os.getenv(alias)
+    if not value:
+        alias = _ENV_ALIASES.get(var_name, "")
+        hint = f" (or {alias})" if alias else ""
+        exit_error(f"Error: {var_name}{hint} environment variable is required")
     return value
 
 
