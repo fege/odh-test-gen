@@ -38,3 +38,11 @@ EXTRACT_GAPS_TRAILING_WS_HEADING = "## Gaps" + "   \n" + "- gap\n## Other\n- unr
 EXTRACT_GAPS_MISSING = """## Other
 - x
 """
+
+EXTRACT_HEADING_HASH_IN_TITLE = """## C#
+- gap
+### Details
+- child
+# Other
+- done
+"""

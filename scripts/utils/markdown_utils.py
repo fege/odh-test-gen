@@ -13,9 +13,9 @@ def extract_section(content: str, heading: str) -> tuple[list[str], int]:
     Returns ([], 0) if the heading is not found.
     """
     lines = content.splitlines()
-    level = max(heading.count("#"), 1)
-    pattern = re.compile(r"^#{1," + str(level) + r"}\s")
     heading_key = heading.rstrip()
+    level = max(len(heading_key) - len(heading_key.lstrip("#")), 1)
+    pattern = re.compile(r"^#{1," + str(level) + r"}\s")
     start = None
     for i, line in enumerate(lines):
         if start is None:
