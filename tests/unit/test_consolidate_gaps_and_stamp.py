@@ -4,8 +4,18 @@ from pathlib import Path
 
 import pytest
 
-from scripts.consolidate_gaps_and_stamp import _resolve_last_updated, _verified_staging_path, consolidate_and_stamp
-from tests.consts.gaps_constants import GAPS_ALL_EMPTY, GAPS_ENDPOINTS_DUPLICATE
+from scripts.consolidate_gaps_and_stamp import (
+    _resolve_last_updated,
+    _verified_staging_path,
+    consolidate_and_stamp,
+    decide_gaps_next,
+)
+from tests.consts.gaps_constants import (
+    GAPS_ALL_EMPTY,
+    GAPS_ENDPOINTS_DUPLICATE,
+    GAPS_NEXT_PROCEED,
+    GAPS_NEXT_PROMPT_USER,
+)
 
 LAST_UPDATED = "1999-12-31"
 
@@ -215,3 +225,27 @@ class TestResolveLastUpdated:
 
         with pytest.raises(ValueError, match="last_updated_required"):
             _resolve_last_updated(None)
+
+
+class TestDecideGapsNext:
+    @pytest.mark.parametrize(
+        "gap_count,interactive,expected",
+        [
+            (0, True, GAPS_NEXT_PROCEED),
+            (0, False, GAPS_NEXT_PROCEED),
+            (1, True, GAPS_NEXT_PROMPT_USER),
+            (1, False, GAPS_NEXT_PROCEED),
+            (5, True, GAPS_NEXT_PROMPT_USER),
+            (5, False, GAPS_NEXT_PROCEED),
+        ],
+        ids=[
+            "zero-interactive",
+            "zero-non-interactive",
+            "one-interactive",
+            "one-non-interactive",
+            "many-interactive",
+            "many-non-interactive",
+        ],
+    )
+    def test_prompt_user_only_when_gaps_exist_and_session_is_interactive(self, gap_count, interactive, expected):
+        assert decide_gaps_next(gap_count, interactive=interactive) == expected

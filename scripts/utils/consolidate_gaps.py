@@ -12,21 +12,11 @@ script groups gap bullets by their normalized `resolved-by` document type — th
 dedup key — so `gap_count` reflects the number of missing documents, not the raw
 number of gap bullets across all sub-agents.
 
-Usage:
-    uv run python scripts/consolidate_gaps.py --feature-name "<name>" \
-        --source endpoints=<path> --source risks=<path> --source infra=<path> \
-        --out <feature_dir>/TestPlanGaps.md
-
-Writes the rendered body to --out and prints JSON ({"gap_count": int, "status": str})
-to stdout. Exits 1 if a source file cannot be read.
+Imported by consolidate_gaps_and_stamp.py for gap consolidation and source file reading.
 """
 
-import argparse
-import json
 import re
-import sys
 
-from scripts.utils.error_utils import exit_error_with_json
 from scripts.utils.markdown_utils import extract_section
 
 CANONICAL_DOC_TYPES = ["ADR", "API spec", "feature refinement", "design doc"]
@@ -277,40 +267,3 @@ def read_sources(source_args: list[str]) -> dict[str, str]:
         except OSError as e:
             raise ValueError("source_file_not_found") from e
     return sources
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description="Consolidate analyzer gap bullets into deduplicated, per-document groups",
-    )
-    parser.add_argument("--feature-name", required=True, help="Feature name for the rendered body header")
-    parser.add_argument(
-        "--source",
-        action="append",
-        required=True,
-        dest="sources",
-        metavar="NAME=PATH",
-        help="Analyzer name=path pair (repeatable), e.g. --source endpoints=<path>",
-    )
-    parser.add_argument("--out", required=True, help="Path to write the rendered TestPlanGaps.md body")
-    args = parser.parse_args()
-
-    try:
-        sources = read_sources(args.sources)
-    except ValueError as e:
-        exit_error_with_json({"status": "failed", "error": str(e)})
-
-    result = consolidate_gaps(sources, feature_name=args.feature_name)
-
-    try:
-        with open(args.out, "w", encoding="utf-8") as f:
-            f.write(result["body"])
-    except OSError:
-        exit_error_with_json({"status": "failed", "error": "output_write_failed"})
-
-    print(json.dumps({"gap_count": result["gap_count"], "status": result["status"]}, indent=2))
-    sys.exit(0)
-
-
-if __name__ == "__main__":
-    main()

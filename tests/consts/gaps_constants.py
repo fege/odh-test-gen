@@ -97,15 +97,17 @@ GAPS_LOWERCASE_HEADING = """## Test Tools
 - **Auth flow undefined** — would be resolved by: API spec
 """
 
-GAPS_TRAILING_WHITESPACE_HEADING = """## Test Tools
-
-- pytest
-- playwright
-
-## Gaps   
-
-- **Auth flow undefined** — would be resolved by: API spec
-"""
+# Trailing spaces cannot live in the source (pre-commit trailing-whitespace hook).
+GAPS_TRAILING_WHITESPACE_HEADING = (
+    "## Test Tools\n"
+    "\n"
+    "- pytest\n"
+    "- playwright\n"
+    "\n"
+    "## Gaps" + "   \n"
+    "\n"
+    "- **Auth flow undefined** — would be resolved by: API spec\n"
+)
 
 GAPS_EMPTY_UPPERCASE_HEADING = """## GAPS
 
@@ -157,3 +159,6 @@ GAPS_DOC_TYPE_ONLY_PUNCT = """## Gaps
 
 - **X** — would be resolved by: .
 """
+
+GAPS_NEXT_PROCEED = "proceed"
+GAPS_NEXT_PROMPT_USER = "prompt_user"

@@ -315,56 +315,48 @@ If any check fails, fix the violations in `TestPlan.md` and re-run **once**. If 
 
 ### Step 3.5: Collect Gaps and Prompt for Additional Documents
 
-Consolidate gaps reported by the three sub-agents into a single deduplicated `TestPlanGaps.md` via
-`consolidate_gaps_and_stamp.py`, which consolidates, stamps frontmatter, and deletes the staged
-temp files in one call.
+Write each sub-agent's full raw analysis (from Step 2) verbatim to
+`<feature_dir>/.analysis-endpoints.md`, `<feature_dir>/.analysis-risks.md`, and
+`<feature_dir>/.analysis-infra.md`. Do not hand-slice the `## Gaps` section — the script
+extracts it.
 
-1. **Write each sub-agent's full raw returned analysis output** (as returned in Step 2) **verbatim**
-   to a temp file: `<feature_dir>/.analysis-endpoints.md`, `<feature_dir>/.analysis-risks.md`,
-   `<feature_dir>/.analysis-infra.md`. Do not hand-slice out the `## Gaps` section — the script
-   extracts it deterministically.
-2. **Run the consolidation script**:
-   ```bash
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
-    uv run python scripts/consolidate_gaps_and_stamp.py \
-      --feature-name "<feature_name>" \
-      --source-key <JIRA_KEY> \
-      --source endpoints=<feature_dir>/.analysis-endpoints.md \
-      --source risks=<feature_dir>/.analysis-risks.md \
-      --source infra=<feature_dir>/.analysis-infra.md \
-      --last-updated "$(date -u +%F)" \
-      --out <feature_dir>/TestPlanGaps.md)
-   ```
-   On success this writes `TestPlanGaps.md` (body + stamped `feature`/`source_key`/`status`/
-   `gap_count`/`last_updated` frontmatter), deletes the three temp files, and prints
-   `{"gap_count": int, "status": str}` to stdout — never hand-count gaps or hand-edit frontmatter.
-   If it exits non-zero, the temp files are left in place for debugging; fix the issue and re-run.
+Then run:
 
-3. **Gaps decision gate** — read `gap_count` from the consolidation JSON printed in item 2.
-   - **`gap_count` is 0:** Skip the gaps menu. Proceed directly to Step 3.6.
-   - **`gap_count` > 0:** run the check-interactive validator:
-     ```bash
-     (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
-      uv run python scripts/validate.py check-interactive)
-     ```
-     - **Exit 0 (non-interactive):** Skip the gaps menu. Proceed directly to Step 3.6.
-     - **Exit 1 (interactive):** Continue to item 4.
+```bash
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+ uv run python scripts/consolidate_gaps_and_stamp.py \
+   --feature-name "<feature_name>" \
+   --source-key <JIRA_KEY> \
+   --source endpoints=<feature_dir>/.analysis-endpoints.md \
+   --source risks=<feature_dir>/.analysis-risks.md \
+   --source infra=<feature_dir>/.analysis-infra.md \
+   --last-updated "$(date -u +%F)" \
+   --skip-cleanup \
+   --out <feature_dir>/TestPlanGaps.md)
+```
 
-4. **Interactive gaps menu** (only reached when item 3 is interactive AND `gap_count` > 0):
+On success this writes `TestPlanGaps.md` (body + frontmatter) and prints
+`{"gap_count": int, "status": str, "next": "proceed"|"prompt_user"}`.
+Never hand-count gaps, hand-edit frontmatter, or run `check-interactive` yourself.
+If it exits non-zero, temp files are left for debugging; fix and re-run.
 
-   Present the user with a structured action menu via AskUserQuestion. List gaps from `TestPlanGaps.md`, then offer:
-   1. **Provide documents** — paste file paths to resolve gaps
-   2. **Proceed to review** — continue as-is
-   3. **Proceed + generate test cases** — continue and auto-run `/test-plan-create-cases`
+- **`next` is `proceed`:** skip the menu. Go to Step 3.6.
+- **`next` is `prompt_user`:** present the menu below.
 
-5. **If the user chooses option 1**: Read the provided documents, re-run only the relevant
-   sub-agents from Step 2 with the new material. The prior run already deleted the temp files, so
-   re-stage all three `.analysis-*.md` files before consolidating again — reuse each unaffected
-   analyzer's cached raw output from this session's context rather than re-invoking it. Update the
-   test plan, then re-run `consolidate_gaps_and_stamp.py` exactly as in item 2. Then present the
-   menu again with any remaining gaps.
-6. **If the user chooses option 2**: Proceed to Step 3.6.
-7. **If the user chooses option 3**: Proceed to Step 3.6, and after the review is complete (Step 4), automatically invoke `/test-plan-create-cases` with the feature directory.
+**Interactive gaps menu** (only when `next` is `prompt_user`):
+
+Present AskUserQuestion. List gaps from `TestPlanGaps.md`, then offer:
+
+1. **Provide documents** — paste file paths to resolve gaps
+2. **Proceed to review** — continue as-is
+3. **Proceed + generate test cases** — continue and auto-run `/test-plan-create-cases`
+
+**If option 1:** Read the documents, re-run only the relevant Step 2 sub-agents, update the
+test plan, then re-run `consolidate_gaps_and_stamp.py` with the same command as above
+(including `--skip-cleanup`). Follow `next` from the new JSON.
+**If option 2:** Proceed to Step 3.6.
+**If option 3:** Proceed to Step 3.6, and after Step 4 automatically invoke
+`/test-plan-create-cases` with the feature directory.
 
 ### Step 3.6: Stamp Jira label — test plan created
 

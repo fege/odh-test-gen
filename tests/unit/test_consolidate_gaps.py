@@ -7,7 +7,7 @@ CLI tests are in tests/integration/test_consolidate_gaps_cli.py.
 
 import pytest
 
-from scripts.consolidate_gaps import consolidate_gaps, read_sources
+from scripts.utils.consolidate_gaps import consolidate_gaps, read_sources
 from tests.consts.gaps_constants import (
     GAPS_ALL_EMPTY,
     GAPS_BULLET_THEN_NO_GAPS_LINE,
@@ -125,6 +125,26 @@ class TestConsolidateDifferentGaps:
 
         doc_types = {g["doc_type"] for g in result["groups"]}
         assert doc_types == {"API spec", "ADR"}
+
+    def test_distinct_concerns_same_doc_type_counted_as_one_group(self):
+        """Two genuinely distinct concerns with the same doc type → gap_count=1, both preserved
+        as sub-bullets under that type. This is the intended semantic: gap_count = number of
+        missing document types, not number of distinct concerns. Distinct concerns are still
+        visible as sub-bullets; they are not lost."""
+        sources = {
+            "endpoints": "## Gaps\n\n- **Pagination parameters undefined** — would be resolved by: API spec\n",
+            "risks": "## Gaps\n\n- **Auth error response codes undefined** — would be resolved by: API spec\n",
+        }
+
+        result = consolidate_gaps(sources)
+
+        assert result["gap_count"] == 1, "Two distinct concerns, same doc type → one group (one missing document type)"
+        assert len(result["groups"]) == 1
+        api_spec_group = result["groups"][0]
+        assert api_spec_group["doc_type"] == "API spec"
+        assert len(api_spec_group["concerns"]) == 2, "Both distinct concerns are preserved as sub-bullets"
+        concern_texts = {c["text"] for c in api_spec_group["concerns"]}
+        assert concern_texts == {"Pagination parameters undefined", "Auth error response codes undefined"}
 
 
 class TestConsolidateGapsFrontmatter:

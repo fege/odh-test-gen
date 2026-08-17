@@ -5,7 +5,8 @@ Wraps consolidate_gaps() + write_frontmatter_with_body() into the single call
 test-plan-create's Step 3.5 needs, for both the initial run and the doc-resolution
 re-run: the caller stages each analyzer's full raw output to a temp file, passes the
 paths here, and this script consolidates, writes TestPlanGaps.md (body + frontmatter
-in one shot), deletes the temp files, and prints {"gap_count": int, "status": str}.
+in one shot), optionally deletes the temp files, and prints
+{"gap_count": int, "status": str, "next": "proceed"|"prompt_user"}.
 
 Usage:
     uv run python scripts/consolidate_gaps_and_stamp.py \
@@ -17,6 +18,8 @@ Usage:
 Exits 1 (JSON to stdout) if a source file is missing/malformed or frontmatter write
 fails. Temp source files are only deleted after TestPlanGaps.md is written successfully.
 last_updated comes from --last-updated or, if omitted, from SOURCE_DATE_EPOCH (UTC date).
+`next` is `prompt_user` only when gap_count > 0 and the session is interactive; otherwise
+`proceed` (including CI / CLAUDE_NON_INTERACTIVE).
 """
 
 import argparse
@@ -26,10 +29,11 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from scripts.consolidate_gaps import consolidate_gaps, read_sources
+from scripts.utils.consolidate_gaps import consolidate_gaps, read_sources
 from scripts.utils.error_utils import exit_error_with_json
 from scripts.utils.frontmatter_utils import write_frontmatter_with_body
 from scripts.utils.schemas import ValidationError
+from scripts.validate import check_interactive
 
 
 def _verified_staging_path(name: str, path: str, out_path: str) -> Path | None:
@@ -73,10 +77,23 @@ def _resolve_last_updated(explicit: str | None) -> str:
         raise ValueError("last_updated_required") from e
 
 
+def decide_gaps_next(gap_count: int, *, interactive: bool) -> str:
+    """Return the Step 3.5 action: prompt the user, or skip the gaps menu."""
+    if gap_count > 0 and interactive:
+        return "prompt_user"
+    return "proceed"
+
+
 def consolidate_and_stamp(
-    feature_name: str, source_key: str, source_args: list[str], out_path: str, *, last_updated: str
+    feature_name: str,
+    source_key: str,
+    source_args: list[str],
+    out_path: str,
+    *,
+    last_updated: str,
+    cleanup: bool = True,
 ) -> dict:
-    """Consolidate staged analyzer output, stamp TestPlanGaps.md, and delete the staged files.
+    """Consolidate staged analyzer output, stamp TestPlanGaps.md, and optionally delete the staged files.
 
     Args:
         feature_name: feature name for the rendered body header and frontmatter.
@@ -84,6 +101,8 @@ def consolidate_and_stamp(
         source_args: repeatable "NAME=PATH" pairs, same shape as consolidate_gaps.py --source.
         out_path: path to write TestPlanGaps.md.
         last_updated: ISO date (YYYY-MM-DD) stamped into frontmatter.
+        cleanup: if True (default), delete verified staging files after successful write.
+            Set to False to preserve staged files for a potential re-run (e.g. doc-resolution path).
 
     Returns:
         {"gap_count": int, "status": "Open"|"Resolved"}
@@ -106,18 +125,19 @@ def consolidate_and_stamp(
     }
     write_frontmatter_with_body(out_path, result["body"], frontmatter, "test-gaps")
 
-    # Best-effort: TestPlanGaps.md is already correct, so a stray permission error on
-    # cleanup shouldn't fail an otherwise-successful run. Only delete verified staging
-    # files inside the feature directory; skip anything else, including out_path.
-    for entry in source_args:
-        name, path = entry.split("=", 1)
-        verified = _verified_staging_path(name, path, out_path)
-        if verified is None:
-            continue
-        try:
-            os.remove(verified)
-        except OSError:
-            pass
+    if cleanup:
+        # Best-effort: TestPlanGaps.md is already correct, so a stray permission error on
+        # cleanup shouldn't fail an otherwise-successful run. Only delete verified staging
+        # files inside the feature directory; skip anything else, including out_path.
+        for entry in source_args:
+            name, path = entry.split("=", 1)
+            verified = _verified_staging_path(name, path, out_path)
+            if verified is None:
+                continue
+            try:
+                os.remove(verified)
+            except OSError:
+                pass
 
     return {"gap_count": result["gap_count"], "status": result["status"]}
 
@@ -143,12 +163,27 @@ def main():
         help="ISO date (YYYY-MM-DD) for frontmatter last_updated. "
         "If omitted, derived from SOURCE_DATE_EPOCH (UTC date).",
     )
+    parser.add_argument(
+        "--skip-cleanup",
+        action="store_true",
+        help="Do not delete the staged .analysis-*.md files after writing TestPlanGaps.md. "
+        "Use for re-runs (e.g. doc-resolution path) that need the staged files to persist.",
+    )
     args = parser.parse_args()
 
     try:
         last_updated = _resolve_last_updated(args.last_updated)
         result = consolidate_and_stamp(
-            args.feature_name, args.source_key, args.sources, args.out, last_updated=last_updated
+            args.feature_name,
+            args.source_key,
+            args.sources,
+            args.out,
+            last_updated=last_updated,
+            cleanup=not args.skip_cleanup,
+        )
+        result["next"] = decide_gaps_next(
+            result["gap_count"],
+            interactive=check_interactive()["interactive"],
         )
     except ValueError as e:
         exit_error_with_json({"status": "failed", "error": str(e)})

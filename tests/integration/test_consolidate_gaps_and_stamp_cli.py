@@ -4,27 +4,38 @@ Integration tests for scripts/consolidate_gaps_and_stamp.py CLI.
 This script wraps consolidate_gaps() + write_frontmatter_with_body() into the single
 call test-plan-create's Step 3.5 needs: consolidate raw analyzer gap output, write
 TestPlanGaps.md (body + stamped frontmatter) in one shot, delete the staged temp
-source files, and print {"gap_count": int, "status": str} to stdout.
+source files, and print {"gap_count": int, "status": str, "next": str} to stdout.
 
 Pure gap-consolidation logic (dedup, grouping, status derivation) is already covered by
-tests/unit/test_consolidate_gaps.py and the rerun-shrinks-gap-count scenario by
-tests/integration/test_consolidate_gaps_cli.py — this file only covers what's new here:
-frontmatter stamping, temp-file cleanup, and failing before any output is written.
+tests/unit/test_consolidate_gaps.py — this file covers frontmatter stamping, temp-file
+cleanup, the gaps-menu next-action gate, and failing before any output is written.
 """
 
 import json
+import os
 import subprocess
 
 import pytest
 
 from scripts.utils.frontmatter_utils import read_frontmatter
 from tests.constants import REPO_ROOT
-from tests.consts.gaps_constants import GAPS_ENDPOINTS_DUPLICATE, GAPS_INFRA_SINGLETON, GAPS_RISKS_DUPLICATE
+from tests.consts.gaps_constants import (
+    GAPS_ENDPOINTS_DUPLICATE,
+    GAPS_INFRA_SINGLETON,
+    GAPS_NEXT_PROCEED,
+    GAPS_NEXT_PROMPT_USER,
+    GAPS_RISKS_DUPLICATE,
+)
 
 LAST_UPDATED = "1999-12-31"
 
 
-def _run_cli(*extra_args):
+def _run_cli(*extra_args, env_overrides=None):
+    env = os.environ.copy()
+    env.pop("CI", None)
+    env.pop("CLAUDE_NON_INTERACTIVE", None)
+    if env_overrides:
+        env.update(env_overrides)
     cmd = [
         "uv",
         "run",
@@ -34,7 +45,7 @@ def _run_cli(*extra_args):
         LAST_UPDATED,
         *extra_args,
     ]
-    return subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=REPO_ROOT)
+    return subprocess.run(cmd, capture_output=True, text=True, check=False, cwd=REPO_ROOT, env=env)
 
 
 @pytest.fixture
@@ -95,7 +106,12 @@ class TestConsolidateGapsAndStampCLI:
 
         assert result.returncode == 0, result.stderr
         stdout_data = json.loads(result.stdout)
-        assert stdout_data == {"gap_count": expected_gap_count, "status": expected_status}
+        expected_next = GAPS_NEXT_PROMPT_USER if expected_gap_count > 0 else GAPS_NEXT_PROCEED
+        assert stdout_data == {
+            "gap_count": expected_gap_count,
+            "status": expected_status,
+            "next": expected_next,
+        }
 
         frontmatter, body = read_frontmatter(out_file)
         assert frontmatter["feature"] == "Test Feature"
@@ -168,3 +184,30 @@ class TestConsolidateGapsAndStampCLI:
         assert result.returncode == 0, result.stderr
         assert outsider.exists()
         assert out_file.exists()
+
+    @pytest.mark.parametrize(
+        "env_overrides",
+        [{"CI": "true"}, {"CLAUDE_NON_INTERACTIVE": "true"}],
+        ids=["ci", "claude-non-interactive"],
+    )
+    def test_gaps_present_non_interactive_next_is_proceed(self, feature_dir, env_overrides):
+        staging = feature_dir / ".analysis-endpoints.md"
+        staging.write_text(GAPS_ENDPOINTS_DUPLICATE)
+        out_file = feature_dir / "TestPlanGaps.md"
+
+        result = _run_cli(
+            "--feature-name",
+            "Test Feature",
+            "--source-key",
+            "RHAISTRAT-400",
+            "--source",
+            f"endpoints={staging}",
+            "--out",
+            str(out_file),
+            env_overrides=env_overrides,
+        )
+
+        assert result.returncode == 0, result.stderr
+        stdout_data = json.loads(result.stdout)
+        assert stdout_data["gap_count"] > 0
+        assert stdout_data["next"] == GAPS_NEXT_PROCEED
