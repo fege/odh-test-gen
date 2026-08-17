@@ -113,7 +113,10 @@ def cmd_read(args):
     if args.field:
         if args.field not in data:
             exit_error(f"Error: field '{args.field}' not found in frontmatter")
-        print(data[args.field])
+        value = data[args.field]
+        # Emit booleans in JSON casing (true/false) so shell comparisons like
+        # [ "$auto_revised" = "true" ] match; Python's str(bool) is True/False.
+        print("true" if value is True else "false" if value is False else value)
     else:
         json.dump(data, sys.stdout, indent=2, default=str)
         print()

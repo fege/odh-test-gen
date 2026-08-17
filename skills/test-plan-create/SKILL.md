@@ -315,60 +315,48 @@ If any check fails, fix the violations in `TestPlan.md` and re-run **once**. If 
 
 ### Step 3.5: Collect Gaps and Prompt for Additional Documents
 
-After generating the test plan, collect all gaps reported by the three sub-agents from Step 2.
+Write each sub-agent's full raw analysis (from Step 2) verbatim to
+`<feature_dir>/.analysis-endpoints.md`, `<feature_dir>/.analysis-risks.md`, and
+`<feature_dir>/.analysis-infra.md`. Do not hand-slice the `## Gaps` section — the script
+extracts it.
 
-1. **Extract gaps** from each sub-agent's `## Gaps` output section
-2. **Write `<feature_name>/TestPlanGaps.md`** with all gaps organized by source sub-agent:
-   ```markdown
-   # Gaps — <Feature Name>
+Then run:
 
-   ## Scope & Endpoints
-   {gaps from test-plan.analyze.endpoints, or "No gaps identified."}
+```bash
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+ uv run python scripts/consolidate_gaps_and_stamp.py \
+   --feature-name "<feature_name>" \
+   --source-key <JIRA_KEY> \
+   --source endpoints=<feature_dir>/.analysis-endpoints.md \
+   --source risks=<feature_dir>/.analysis-risks.md \
+   --source infra=<feature_dir>/.analysis-infra.md \
+   --last-updated "$(date -u +%F)" \
+   --skip-cleanup \
+   --out <feature_dir>/TestPlanGaps.md)
+```
 
-   ## Test Strategy & Risks
-   {gaps from test-plan.analyze.risks, or "No gaps identified."}
+On success this writes `TestPlanGaps.md` (body + frontmatter) and prints
+`{"gap_count": int, "status": str, "next": "proceed"|"prompt_user"}`.
+Never hand-count gaps, hand-edit frontmatter, or run `check-interactive` yourself.
+If it exits non-zero, temp files are left for debugging; fix and re-run.
 
-   ## Environment & Infrastructure
-   {gaps from test-plan.analyze.infra, or "No gaps identified."}
-   ```
-3. **Set frontmatter** on TestPlanGaps.md using the `frontmatter.py` script (reuse SOURCE_TYPE from Step 3.1):
-   ```bash
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <absolute_path_to_output_dir>/<feature_name>/TestPlanGaps.md \
-       feature="<feature_name>" \
-       source_key=<JIRA_KEY> \
-       status=Open \
-       gap_count=<number_of_gaps>)
-   ```
-   - `gap_count`: total number of individual gaps across all three sections
-   - If no gaps were identified, set `status=Resolved` and `gap_count=0`
-   - `last_updated` is auto-set by the script
+- **`next` is `proceed`:** skip the menu. Go to Step 3.6.
+- **`next` is `prompt_user`:** present the menu below.
 
-4. **Gaps decision gate** — run the check-interactive validator:
-   ```bash
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
-    uv run python scripts/validate.py check-interactive)
-   ```
-   - **Exit 0 (non-interactive):** Skip the gaps menu. Proceed directly to Step 3.6.
-   - **Exit 1 (interactive):** Continue to Step 5.
+**Interactive gaps menu** (only when `next` is `prompt_user`):
 
-5. **Interactive gaps menu** (only reached when item 4 exits 1 AND gaps exist):
+Present AskUserQuestion. List gaps from `TestPlanGaps.md`, then offer:
 
-   Present the user with a structured action menu via AskUserQuestion. List the gaps first, then offer numbered options. Example:
+1. **Provide documents** — paste file paths to resolve gaps
+2. **Proceed to review** — continue as-is
+3. **Proceed + generate test cases** — continue and auto-run `/test-plan-create-cases`
 
-   > The following gaps were identified in the test plan:
-   > - Endpoint paths for the catalog API are not specified — an **API spec** or **ADR** would resolve this
-   > - RBAC roles are unclear — a **feature refinement** doc would help
-   > - KServe CSI configuration details are missing — a **design doc** would resolve this
-   >
-   > **What would you like to do?**
-   >
-   > 1. **Provide documents** — paste file paths (ADR, API spec, design doc) to resolve gaps
-   > 2. **Proceed to review** — continue with the test plan as-is (gaps will be noted in TestPlanGaps.md)
-   > 3. **Proceed to review + generate test cases** — continue and automatically run `/test-plan-create-cases` after review
-
-6. **If the user chooses option 1**: Read the provided documents, re-run only the relevant sub-agents from Step 2 with the new material, update the test plan, update `TestPlanGaps.md` (removing resolved gaps, adding any new ones), update the gaps frontmatter (`gap_count`, `status`), then present the menu again with remaining gaps (if any).
-7. **If the user chooses option 2 or no gaps exist**: Proceed to Step 3.6.
-8. **If the user chooses option 3**: Proceed to Step 3.6, and after the review is complete (Step 4), automatically invoke `/test-plan-create-cases` with the feature directory.
+**If option 1:** Read the documents, re-run only the relevant Step 2 sub-agents, update the
+test plan, then re-run `consolidate_gaps_and_stamp.py` with the same command as above
+(including `--skip-cleanup`). Follow `next` from the new JSON.
+**If option 2:** Proceed to Step 3.6.
+**If option 3:** Proceed to Step 3.6, and after Step 4 automatically invoke
+`/test-plan-create-cases` with the feature directory.
 
 ### Step 3.6: Stamp Jira label — test plan created
 

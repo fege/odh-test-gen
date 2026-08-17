@@ -74,7 +74,15 @@ class TestReadFieldArgument:
 SKILL_READ_FIELD_CALLS = [
     ("test-plan", "TestPlan.md", VALID_TEST_PLAN_DATA, "source_key", "RHAISTRAT-400"),
     ("test-plan-review", "TestPlanReview.md", VALID_TEST_PLAN_REVIEW_DATA, "verdict", "Ready"),
-    ("test-plan-review", "TestPlanReview.md", VALID_TEST_PLAN_REVIEW_DATA, "auto_revised", "False"),
+    ("test-plan-review", "TestPlanReview.md", VALID_TEST_PLAN_REVIEW_DATA, "auto_revised", "false"),
+]
+
+
+# Bool fields must read back in JSON casing (true/false), not Python casing
+# (True/False), so shell comparisons like [ "$auto_revised" = "true" ] work.
+BOOL_CASING_CASES = [
+    (True, "true"),
+    (False, "false"),
 ]
 
 
@@ -98,6 +106,28 @@ class TestSkillFrontmatterReadCalls:
                 frontmatter.main()
                 output = sys.stdout.getvalue().strip()
                 assert output == expected
+        finally:
+            sys.argv = old_argv
+            sys.stdout = old_stdout
+
+    @pytest.mark.parametrize("value,expected", BOOL_CASING_CASES)
+    def test_bool_field_reads_in_json_casing(self, value, expected):
+        """A single bool field must print true/false, not Python's True/False.
+
+        Skills compare the output in shell, e.g. [ "$auto_revised" = "true" ];
+        Python-cased output silently fails that comparison.
+        """
+        old_argv = sys.argv
+        old_stdout = sys.stdout
+        try:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                path = Path(tmpdir) / "TestPlanReview.md"
+                data = {**VALID_TEST_PLAN_REVIEW_DATA, "auto_revised": value}
+                write_frontmatter(path, data, "test-plan-review")
+                sys.argv = ["frontmatter.py", "read", str(path), "auto_revised"]
+                sys.stdout = StringIO()
+                frontmatter.main()
+                assert sys.stdout.getvalue().strip() == expected
         finally:
             sys.argv = old_argv
             sys.stdout = old_stdout

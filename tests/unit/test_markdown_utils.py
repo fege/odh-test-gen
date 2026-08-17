@@ -1,10 +1,51 @@
-"""Unit tests for scripts/utils/markdown_utils.py — citation parsing."""
+"""Unit tests for scripts/utils/markdown_utils.py."""
 
 import time
 
 import pytest
 
-from scripts.utils.markdown_utils import has_citation, parse_citations
+from scripts.utils.markdown_utils import extract_section, has_citation, parse_citations
+from tests.consts.markdown_constants import (
+    EXTRACT_GAPS_DUPLICATE_HEADING,
+    EXTRACT_GAPS_EMPTY_THEN_OTHER,
+    EXTRACT_GAPS_LEVEL_ONE_BETWEEN,
+    EXTRACT_GAPS_MISSING,
+    EXTRACT_GAPS_TRAILING_WS_HEADING,
+    EXTRACT_GAPS_WITH_PREFIX_SIBLING,
+    EXTRACT_HEADING_HASH_IN_TITLE,
+)
+
+
+class TestExtractSectionHeadingMatch:
+    @pytest.mark.parametrize(
+        "content,heading,expected_lines,expected_start",
+        [
+            pytest.param(
+                EXTRACT_GAPS_WITH_PREFIX_SIBLING,
+                "## Gaps",
+                ["- gap 1", "### Details", "- gap 2"],
+                3,
+                id="prefix-sibling",
+            ),
+            pytest.param(EXTRACT_GAPS_DUPLICATE_HEADING, "## Gaps", ["- first"], 2, id="duplicate-heading"),
+            pytest.param(EXTRACT_GAPS_TRAILING_WS_HEADING, "## Gaps", ["- gap"], 2, id="trailing-whitespace"),
+            pytest.param(EXTRACT_GAPS_EMPTY_THEN_OTHER, "## Gaps", [], 2, id="empty-section"),
+            pytest.param(EXTRACT_GAPS_LEVEL_ONE_BETWEEN, "## Gaps", ["- gap"], 2, id="level-one-terminates"),
+            pytest.param(EXTRACT_GAPS_MISSING, "## Gaps", [], 0, id="missing-heading"),
+            pytest.param(
+                EXTRACT_HEADING_HASH_IN_TITLE,
+                "## C#",
+                ["- gap", "### Details", "- child"],
+                2,
+                id="hash-in-title",
+            ),
+        ],
+    )
+    def test_complete_heading_first_match_only(self, content, heading, expected_lines, expected_start):
+        lines, start = extract_section(content, heading)
+
+        assert lines == expected_lines
+        assert start == expected_start
 
 
 class TestCitationParsing:
