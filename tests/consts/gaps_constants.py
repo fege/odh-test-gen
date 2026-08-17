@@ -102,7 +102,7 @@ GAPS_TRAILING_WHITESPACE_HEADING = """## Test Tools
 - pytest
 - playwright
 
-## Gaps
+## Gaps   
 
 - **Auth flow undefined** — would be resolved by: API spec
 """
