@@ -62,6 +62,15 @@ GAPS_ENDPOINTS_FULL_ANALYZER_DOC = """## Test Tools
 - **Auth flow undefined** — would be resolved by: API spec
 """
 
+GAPS_PREFIX_SIBLING_HEADING = """## Gaps
+
+- **Auth flow undefined** — would be resolved by: API spec
+
+## Gaps extra
+
+- **This must not be parsed as a gap** — would be resolved by: ADR
+"""
+
 GAPS_WITH_TRAILING_SECTION = """## Gaps
 
 - **Missing ADR** — would be resolved by: ADR

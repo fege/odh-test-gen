@@ -26,6 +26,7 @@ from tests.consts.gaps_constants import (
     GAPS_MALFORMED_NO_RESOLVED_BY,
     GAPS_NO_HEADING,
     GAPS_PLAIN_HYPHEN_SEPARATOR,
+    GAPS_PREFIX_SIBLING_HEADING,
     GAPS_RISKS_DUPLICATE,
     GAPS_RISKS_EXACT_DUP,
     GAPS_RISKS_SYNONYM_NORMALIZATION,
@@ -391,6 +392,18 @@ class TestConsolidateGapsSectionExtraction:
         # Bullets from the trailing ## Implementation Notes section must NOT appear
         assert "More bullets here" not in result["body"]
         assert "These should NOT be parsed" not in result["body"]
+
+    def test_prefix_sibling_heading_is_not_parsed_as_gaps(self):
+        """A later '## Gaps extra' heading must not steal or extend the ## Gaps section."""
+        sources = {"endpoints": GAPS_PREFIX_SIBLING_HEADING}
+
+        result = consolidate_gaps(sources, feature_name="Test Feature")
+
+        assert result["gap_count"] == 1
+        assert result["groups"][0]["doc_type"] == "API spec"
+        assert "Auth flow undefined" in result["groups"][0]["concerns"][0]["text"]
+        assert "This must not be parsed as a gap" not in result["body"]
+        assert "ADR" not in {g["doc_type"] for g in result["groups"]}
 
 
 class TestConsolidateGapsDeterministicOrdering:

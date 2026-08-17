@@ -1,10 +1,42 @@
-"""Unit tests for scripts/utils/markdown_utils.py — citation parsing."""
+"""Unit tests for scripts/utils/markdown_utils.py."""
 
 import time
 
 import pytest
 
-from scripts.utils.markdown_utils import has_citation, parse_citations
+from scripts.utils.markdown_utils import extract_section, has_citation, parse_citations
+from tests.consts.markdown_constants import (
+    EXTRACT_GAPS_DUPLICATE_HEADING,
+    EXTRACT_GAPS_EMPTY_THEN_OTHER,
+    EXTRACT_GAPS_LEVEL_ONE_BETWEEN,
+    EXTRACT_GAPS_MISSING,
+    EXTRACT_GAPS_TRAILING_WS_HEADING,
+    EXTRACT_GAPS_WITH_PREFIX_SIBLING,
+)
+
+
+class TestExtractSectionHeadingMatch:
+    @pytest.mark.parametrize(
+        "content,expected_lines,expected_start",
+        [
+            pytest.param(
+                EXTRACT_GAPS_WITH_PREFIX_SIBLING,
+                ["- gap 1", "### Details", "- gap 2"],
+                3,
+                id="prefix-sibling",
+            ),
+            pytest.param(EXTRACT_GAPS_DUPLICATE_HEADING, ["- first"], 2, id="duplicate-heading"),
+            pytest.param(EXTRACT_GAPS_TRAILING_WS_HEADING, ["- gap"], 2, id="trailing-whitespace"),
+            pytest.param(EXTRACT_GAPS_EMPTY_THEN_OTHER, [], 2, id="empty-section"),
+            pytest.param(EXTRACT_GAPS_LEVEL_ONE_BETWEEN, ["- gap"], 2, id="level-one-terminates"),
+            pytest.param(EXTRACT_GAPS_MISSING, [], 0, id="missing-heading"),
+        ],
+    )
+    def test_complete_heading_first_match_only(self, content, expected_lines, expected_start):
+        lines, start = extract_section(content, "## Gaps")
+
+        assert lines == expected_lines
+        assert start == expected_start
 
 
 class TestCitationParsing:
