@@ -35,6 +35,29 @@ class TestRequireEnv:
         with patch.dict(os.environ, {}, clear=True), pytest.raises(SystemExit):
             require_env("MISSING_VAR")
 
+    def test_require_env_falls_back_to_alias(self):
+        """Test that require_env uses alias when canonical name is unset."""
+        with patch.dict(os.environ, {"JIRA_BASE_URL": "https://jira.example.com"}, clear=True):
+            assert require_env("JIRA_URL") == "https://jira.example.com"
+
+    def test_require_env_canonical_takes_precedence(self):
+        """Test that canonical name is preferred over alias."""
+        env = {"JIRA_URL": "https://canonical.com", "JIRA_BASE_URL": "https://alias.com"}
+        with patch.dict(os.environ, env, clear=True):
+            assert require_env("JIRA_URL") == "https://canonical.com"
+
+    def test_require_env_all_aliases(self):
+        """Test all three alias mappings."""
+        aliases = {
+            "JIRA_BASE_URL": "https://jira.example.com",
+            "JIRA_EMAIL": "user@example.com",
+            "JIRA_API_TOKEN": "token123",
+        }
+        with patch.dict(os.environ, aliases, clear=True):
+            assert require_env("JIRA_URL") == "https://jira.example.com"
+            assert require_env("JIRA_USER") == "user@example.com"
+            assert require_env("JIRA_TOKEN") == "token123"
+
 
 class TestMakeRequest:
     """Tests for make_request function."""

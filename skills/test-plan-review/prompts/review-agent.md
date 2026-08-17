@@ -21,6 +21,8 @@ uv run python {CLAUDE_SKILL_DIR}/scripts/frontmatter.py schema test-plan-review
 Write `{FEATURE_DIR}/TestPlanReview.md` with this body structure:
 
 ```markdown
+# Test Plan Review — {feature_name}
+
 ## Rubric Scores
 
 | Criterion | Score | Notes |
