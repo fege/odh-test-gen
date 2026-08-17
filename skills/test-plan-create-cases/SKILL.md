@@ -237,9 +237,11 @@ A test that FAILs for the wrong reason is worse than no test at all. When in dou
 **Test case robustness rules:**
 - **Background processes**: When a TC uses background loops (`&`),
   capture each PID (`PID_X=$!`), define a `cleanup()` function
-  that kills all PIDs, and register it with
-  `trap cleanup EXIT INT TERM` before starting the loops. This
-  ensures cleanup runs if the test stops early.
+  that kills each PID with `kill "$PID" 2>/dev/null || true`
+  (so a dead PID does not fail the trap), and register it with
+  `trap cleanup EXIT` before starting the loops. Use `EXIT`
+  only — adding `INT` or `TERM` causes cleanup to run on the
+  signal and then again on exit.
 - **Query scoping**: When querying Prometheus or other shared
   data stores, scope queries to the labels the data store
   actually exposes (e.g., `namespace`, `job`, `container`,
