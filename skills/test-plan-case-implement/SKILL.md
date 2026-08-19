@@ -1,6 +1,6 @@
 ---
 name: test-plan-case-implement
-description: Generate executable test automation code from test case specifications with intelligent placement in component or downstream repos. Use after test cases are reviewed to create production-ready pytest code that follows repository conventions.
+description: "Generate executable test automation code from test case specifications (default target: opendatahub-tests; override with --target-repo). Use after test cases are reviewed to create production-ready pytest code that follows repository conventions."
 argument-hint: "<FEATURE_SOURCE> [--test-cases TC-ID,TC-ID] [--target-repo PATH]"
 user-invocable: true
 model: opus
@@ -17,7 +17,7 @@ allowedTools:
 
 # Test Case Implementation Generator
 
-Generate executable test automation code (pytest, etc.) from TC-*.md test case specification files, with intelligent auto-placement in component repos or downstream E2E repo.
+Generate executable test automation code (pytest, etc.) from TC-*.md test case specification files. Default target: opendatahub-tests E2E repo (override with `--target-repo`).
 
 ## Usage
 
@@ -47,7 +47,7 @@ Parse `$ARGUMENTS` to extract:
    - GitHub PR: `https://github.com/org/repo/pull/7`
    - GitHub branch: `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400` or `test-plan/RHAISTRAT-400`
 2. **`--test-cases`** (optional): Comma-separated list of test case IDs to implement (e.g., `TC-NEG-001,TC-NEG-002,TC-E2E-001`)
-3. **`--target-repo`** (optional): Override auto-detected target repository path or URL
+3. **`--target-repo`** (optional): Override target repository (accepts local path or GitHub URL; default: opendatahub-io/opendatahub-tests)
 
 If the first argument is missing or starts with `--`, fail with usage error showing required format and PR/local path examples.
 
@@ -108,26 +108,26 @@ If `odh_test_context_path == "null"`, ask user via AskUserQuestion:
 
 Handle user choice.
 
-#### 0.4 Confirm target repository
+#### 0.4 Determine and validate target repository
 
-Based on `unique_repos` from preflight:
+Get and validate target repo (parses --target-repo from arguments, defaults to opendatahub-io/opendatahub-tests):
 
-**If 1 repo:** Ask "Proceed with {repo}?" (yes/specify-different)
-
-**If multiple repos:** Show list prioritized by frontmatter components, ask user to choose
-
-**If no repos:** Ask user to specify repository manually
-
-Store: `code_repo` (e.g., `opendatahub-io/notebooks`)
-
-#### 0.5 Locate code repository
-
-Find code repo locally:
 ```bash
-code_repo_path=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py find-target "$code_repo")
+target_repo=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+  uv run python scripts/validate_target_repo.py "$ARGUMENTS")
 ```
 
-If not found, ask to clone or specify path.
+The script extracts `--target-repo` value from `$ARGUMENTS`, validates it, and returns the repo name or path.
+If validation fails, the script exits with error.
+
+#### 0.5 Locate target repository
+
+Find target repo locally:
+```bash
+target_repo_path=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py find-target "$target_repo")
+```
+
+If not found (exit code 1), ask user to clone or specify path.
 
 ### Step 1: Load Testing Context
 
@@ -135,7 +135,7 @@ If not found, ask to clone or specify path.
 
 #### 1.0 Load odh-test-context for code repository
 
-Call `load_repo_test_context(repo_name, odh_test_context_path)` from `scripts/utils/repo_utils.py`.
+Call `load_repo_test_context(repo_name, odh_test_context_path)` from [`scripts/utils/repo_utils.py`](scripts/utils/repo_utils.py).
 
 The function:
 1. Checks for `<odh_test_context_path>/tests/<repo_name>.json`
@@ -150,7 +150,7 @@ If `test_context` exists, save it to `<feature_dir>/test_implementation_context.
 
 #### 1.0b Load downstream E2E repository context
 
-Call `load_repo_test_context('opendatahub-tests', odh_test_context_path)` from `scripts/utils/repo_utils.py`.
+Call `load_repo_test_context('opendatahub-tests', odh_test_context_path)` from [`scripts/utils/repo_utils.py`](scripts/utils/repo_utils.py).
 
 The function returns: context dict or None
 
@@ -160,56 +160,60 @@ Set `downstream_context`:
 
 #### 1.1 Detect test framework
 
-Use `scripts/utils/repo_utils.py::get_framework(test_context)`:
+Get framework from target repository context:
 
-If `test_context` exists: returns `test_context['testing']['framework']`
+```bash
+framework=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+  uv run python scripts/get_framework.py "$target_repo" "$odh_test_context_path")
+```
 
-If NOT (manual detection):
-1. Checks for pytest indicators (pytest.ini, pyproject.toml, conftest.py)
-2. Checks for unittest indicators (import unittest in .py files)
-3. Checks for Playwright indicators (playwright.config.js/ts)
-4. Checks for Robot Framework indicators (*.robot files)
-5. Checks for Go testing indicators (*_test.go files, Ginkgo imports)
-6. Checks for Jest indicators (jest.config.js, .spec.ts files, describe/it blocks)
-7. Checks for Cypress indicators (.cy.ts/.cy.js files, cy. commands)
-8. If unknown: asks user via AskUserQuestion
-
-Returns: `framework` (str: pytest, unittest, playwright, robot, ginkgo, go-testing, jest, cypress)
+Returns framework name (pytest, unittest, playwright, robot, ginkgo, go-testing, jest, cypress) or "pytest" (default).
 
 #### 1.2 Load test conventions
 
-If `use_odh_context == True`:
+Extract conventions from the TARGET repository (where tests will be written).
 
-Extract conventions and format as markdown:
+**Important:** Load conventions from `$target_repo`, NOT `$code_repo_name`. Tests are written to the target repo, so conventions must come from there.
+
+If `downstream_context` is not None (target repo has odh-test-context):
+
+Extract and format conventions as markdown:
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/extract_and_format_conventions.py "$feature_dir" "$code_repo_name" "$odh_test_context_path") > <feature_dir>/test_implementation_conventions.md
+# Read existing file first (if it exists) to satisfy Write tool requirements
+test -f "$feature_dir/test_implementation_conventions.md" && cat "$feature_dir/test_implementation_conventions.md" > /dev/null 2>&1 || true
+
+# Extract repo name from org/repo format (e.g., opendatahub-io/opendatahub-tests -> opendatahub-tests)
+target_repo_name=$(echo "$target_repo" | sed 's|.*/||')
+
+# Extract target repo conventions
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/extract_and_format_conventions.py "$feature_dir" "$target_repo_name" "$odh_test_context_path") > "$feature_dir/test_implementation_conventions.md"
 ```
 
 The script:
-- Loads test context from odh-test-context
+- Loads test context for TARGET repo from odh-test-context
 - Saves `test_implementation_context.json` to feature_dir
 - Extracts conventions (file patterns, markers, linting, etc.)
 - Outputs formatted markdown
 
 Set `conventions_file` = `<feature_dir>/test_implementation_conventions.md`
 
-If `use_odh_context == False` (no odh-test-context available):
+If `downstream_context` is None (target repo not in odh-test-context):
 1. Conventions will be minimal (framework only, from Step 1.1)
 2. Test generation will rely more heavily on Tiger Team pattern guides (Step 1.2b)
 3. Generated tests may be less optimized for the specific repo
-4. **For new components**: Consider contributing to odh-test-context for future use:
+4. **Consider contributing to odh-test-context** for the target repository:
    - Repository: <https://github.com/opendatahub-io/odh-test-context>
-   - Add JSON file: `tests/<repo_name>.json` with discovered framework, test directories, conventions, linting tools
+   - Add JSON file: `tests/<target_repo>.json` with discovered framework, test directories, conventions, linting tools
    - See existing files in `tests/` directory as examples
-   - Improves test quality for all future test generation on this component
+   - Improves test quality for all future test generation
 
-Store: `conventions` (dict or markdown content)
+Store: `conventions` (dict or markdown content, or None if not available)
 
 #### 1.2b Load testing pattern guides
 
-Load repo instructions and pattern guides:
+Load repo instructions and pattern guides from TARGET repository (where tests will be written):
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/load_pattern_guides.py "$code_repo_path" "$framework")
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/load_pattern_guides.py "$target_repo_path" "$framework")
 ```
 
 Returns JSON with:
@@ -225,10 +229,10 @@ Returns JSON with:
    ```bash
    (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py find-known tiger-team)
    ```
-2. If found: Invoke `/test-rules-generator <code_repo_path>` to generate guides
+2. If found: Invoke `/test-rules-generator <target_repo_path>` to generate guides for the target repository
 3. If not found: Ask user to clone Tiger Team or proceed without guides
 
-**Pattern guides** describe HOW to write tests (fixtures, naming, mocking). Passed to code generation sub-agents in Step 5.
+**Pattern guides** describe HOW to write tests in the target repository (fixtures, naming, mocking, file organization). Passed to code generation sub-agents in Step 5.
 
 #### 1.3 Offer container validation
 
@@ -246,101 +250,53 @@ If `use_odh_context == True` AND `test_context` contains `container_recipe`:
 If container recipe NOT available:
 1. Set `validate_in_container = False`
 
-### Step 2: Per-TC Placement Analysis
+### Step 2: Get Backend Test Cases to Implement
 
-Extract repository capabilities from Step 1:
-- `code_repo_readiness` from `test_context.get('agent_readiness', 'unknown')`
-- `code_repo_has_tests` from checking if 'tests' in `test_context.get('testing', {}).get('directories', [])`
-- `downstream_readiness` from `downstream_context.get('agent_readiness', 'medium')`
+Parse `--test-cases` argument (if provided) and get backend test cases:
 
-Invoke **`test-plan.analyze.placement`** forked subagent:
+```bash
+skill_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
 
-```python
-placement_decisions = invoke_skill_forked(
-    "test-plan.analyze.placement",
-    args={
-        'feature_dir': feature_dir,
-        'code_repo': code_repo,
-        'code_repo_readiness': code_repo_readiness,
-        'code_repo_has_tests': code_repo_has_tests,
-        'downstream_readiness': downstream_readiness
-    }
-)
+# Extract --test-cases value (returns space-separated TC IDs or empty string)
+tc_arg=$(cd "$skill_root" && uv run python scripts/parse_skill_args.py --test-cases "$ARGUMENTS")
+
+# Get backend test cases (auto-discovers all if tc_arg empty)
+
+be_test_cases=$(cd "$skill_root" && uv run python scripts/get_filtered_tcs.py "$feature_dir" be_test_cases $tc_arg)
 ```
 
-The subagent analyzes each TC and returns placement recommendations with:
-- Test level classification (unit, integration, k8s-integration, api, e2e)
-- Placement scores (same_repo, downstream, both)
-- Recommended placement with reasoning
-- User confirmation (accept all or review/override per TC)
+The script:
+- Auto-discovers all TCs from `test_cases/` if `--test-cases` not provided
+- Filters by automation_status and UI category
+- Prompts to re-implement already_implemented TCs (interactive mode only, skipped in CI)
+- Returns backend test cases to implement (space-separated)
 
-**Placement Philosophy** (applied by subagent):
-- **P0 strongly prefers upstream** for fast feedback (blocks PRs early)
-- **K8s API ≠ Full Stack**: K8s integration tests can use envtest in component repo
-- **E2E requires appropriate stack**: Mocked E2E → component repo, full-stack E2E → downstream
+Convert to array:
+```bash
+be_test_cases_array=($be_test_cases)
+```
 
-Store the returned placement decisions in `test_cases` list (each TC dict includes `placement_location`, `level`, `scores`, `reasons`).
-
-If any TCs are placed `downstream` or `both`, locate downstream repository:
-1. Find the downstream repo:
-   ```bash
-   downstream_repo_path=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py find-target "opendatahub-io/opendatahub-tests")
-   ```
-2. If NOT found (exit code 1): Ask user to clone it:
-   ```bash
-   downstream_repo_path=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py clone "<downstream_url>" "~/Code/opendatahub-tests")
-   ```
-3. Set `downstream_repo_path`
-
-### Step 3: Select Test Cases to Implement
-
-#### 3.1 Parse --test-cases argument
-
-If `--test-cases` was provided:
-1. Parse comma-separated list (e.g., `TC-NEG-001,TC-NEG-002,TC-E2E-001`)
-2. Validate each TC ID exists in `test_cases/`
-3. If any TC ID not found, inform user and stop
-4. Set `selected_test_cases = [parsed TC IDs]`
-5. Set `mode = "selective"`
-
-If `--test-cases` was NOT provided:
-1. Read all TC IDs from `test_cases/INDEX.md`
-2. Set `selected_test_cases = [all TC IDs]`
-3. Set `mode = "batch"`
+If empty, inform user and exit:
+```
+No backend test cases to implement. All are either UI tests or already implemented.
+```
 
 Present summary:
-- If selective: `Implementing <N> selected test case(s): <TC IDs>`
-- If batch: `Implementing ALL test cases for feature: <feature_name>. Total: <N> test cases`
-
-Show counts by priority (P0/P1/P2) and by category.
-
-Ask for confirmation via AskUserQuestion: `Proceed? [yes/no]`
-
-#### 3.2 Filter already-implemented test cases
-
-Filter test cases by automation_status:
-```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/filter_test_cases.py "$feature_dir" $selected_test_cases)
 ```
-
-Returns JSON with `to_implement` and `already_implemented` arrays.
-
-If `already_implemented` is not empty, ask via AskUserQuestion: `Re-implement these? [yes/no]`
-
-Use `to_implement` list for subsequent steps.
+Implementing ${#be_test_cases_array[@]} backend test case(s): ${be_test_cases_array[@]}
+```
 
 #### 3.3 Read and parse TC files
 
-Parse all selected test cases into structured data:
+Parse backend test cases into structured data:
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/parse_test_cases.py "$feature_dir" $selected_test_cases)
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+  uv run python scripts/parse_test_cases.py "$feature_dir" ${be_test_cases_array[@]})
 ```
 
 Returns JSON array of TC dicts, each containing:
-- All frontmatter fields (test_case_id, source_key, priority, status, automation_status, placement_location, level, etc.)
+- All frontmatter fields (test_case_id, source_key, priority, status, automation_status, etc.)
 - Parsed content: objective, preconditions, test_steps, expected_results, body
-
-Store the parsed TCs and add placement decisions from Step 2.2 to each TC dict.
 
 This `test_cases` array will be passed to the sub-agent in Step 5.
 
@@ -348,17 +304,35 @@ This `test_cases` array will be passed to the sub-agent in Step 5.
 
 **CRITICAL:** Call map_test_files.py script - do NOT manually create mappings or read existing test files.
 
+#### 4.1 Determine test directory from component
+
+Get component-specific test directory (uses first component from frontmatter):
+
+```bash
+first_component=$(echo "$frontmatter_components" | head -1)
+test_dir=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+  uv run python scripts/get_component_test_dir.py "$first_component" "$target_repo_path")
+```
+
+This maps component name to directory (e.g., "AI Hub" → "tests/ai_hub"). Falls back to "tests" if component directory doesn't exist.
+
+#### 4.2 Determine file organization strategy
+
 Determine file organization strategy from conventions:
 - If `test_context` shows subdirectories (unit/, api/, etc.) → `by-category-with-subdirs`
 - Default → `by-category` (flat structure, one file per category)
 - If unclear, ask user (by-category / one-per-tc)
 
+Set `strategy` variable based on determination above.
+
+#### 4.3 Generate file mapping
+
 Call the script to generate file mapping:
 ```bash
 (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/map_test_files.py \
-    "$feature_dir" "$org_pattern" "$test_dir" \
+    "$feature_dir" "$strategy" "$test_dir" \
     --feature-name "$feature_name" \
-    --tc-ids "$(echo $selected_test_cases | tr ' ' ',')")
+    --tc-ids "$(echo ${be_test_cases_array[@]} | tr ' ' ',')")
 ```
 
 Parse the JSON output to extract:
@@ -373,15 +347,16 @@ The script handles:
 
 **DO NOT** manually create /tmp/*.json files, read existing test files, or generate file paths yourself. Use the script output directly.
 
-Present the mapping table to user and ask for confirmation before proceeding to Step 5.
+Present the mapping table to user.
 
 ### Step 5: Generate Test Code
 
 **CRITICAL:** Invoke /test-plan-generate-test-file sub-agents in parallel (one per file) - do NOT generate code yourself.
 
-Identify common setup requirements:
+Identify common setup requirements across the TCs being implemented:
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/analyze_common_setup.py "$feature_dir")
+(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+  uv run python scripts/analyze_common_setup.py "$feature_dir" ${be_test_cases_array[@]})
 ```
 
 Returns JSON array of preconditions used by 2+ TCs (for fixture generation).
@@ -397,17 +372,13 @@ Ensure these variables are in context (sub-agents inherit them):
 - `code_repo_path` - Repository path
 - `feature_dir` - Feature directory path
 
-**Invoke sub-agents in parallel** using Agent tool (one per file in file_mapping):
+**Invoke sub-agents in parallel** using Skill tool (one per file in file_mapping):
 
-For each file index i, build prompt with all needed data:
+For each file index i:
 ```
-Agent(
-  subagent_type="test-plan-generate-test-file",
-  description="Generate test file {i}",
-  prompt="""Generate test file from this data:
-
-```json
-{
+Skill(
+  skill="test-plan:test-plan-generate-test-file",
+  args="""{
   "file_index": {i},
   "file_path": "{file_mapping[i].file_path}",
   "test_cases": {json array of TCs for this file},
@@ -419,15 +390,13 @@ Agent(
   "common_setup_requirements": {common_setup_requirements},
   "code_repo_path": "{code_repo_path}",
   "feature_dir": "{feature_dir}"
-}
-```
-
-Write result to /tmp/test_plan_results/file_{i}.json
-Return: {{"status": "complete", "file_index": {i}, "result_file": "/tmp/test_plan_results/file_{i}.json"}}"""
+}"""
 )
 ```
 
 **All invocations in one message** for parallel execution. Sub-agents have `context: fork` (isolated, returns clean).
+
+Sub-agents write results to `/tmp/test_plan_results/file_{i}.json`.
 
 **Read result files** after all agents complete:
 

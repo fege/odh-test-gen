@@ -117,6 +117,68 @@ COMPONENT_REPO_MAP = {
 }
 
 
+# Component name → test directory in opendatahub-tests
+# Maps test plan/strategy/Jira components to opendatahub-tests subdirectories
+# Source: https://github.com/opendatahub-io/opendatahub-tests/tree/main/tests
+# NOTE: All keys must be lowercase for case-insensitive matching
+COMPONENT_TEST_DIR_MAP = {
+    # Dashboard / UI / UXD → ai_hub
+    "dashboard": "ai_hub",
+    "odh-dashboard": "ai_hub",
+    "ui": "ai_hub",
+    "catalog ui": "ai_hub",
+    "uxd": "ai_hub",
+    "ai core dashboard": "ai_hub",
+    "gen ai studio": "ai_hub",
+    # AI Hub / Model Registry / Model Catalog → ai_hub
+    "ai-hub": "ai_hub",
+    "ai hub": "ai_hub",
+    "model-registry": "ai_hub",
+    "model registry": "ai_hub",
+    "modelregistry": "ai_hub",
+    "model-catalog": "ai_hub",
+    "model catalog": "ai_hub",
+    # Model Serving → model_serving
+    "kserve": "model_serving",
+    "model-serving": "model_serving",
+    "model serving": "model_serving",
+    "serving": "model_serving",
+    # Notebooks / Workbenches → workbenches
+    "notebook": "workbenches",
+    "notebooks": "workbenches",
+    "workbench": "workbenches",
+    "workbenches": "workbenches",
+    # Pipelines → pipelines_components
+    "pipeline": "pipelines_components",
+    "pipelines": "pipelines_components",
+    "data-science-pipelines": "pipelines_components",
+    "data science pipelines": "pipelines_components",
+    "pipelines-components": "pipelines_components",
+    # AI Gateway → ai_gateway
+    "ai-gateway": "ai_gateway",
+    "ai gateway": "ai_gateway",
+    # AI Safety / Guardrails → ai_safety
+    "ai safety": "ai_safety",
+    "ai-safety": "ai_safety",
+    "guardrails": "ai_safety",
+    "trustyai": "ai_safety",
+    "trusty-ai": "ai_safety",
+    "trusty ai": "ai_safety",
+    # Spark → spark
+    "spark": "spark",
+    "spark-operator": "spark",
+    # OpenShell → openshell
+    "openshell": "openshell",
+    "open shell": "openshell",
+    # OGX → ogx
+    "ogx": "ogx",
+    # RHOAI MCP → rhoai_mcp
+    "rhoai mcp": "rhoai_mcp",
+    "rhoai-mcp": "rhoai_mcp",
+    "mcp": "rhoai_mcp",
+}
+
+
 def get_repo_for_component(component: str) -> str | None:
     """
     Get GitHub repository for a component name (case-insensitive).
@@ -140,3 +202,29 @@ def get_repo_for_component(component: str) -> str | None:
     """
     normalized = component.strip().lower()
     return COMPONENT_REPO_MAP.get(normalized)
+
+
+def get_test_dir_for_component(component: str) -> str | None:
+    """
+    Get test directory for a component in opendatahub-tests.
+
+    Maps test plan/strategy/Jira component names to test subdirectories.
+
+    Args:
+        component: Component name (any case)
+
+    Returns:
+        Test directory name (e.g., "ai_hub", "model_serving") or None if not found
+
+    Examples:
+        >>> get_test_dir_for_component("AI Core Dashboard")
+        'ai_hub'
+        >>> get_test_dir_for_component("Model Registry")
+        'ai_hub'
+        >>> get_test_dir_for_component("Model Serving")
+        'model_serving'
+        >>> get_test_dir_for_component("Workbenches")
+        'workbenches'
+    """
+    normalized = component.strip().lower()
+    return COMPONENT_TEST_DIR_MAP.get(normalized)

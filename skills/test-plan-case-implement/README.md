@@ -10,17 +10,9 @@ For execution instructions, see [SKILL.md](SKILL.md).
 
 This skill uses the following forked sub-agents:
 
-### test-plan.analyze.placement
-- **When**: Step 2 (placement decision for each TC)
-- **Input**: Feature dir, code repo info, repo capabilities (readiness, has_tests)
-- **Output**: Per-TC placement recommendations (same_repo/downstream/both) with scores and reasoning
-- **Purpose**: Analyze TC characteristics and recommend optimal placement using refined scoring algorithm
-- **User interaction**: Presents recommendations, allows per-TC override
-- **user-invocable**: false
-
 ### test-plan.create.test-function
 - **When**: Step 5.3 (test code generation from TC specs)
-- **Input**: TC file, function name, framework, conventions, pattern guide, repo instructions, common setup, target repo, placement
+- **Input**: TC file, function name, framework, conventions, pattern guide, repo instructions, common setup, target repo
 - **Output**: Test function code (framework-specific: pytest/Go/TypeScript/etc.)
 - **Purpose**: Generate test function from TC specification matching repository conventions
 - **Parallelization**: Invoked once per TC, all run in parallel for speed
@@ -90,7 +82,7 @@ This skill uses the following utility scripts:
 - **odh-test-context** repository at `~/Code/odh-test-context` (or custom path)
   - Provides pre-analyzed test context for ~162 opendatahub-io repos
   - Includes: framework detection, conventions, linting, container recipes, agent_readiness
-  - **Significantly improves** placement decisions and test quality
+  - **Significantly improves** test quality and repository convention detection
   - Source: <https://github.com/opendatahub-io/odh-test-context>
   - If missing: Skill offers to clone or proceed with manual discovery
 
@@ -108,20 +100,6 @@ This skill uses the following utility scripts:
 
 ## How Dependencies Work Together
 
-### For Placement Decisions (Step 2):
-```
-odh-test-context                 test-plan.analyze.placement
-(repo capabilities)         →    (scoring algorithm)
-     ↓                                  ↓
-"Repo has agent_readiness=high,   Analyzes TC characteristics,
- tests/ dir exists, pytest"       scores placement options
-     ↓                                  ↓
-     └──────────────────┬───────────────┘
-                        │
-            User confirms placement
-            (same_repo / downstream / both)
-```
-
 ### For Test Code Generation (Step 5.3):
 ```
 Tiger Team pattern guides     odh-test-context         test-plan.create.test-function
@@ -133,9 +111,8 @@ Tiger Team pattern guides     odh-test-context         test-plan.create.test-fun
 ```
 
 **Component Roles**:
-1. **odh-test-context** - Repo structure data (framework, dirs, agent_readiness) → Used for placement scoring
+1. **odh-test-context** - Repo structure data (framework, dirs, agent_readiness) → Used for test generation
 2. **Tiger Team pattern guides** - Code style guides (how to write tests) → Used by test generator sub-agent
-3. **test-plan.analyze.placement** - Placement algorithm (where tests go) → Makes recommendations, user confirms
 
 ---
 

@@ -221,7 +221,7 @@ If any validation fails, fix the issue before proceeding.
    fi
    ```
 
-   Generate the commit summary from the list of applied feedback items. Keep it concise — highlight the 2-3 most significant changes. See `skills/commit-examples.md` for examples.
+   Generate the commit summary from the list of applied feedback items. Keep it concise — highlight the 2-3 most significant changes. See [`skills/commit-examples.md`](skills/commit-examples.md) for examples.
 
 3. Push to the same branch:
    ```bash
@@ -248,6 +248,6 @@ If any validation fails, fix the issue before proceeding.
 
 ### What this skill does NOT do
 
-See `skills/scope-boundaries.md` for the full list of what this skill explicitly excludes and which skills to use instead.
+See [`skills/scope-boundaries.md`](skills/scope-boundaries.md) for the full list of what this skill explicitly excludes and which skills to use instead.
 
 $ARGUMENTS
