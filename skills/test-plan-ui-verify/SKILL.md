@@ -58,13 +58,13 @@ python3 skills/test-plan-ui-verify/scripts/ui_prepare.py \
 | `test-variables.yml` | Cluster credentials (gitignored — copy from `.example`) |
 | `element-map.yaml` | 1300+ data-testid selectors from dashboard source |
 | `component-registry.yaml` | ODH component → URL/auth configuration and known routes |
-| `scripts/ui_prepare.py` | Deterministic setup: loads TCs, resolves creds/URL, launches browser, writes context |
-| `scripts/ui_interact.py` | Element interaction: click, fill, goto, scroll, expand (auto-relogins on session expiry) |
-| `scripts/ui_assert.py` | Assertion runner: banner, screenshot, log, exit code; `--inspect` for diagnostic-only calls; `--click-before` to open ephemeral UI (dropdowns, menus) before asserting |
-| `scripts/ui_block.py` | Logs BLOCKED/INCOMPLETE verdict entries to the TC log |
-| `scripts/ui_report.py` | Generates `report.html` + `report.md` per run; for upgrade post-runs also generates `upgrade-report.html` (FIXED/REGRESSION/STABLE comparison) with a `pre-session/` symlink to the baseline |
-| `scripts/github_utils.py` | GitHub API helpers: fetch TC files and metadata via `gh` |
-| `scripts/build_element_map.py` | Regenerates element-map.yaml from odh-dashboard source |
+| [`scripts/ui_prepare.py`](scripts/ui_prepare.py) | Deterministic setup: loads TCs, resolves creds/URL, launches browser, writes context |
+| [`scripts/ui_interact.py`](scripts/ui_interact.py) | Element interaction: click, fill, goto, scroll, expand (auto-relogins on session expiry) |
+| [`scripts/ui_assert.py`](scripts/ui_assert.py) | Assertion runner: banner, screenshot, log, exit code; `--inspect` for diagnostic-only calls; `--click-before` to open ephemeral UI (dropdowns, menus) before asserting |
+| [`scripts/ui_block.py`](scripts/ui_block.py) | Logs BLOCKED/INCOMPLETE verdict entries to the TC log |
+| [`scripts/ui_report.py`](scripts/ui_report.py) | Generates `report.html` + `report.md` per run; for upgrade post-runs also generates `upgrade-report.html` (FIXED/REGRESSION/STABLE comparison) with a `pre-session/` symlink to the baseline |
+| [`scripts/github_utils.py`](scripts/github_utils.py) | GitHub API helpers: fetch TC files and metadata via `gh` |
+| [`scripts/build_element_map.py`](scripts/build_element_map.py) | Regenerates element-map.yaml from odh-dashboard source |
 
 ## Output
 

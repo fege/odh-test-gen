@@ -70,7 +70,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
    `strategy_path` is the persistent, local-only snapshot — it is never deleted.
 
-4. Compute AC/NFR citation validity and coverage deterministically (mirrors `test-plan.review` Step 1.5) via `scripts/build_citation_inputs.py`, which derives `ac_count`/`nfr_categories` from `strategy_path` and calls the three validators directly:
+4. Compute AC/NFR citation validity and coverage deterministically (mirrors `test-plan.review` Step 1.5) via [`scripts/build_citation_inputs.py`](scripts/build_citation_inputs.py), which derives `ac_count`/`nfr_categories` from `strategy_path` and calls the three validators directly:
 
    ```bash
    gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> --strategy-file "$strategy_path") || {

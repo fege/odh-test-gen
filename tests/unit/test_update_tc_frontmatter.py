@@ -97,6 +97,7 @@ Test something.
     # Verify file was actually updated
     fm, _ = read_frontmatter(str(tc_dir / "TC-E2E-001.md"))
     assert fm["automation_status"] == "Complete"
+    assert fm["status"] == "Automated"
     assert fm["automation_file"] == "tests/test_api.py"
     assert fm["automation_function"] == "test_create_notebook"
 

@@ -1,151 +1,181 @@
 """
-Unit tests for scripts/filter_test_cases.py
-
-Tests filtering logic for test case implementation status.
+Unit tests for filter_test_cases.py — category split and re-implement merge.
 """
 
 import json
 
 import pytest
 
-from scripts.filter_test_cases import filter_test_cases
+from scripts.filter_test_cases import apply_reimplement, filter_test_cases
+from tests.helpers import write_tc
+
+
+@pytest.fixture
+def feature_with_implemented_ui_and_be(tmp_path):
+    """Feature dir with both UI and backend TCs marked Complete."""
+    tc_dir = tmp_path / "test_cases"
+    tc_dir.mkdir()
+    write_tc(tc_dir, "TC-E2E-001", "Complete", status="Automated")
+    write_tc(tc_dir, "TC-UI-001", "Complete", status="Automated")
+    write_tc(tc_dir, "TC-NEG-001", "Not Started")
+    return tmp_path
+
+
+@pytest.fixture
+def feature_with_three_implemented(tmp_path):
+    """Three implemented backend TCs plus one not-started."""
+    tc_dir = tmp_path / "test_cases"
+    tc_dir.mkdir()
+    write_tc(tc_dir, "TC-E2E-001", "Complete", status="Automated")
+    write_tc(tc_dir, "TC-E2E-002", "Complete", status="Automated")
+    write_tc(tc_dir, "TC-E2E-003", "Complete", status="Automated")
+    write_tc(tc_dir, "TC-NEG-001", "Not Started")
+    return tmp_path
 
 
 class TestFilterTestCases:
-    """Test filter_test_cases function."""
+    """Core automation_status + UI category split."""
 
-    def _create_tc_file(self, tc_dir, tc_id, automation_status=None):
-        """Helper to create a TC file with optional automation_status."""
-        status_field = ""
-        if automation_status is not None:
-            status_field = f"automation_status: {automation_status}"
-
-        tc_file = tc_dir / f"{tc_id}.md"
-        tc_file.write_text(f"""---
-test_case_id: {tc_id}
-priority: P0
-{status_field}
----
-
-## Test Steps
-1. Step one
-2. Step two
-
-## Expected Results
-- Result one
-""")
-        return tc_file
-
-    def test_filters_not_started_cases(self, tmp_path):
-        """Should include test cases with automation_status='Not Started'."""
+    def test_splits_be_ui_and_implemented(self, tmp_path):
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
-        (tc_dir / "INDEX.md").write_text("# Index")
+        write_tc(tc_dir, "TC-E2E-001", "Not Started")
+        write_tc(tc_dir, "TC-E2E-002", "Complete", status="Automated")
+        write_tc(tc_dir, "TC-UI-001", "Not Started")
+        write_tc(tc_dir, "TC-UI-002", "Complete", status="Automated")
 
-        self._create_tc_file(tc_dir, "TC-E2E-001", automation_status="Not Started")
-        self._create_tc_file(tc_dir, "TC-E2E-002", automation_status="Not Started")
+        data = json.loads(filter_test_cases(str(tmp_path), ["TC-E2E-001", "TC-E2E-002", "TC-UI-001", "TC-UI-002"]))
 
-        result = filter_test_cases(str(tmp_path), ["TC-E2E-001", "TC-E2E-002"])
-        data = json.loads(result)
+        assert data["be_test_cases"] == ["TC-E2E-001"]
+        assert data["ui_test_cases"] == ["TC-UI-001"]
+        assert data["already_implemented"] == ["TC-E2E-002", "TC-UI-002"]
 
-        assert len(data["to_implement"]) == 2
-        assert "TC-E2E-001" in data["to_implement"]
-        assert "TC-E2E-002" in data["to_implement"]
-        assert len(data["already_implemented"]) == 0
-
-    def test_filters_implemented_cases(self, tmp_path):
-        """Should exclude test cases with automation_status='Implemented'."""
+    @pytest.mark.parametrize(
+        "automation_status,status",
+        [
+            ("Complete", "Automated"),
+            ("complete", "automated"),
+            ("COMPLETE", "AUTOMATED"),
+        ],
+        ids=["title", "lower", "upper"],
+    )
+    def test_both_done_markers_are_required_and_case_insensitive(self, tmp_path, automation_status, status):
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
-        (tc_dir / "INDEX.md").write_text("# Index")
+        write_tc(tc_dir, "TC-E2E-001", automation_status=automation_status, status=status)
 
-        self._create_tc_file(tc_dir, "TC-E2E-001", automation_status="Implemented")
-        self._create_tc_file(tc_dir, "TC-E2E-002", automation_status="Not Started")
+        data = json.loads(filter_test_cases(str(tmp_path), ["TC-E2E-001"]))
 
-        result = filter_test_cases(str(tmp_path), ["TC-E2E-001", "TC-E2E-002"])
-        data = json.loads(result)
+        assert data["already_implemented"] == ["TC-E2E-001"]
+        assert data["be_test_cases"] == []
 
-        assert len(data["to_implement"]) == 1
-        assert "TC-E2E-002" in data["to_implement"]
-        assert len(data["already_implemented"]) == 1
-        assert "TC-E2E-001" in data["already_implemented"]
-
-    def test_handles_missing_automation_status(self, tmp_path):
-        """Should include test cases without automation_status field."""
+    @pytest.mark.parametrize(
+        "automation_status,status",
+        [
+            ("Complete", "Draft"),
+            ("Not Started", "Automated"),
+        ],
+        ids=["complete-without-automated", "automated-without-complete"],
+    )
+    def test_either_done_marker_alone_is_not_implemented(self, tmp_path, automation_status, status):
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
-        (tc_dir / "INDEX.md").write_text("# Index")
+        write_tc(tc_dir, "TC-E2E-001", automation_status=automation_status, status=status)
 
-        self._create_tc_file(tc_dir, "TC-E2E-001")  # No status
+        data = json.loads(filter_test_cases(str(tmp_path), ["TC-E2E-001"]))
 
-        result = filter_test_cases(str(tmp_path), ["TC-E2E-001"])
-        data = json.loads(result)
+        assert data["already_implemented"] == []
+        assert data["be_test_cases"] == ["TC-E2E-001"]
 
-        assert len(data["to_implement"]) == 1
-        assert "TC-E2E-001" in data["to_implement"]
-        assert len(data["already_implemented"]) == 0
-
-    def test_handles_mixed_statuses(self, tmp_path):
-        """Should correctly separate different automation statuses."""
-        tc_dir = tmp_path / "test_cases"
-        tc_dir.mkdir()
-        (tc_dir / "INDEX.md").write_text("# Index")
-
-        self._create_tc_file(tc_dir, "TC-E2E-001", automation_status="Implemented")
-        self._create_tc_file(tc_dir, "TC-E2E-002", automation_status="Not Started")
-        self._create_tc_file(tc_dir, "TC-E2E-003")  # No status
-        self._create_tc_file(tc_dir, "TC-E2E-004", automation_status="In Progress")
-
-        result = filter_test_cases(str(tmp_path), ["TC-E2E-001", "TC-E2E-002", "TC-E2E-003", "TC-E2E-004"])
-        data = json.loads(result)
-
-        # Only Implemented should be in already_implemented
-        assert len(data["already_implemented"]) == 1
-        assert "TC-E2E-001" in data["already_implemented"]
-
-        # Others should be in to_implement
-        assert len(data["to_implement"]) == 3
-        assert "TC-E2E-002" in data["to_implement"]
-        assert "TC-E2E-003" in data["to_implement"]
-        assert "TC-E2E-004" in data["to_implement"]
-
-    def test_handles_nonexistent_tc_file(self, tmp_path):
-        """Should raise error if TC file doesn't exist."""
-        tc_dir = tmp_path / "test_cases"
-        tc_dir.mkdir()
-        (tc_dir / "INDEX.md").write_text("# Index")
+    def test_missing_tc_file_raises(self, tmp_path):
+        (tmp_path / "test_cases").mkdir()
 
         with pytest.raises(FileNotFoundError, match="TC-MISSING-001.md not found"):
             filter_test_cases(str(tmp_path), ["TC-MISSING-001"])
 
-    def test_case_insensitive_implemented_status(self, tmp_path):
-        """Should handle different cases of 'Implemented' status."""
-        tc_dir = tmp_path / "test_cases"
-        tc_dir.mkdir()
-        (tc_dir / "INDEX.md").write_text("# Index")
 
-        # Test lowercase
-        tc1 = tc_dir / "TC-E2E-001.md"
-        tc1.write_text("""---
-test_case_id: TC-E2E-001
-automation_status: implemented
----
-# Test
-""")
+class TestApplyReimplement:
+    """Verify re-implement merge routes TCs back to their original category."""
 
-        # Test uppercase
-        tc2 = tc_dir / "TC-E2E-002.md"
-        tc2.write_text("""---
-test_case_id: TC-E2E-002
-automation_status: IMPLEMENTED
----
-# Test
-""")
+    @pytest.mark.parametrize(
+        "tc_id,expected_in,not_expected_in",
+        [
+            ("TC-UI-001", "ui_test_cases", "be_test_cases"),
+            ("TC-E2E-001", "be_test_cases", "ui_test_cases"),
+        ],
+        ids=["re-implement-ui-goes-to-ui_test_cases", "re-implement-be-goes-to-be_test_cases"],
+    )
+    def test_re_implement_preserves_category(
+        self, feature_with_implemented_ui_and_be, tc_id, expected_in, not_expected_in
+    ):
+        data = json.loads(
+            filter_test_cases(str(feature_with_implemented_ui_and_be), ["TC-E2E-001", "TC-UI-001", "TC-NEG-001"])
+        )
+        result = apply_reimplement(data, ids=list(data["already_implemented"]))
 
-        result = filter_test_cases(str(tmp_path), ["TC-E2E-001", "TC-E2E-002"])
-        data = json.loads(result)
+        assert tc_id in result[expected_in]
+        assert tc_id not in result[not_expected_in]
+        assert tc_id not in result["already_implemented"]
 
-        assert len(data["already_implemented"]) == 2
-        assert "TC-E2E-001" in data["already_implemented"]
-        assert "TC-E2E-002" in data["already_implemented"]
-        assert len(data["to_implement"]) == 0
+    def test_empty_ids_is_a_noop(self, feature_with_implemented_ui_and_be):
+        data = json.loads(
+            filter_test_cases(str(feature_with_implemented_ui_and_be), ["TC-E2E-001", "TC-UI-001", "TC-NEG-001"])
+        )
+        result = apply_reimplement(data, ids=[])
+
+        assert result is data
+        assert "TC-E2E-001" in result["already_implemented"]
+        assert "TC-UI-001" in result["already_implemented"]
+        assert "TC-UI-001" not in result["ui_test_cases"]
+        assert "TC-E2E-001" not in result["be_test_cases"]
+
+    def test_re_implement_clears_already_implemented(self, feature_with_implemented_ui_and_be):
+        data = json.loads(
+            filter_test_cases(str(feature_with_implemented_ui_and_be), ["TC-E2E-001", "TC-UI-001", "TC-NEG-001"])
+        )
+        result = apply_reimplement(data, ids=list(data["already_implemented"]))
+
+        assert result["already_implemented"] == []
+
+    def test_not_started_tcs_unaffected_by_re_implement(self, feature_with_implemented_ui_and_be):
+        data = json.loads(
+            filter_test_cases(str(feature_with_implemented_ui_and_be), ["TC-E2E-001", "TC-UI-001", "TC-NEG-001"])
+        )
+        result = apply_reimplement(data, ids=list(data["already_implemented"]))
+
+        assert "TC-NEG-001" in result["be_test_cases"]
+
+    @pytest.mark.parametrize(
+        "ids,expected_be,expected_implemented",
+        [
+            ([], ["TC-NEG-001"], ["TC-E2E-001", "TC-E2E-002", "TC-E2E-003"]),
+            (["TC-E2E-002"], ["TC-NEG-001", "TC-E2E-002"], ["TC-E2E-001", "TC-E2E-003"]),
+            (
+                ["TC-E2E-001", "TC-E2E-002", "TC-E2E-003"],
+                ["TC-NEG-001", "TC-E2E-001", "TC-E2E-002", "TC-E2E-003"],
+                [],
+            ),
+        ],
+        ids=["none", "subset", "all"],
+    )
+    def test_folds_selected_ids(self, feature_with_three_implemented, ids, expected_be, expected_implemented):
+        data = json.loads(
+            filter_test_cases(
+                str(feature_with_three_implemented),
+                ["TC-E2E-001", "TC-E2E-002", "TC-E2E-003", "TC-NEG-001"],
+            )
+        )
+        result = apply_reimplement(data, ids=ids)
+
+        assert result["be_test_cases"] == expected_be
+        assert result["already_implemented"] == expected_implemented
+
+    def test_unknown_id_raises(self, feature_with_three_implemented):
+        data = json.loads(
+            filter_test_cases(
+                str(feature_with_three_implemented),
+                ["TC-E2E-001", "TC-E2E-002", "TC-E2E-003", "TC-NEG-001"],
+            )
+        )
+        with pytest.raises(ValueError, match="TC-E2E-999"):
+            apply_reimplement(data, ids=["TC-E2E-999"])

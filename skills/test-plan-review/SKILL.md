@@ -70,7 +70,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    `strategy_file_path` is the persistent, local-only snapshot — it is never removed (not at Step
    5, not across any re-score cycle) and is reused as-is on every re-score in Step 4e.
 
-4. Compute interface coverage and AC/NFR citation validity deterministically (Section 9.2/6.2 vs Section 4 is a mechanical table diff, and citation validity is a mechanical STRAT cross-check — neither is an LLM judgment call). This is delegated to `scripts/build_citation_inputs.py`, which derives `ac_count`/`nfr_categories` from `strategy_file_path` and calls the three validators directly:
+4. Compute interface coverage and AC/NFR citation validity deterministically (Section 9.2/6.2 vs Section 4 is a mechanical table diff, and citation validity is a mechanical STRAT cross-check — neither is an LLM judgment call). This is delegated to [`scripts/build_citation_inputs.py`](scripts/build_citation_inputs.py), which derives `ac_count`/`nfr_categories` from `strategy_file_path` and calls the three validators directly:
 
    ```bash
    gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> --strategy-file "$strategy_file_path") || {

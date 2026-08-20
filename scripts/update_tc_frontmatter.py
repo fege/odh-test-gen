@@ -2,7 +2,7 @@
 """
 Update test case frontmatter fields in bulk.
 
-Updates automation_status, automation_file, and automation_function fields for implemented test cases.
+Updates automation_status, status, automation_file, and automation_function for implemented TCs.
 
 Usage:
     python scripts/update_tc_frontmatter.py <feature_dir> <updates.json>
@@ -11,6 +11,7 @@ updates.json format:
     [
         {
             "tc_id": "TC-E2E-001",
+            "status": "Automated",
             "automation_status": "Complete",
             "automation_file": "tests/test_api.py",
             "automation_function": "test_create_notebook"
@@ -61,6 +62,8 @@ def update_tc_frontmatter(feature_dir: str, updates: list[dict]) -> str:
         try:
             # Prepare updates (exclude tc_id)
             field_updates = {k: v for k, v in update.items() if k != "tc_id"}
+            if str(field_updates.get("automation_status", "")).strip().lower() == "complete":
+                field_updates.setdefault("status", "Automated")
 
             # Use shared utility (validates against test-case schema and formats consistently)
             update_frontmatter(str(tc_file), field_updates, "test-case")

@@ -11,20 +11,19 @@ End-to-end test planning workflow for RHOAI: generate test plans from strategies
 | `/test-plan-create` | Generate a test plan from a strategy (RHAISTRAT or RHOAIENG), with optional ADR |
 | `/test-plan-create-cases` | Generate individual test case files from an existing test plan |
 | `/test-plan-update` | Update test plan with new docs (ADR, API specs), re-analyze, bump version |
-| `/test-plan-case-implement` | Generate executable test automation code from TC specifications with intelligent placement |
+| `/test-plan-case-implement` | Generate executable test automation code from TC specifications (default target: opendatahub-tests; skips TC-UI-*) |
 | `/test-plan-ui-verify` | Verify UI test cases from a PR against a live ODH/RHOAI cluster via Playwright |
 | `/test-plan-publish` | Publish test plan artifacts to GitHub — branch, commit, and open a PR |
 | `/test-plan-resolve-feedback` | Assess PR review comments, let the user decide what to apply, and push updates |
 | `/test-plan-score` | Score an existing test plan using quality rubric (without auto-revision) |
 
-### Sub-agents (9 internal skills, forked with `context: fork`)
+### Sub-agents (8 internal skills: 7 forked, 1 in-parent)
 
 | Skill | Description |
 |-------|-------------|
 | `test-plan-analyze-endpoints` | Extract feature scope, test objectives, and API endpoints from docs |
 | `test-plan-analyze-risks` | Analyze strategy/ADR to determine test levels, types, priorities, risks |
 | `test-plan-analyze-infra` | Identify test environment, data, infrastructure requirements |
-| `test-plan-analyze-placement` | Recommend test placement (component repo vs downstream) |
 | `test-plan-merge` | Intelligently merge new analyzer findings into existing test plan |
 | `test-plan-resolve-gaps` | Cross-reference gaps with new findings to determine what's resolved |
 | `test-plan-review` | Review test plan for completeness, consistency, and quality with auto-revision |
@@ -143,8 +142,8 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 - Writing test code, quality scoring, semantic function matching
 - Analyzing requirements, merging findings, resolving gaps
 
-**Sub-Agent Orchestration** - 9 internal skills:
-- **Forked (8 with `context: fork`)**: Analyzers (endpoints, risks, infra, placement), workflow (merge, resolve-gaps), quality (generate-test-file, score-test-function) — clean isolation, parallel execution
+**Sub-Agent Orchestration** - 8 internal skills:
+- **Forked (7 with `context: fork`)**: Analyzers (endpoints, risks, infra), workflow (merge, resolve-gaps), quality (generate-test-file, score-test-function) — clean isolation, parallel execution
 - **In-parent (1 without fork)**: review — writes persistent files in parent context
 - All invoked via Skill tool, deterministic return values
 
@@ -255,7 +254,6 @@ export CLAUDE_NON_INTERACTIVE=true
                     │                     │
                     │                     ├── preflight.py (validation + detection)
                     │                     ├── filter_test_cases.py, map_test_files.py
-                    │                     ├── test-plan-analyze-placement
                     │                     └── test-plan-generate-test-file (parallel per file)
                     │                         ├── list_test_functions.py (AST)
                     │                         ├── test-plan-score-test-function (per function)
@@ -321,8 +319,6 @@ skills/
 ├── test-plan-analyze-risks/
 │   └── SKILL.md
 ├── test-plan-analyze-infra/
-│   └── SKILL.md
-├── test-plan-analyze-placement/
 │   └── SKILL.md
 ├── test-plan-merge/
 │   └── SKILL.md

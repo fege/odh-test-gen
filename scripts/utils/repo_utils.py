@@ -84,17 +84,22 @@ def find_target_repo(repo_name: str) -> str | None:
     Find target code repository (e.g., 'odh-dashboard' or 'opendatahub-io/odh-dashboard').
 
     Checks:
+    - Existing local git directory (absolute, relative, or ~ path) — clone-path override
     - ~/Code/<repo>
     - ~/Code/<org>-<repo> (if org/repo format)
     - ~/<repo>
     - ~/workspace/<repo>
 
     Args:
-        repo_name: Repository name (with or without org)
+        repo_name: Repository name (with or without org), or a local filesystem path
 
     Returns:
         Absolute path or None
     """
+    expanded = os.path.abspath(os.path.expanduser(repo_name))
+    if os.path.isdir(expanded) and os.path.isdir(os.path.join(expanded, ".git")):
+        return expanded
+
     # Parse org/repo if present
     if "/" in repo_name:
         org, repo = repo_name.split("/", 1)

@@ -34,6 +34,10 @@ reviews:
            e.g. {"status": "failed", "error": "..."}. Standard argparse errors from
            parser.parse_args() (missing/invalid flags) write usage to stderr — do not flag that.
            Reusable helpers must preserve typed exceptions for callers and tests.
+        4. BASH-CONSUMED UTILITIES: Single-value CLI scripts consumed via bash `$()` substitution
+           (e.g. get_framework.py, get_component_test_dir.py, parse_skill_args.py) output bare
+           strings, not JSON. Do not flag these for missing JSON output — wrapping a single value
+           in JSON would break every shell consumer and add jq parsing for no gain.
 
     # ── 2. Claude Code Plugin Skills (skills/**/*.md) ──────────────────
     - path: "skills/**/*.md"

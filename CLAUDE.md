@@ -24,11 +24,11 @@ CI enforces `--cov-fail-under=65` for test coverage.
 
 ## Architecture
 
-**Plugin structure**: `.claude-plugin/plugin.json` defines the plugin. Each skill lives in `skills/<skill-name>/SKILL.md`. Skills share Python utilities via `skills/_common/scripts` which is a symlink to the top-level `scripts/` directory.
+**Plugin structure**: [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) defines the plugin. Each skill lives in `skills/<skill-name>/SKILL.md`. Skills share Python utilities via `skills/_common/scripts` which is a symlink to the top-level `scripts/` directory.
 
-**Design principle**: Procedural logic is extracted to deterministic Python scripts in `scripts/` (no LLM calls). Scripts output JSON, not text. LLMs are only used for semantic work (analyzing requirements, writing test code, quality scoring).
+**Design principle**: Procedural logic is extracted to deterministic Python scripts in `scripts/` (no LLM calls). Scripts that return structured data output JSON, not text. Single-value CLI utilities consumed via bash `$()` (e.g., `get_framework.py`, `get_component_test_dir.py`) output bare strings. LLMs are only used for semantic work (analyzing requirements, writing test code, quality scoring).
 
-**Sub-agent orchestration**: 8 internal skills use `context: fork` for clean isolation and parallel execution. 1 skill (review) runs in-parent context to write persistent files. All are invoked via the Skill tool.
+**Sub-agent orchestration**: 7 internal skills use `context: fork` for clean isolation and parallel execution. 1 skill (review) runs in-parent context to write persistent files. All are invoked via the Skill tool.
 
 **Key directories**:
 - `scripts/` — Python modules for deterministic operations (validation, parsing, AST extraction, Jira API)
@@ -44,7 +44,7 @@ Pre-commit hooks enforce code quality (run `pre-commit run --all-files` or let g
 - **flake8** — with RedHatQE plugins UUC (unused-unique-constants) and UFN (unique-function-names); config in `.flake8`
 - **Standard hooks** — check-merge-conflict, debug-statements, trailing-whitespace, end-of-file-fixer, check-ast, check-builtin-literals, check-toml
 
-CI runs pre-commit and skillsaw on every PR via `.github/workflows/lint.yml`.
+CI runs pre-commit and skillsaw on every PR via [`.github/workflows/lint.yml`](.github/workflows/lint.yml).
 
 Skillsaw lints skill files for context budget (warn at 6000 tokens, error at 8000), content positioning, and placeholder text. Config is in `.skillsaw.yaml` with strict mode enabled.
 

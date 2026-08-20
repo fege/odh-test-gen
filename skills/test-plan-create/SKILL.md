@@ -145,11 +145,9 @@ If environment variables are set, proceed to Step 0.3.
    ```
 
 8. **Store for session context**:
-   - Export environment variable for `/test-plan-create-cases` auto-detection:
-     ```bash
-     export TEST_PLAN_OUTPUT_DIR="$target_dir"
-     ```
-   - This allows `/test-plan-create-cases` to auto-use the same location if called in same session
+   - The output directory is persisted to `<feature_dir>/.test-plan-output-dir.json`
+     automatically by `save-snapshot` (Step 1.5). This allows other skills and scripts
+     to discover the output directory without relying on environment variables.
 
 ### Step 1: Gather Information
 
