@@ -11,13 +11,13 @@ End-to-end test planning workflow for RHOAI: generate test plans from strategies
 | `/test-plan-create` | Generate a test plan from a strategy (RHAISTRAT or RHOAIENG), with optional ADR |
 | `/test-plan-create-cases` | Generate individual test case files from an existing test plan |
 | `/test-plan-update` | Update test plan with new docs (ADR, API specs), re-analyze, bump version |
-| `/test-plan-case-implement` | Generate executable test automation code from TC specifications (default target: opendatahub-tests) |
+| `/test-plan-case-implement` | Generate executable test automation code from TC specifications (default target: opendatahub-tests; skips TC-UI-*) |
 | `/test-plan-ui-verify` | Verify UI test cases from a PR against a live ODH/RHOAI cluster via Playwright |
 | `/test-plan-publish` | Publish test plan artifacts to GitHub — branch, commit, and open a PR |
 | `/test-plan-resolve-feedback` | Assess PR review comments, let the user decide what to apply, and push updates |
 | `/test-plan-score` | Score an existing test plan using quality rubric (without auto-revision) |
 
-### Sub-agents (8 internal skills, forked with `context: fork`)
+### Sub-agents (8 internal skills: 7 forked, 1 in-parent)
 
 | Skill | Description |
 |-------|-------------|
@@ -143,7 +143,7 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 - Analyzing requirements, merging findings, resolving gaps
 
 **Sub-Agent Orchestration** - 8 internal skills:
-- **Forked (8 with `context: fork`)**: Analyzers (endpoints, risks, infra), workflow (merge, resolve-gaps), quality (generate-test-file, score-test-function) — clean isolation, parallel execution
+- **Forked (7 with `context: fork`)**: Analyzers (endpoints, risks, infra), workflow (merge, resolve-gaps), quality (generate-test-file, score-test-function) — clean isolation, parallel execution
 - **In-parent (1 without fork)**: review — writes persistent files in parent context
 - All invoked via Skill tool, deterministic return values
 

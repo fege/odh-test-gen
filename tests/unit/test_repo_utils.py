@@ -9,6 +9,7 @@ import json
 
 from scripts.utils.repo_utils import (
     extract_conventions_from_context,
+    find_target_repo,
     get_framework,
     load_repo_test_context,
     map_components_to_repos,
@@ -95,3 +96,25 @@ class TestGetFramework:
         """Should return None if no data available."""
         result = get_framework()
         assert result is None
+
+
+class TestFindTargetRepo:
+    """find_target_repo must accept a local git clone path (clone-path override)."""
+
+    def test_returns_existing_git_directory(self, tmp_path):
+        (tmp_path / ".git").mkdir()
+        assert find_target_repo(str(tmp_path)) == str(tmp_path.resolve())
+
+    def test_expands_tilde_to_git_directory(self, tmp_path, monkeypatch):
+        fake_home = tmp_path / "home"
+        repo = fake_home / "opendatahub-tests"
+        repo.mkdir(parents=True)
+        (repo / ".git").mkdir()
+        monkeypatch.setenv("HOME", str(fake_home))
+
+        assert find_target_repo("~/opendatahub-tests") == str(repo.resolve())
+
+    def test_non_git_directory_is_not_treated_as_clone(self, tmp_path):
+        tmp_path.mkdir(exist_ok=True)
+        # Directory exists but has no .git — fall through to name lookup (won't find)
+        assert find_target_repo(str(tmp_path)) is None

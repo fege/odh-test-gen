@@ -1,108 +1,127 @@
 #!/usr/bin/env python3
 """
-Extract specific field from .test_cases_filter.json, creating it if needed.
+Filter test cases for implementation. Always re-reads TC files (no cache).
 
 Single entry point for test case filtering in skills. Handles:
 - Auto-discovery of TCs if none provided
 - Filtering by automation_status and UI category
-- Interactive confirmation for re-implementing (auto-determined by CLAUDE_NON_INTERACTIVE env var)
-- Reading/creating .test_cases_filter.json
-- Returning specific field (be_test_cases, ui_test_cases, already_implemented)
-
-Behavior:
-- If .test_cases_filter.json exists: reads and returns field
-- If missing: runs filtering, prompts for re-implement (if interactive), writes file, returns field
-- Interactive mode (CLAUDE_NON_INTERACTIVE not set): prompts user to re-implement already_implemented TCs
-- CI mode (CLAUDE_NON_INTERACTIVE=true): skips prompt, doesn't re-implement
+- Optional re-implement: fold already-implemented TCs back into
+  be_test_cases / ui_test_cases (HITL confirmation belongs in the parent skill)
 
 Usage:
-    python scripts/get_filtered_tcs.py <feature_dir> <field_name> [tc_id ...]
+    python scripts/get_filtered_tcs.py <feature_dir> [--include-implemented]
+        [--reimplement-ids ID,ID] [tc_id ...]
 
 Examples:
-    # Get all backend test cases (auto-discovers if .test_cases_filter.json missing)
-    python scripts/get_filtered_tcs.py ~/path/to/feature be_test_cases
+    python scripts/get_filtered_tcs.py ~/path/to/feature
+    python scripts/get_filtered_tcs.py ~/path/to/feature TC-E2E-001 TC-NEG-001
+    python scripts/get_filtered_tcs.py ~/path/to/feature --include-implemented
+    python scripts/get_filtered_tcs.py ~/path/to/feature --reimplement-ids TC-E2E-002
 
-    # Get specific backend test cases
-    python scripts/get_filtered_tcs.py ~/path/to/feature be_test_cases TC-E2E-001 TC-E2E-002
-
-    # Get UI test cases
-    python scripts/get_filtered_tcs.py ~/path/to/feature ui_test_cases
-
-Output:
-    Space-separated list of TC IDs: TC-E2E-001 TC-E2E-002 TC-NEG-001
+Output (JSON):
+    {
+        "be_test_cases": ["TC-E2E-001"],
+        "already_implemented": ["TC-E2E-002"],
+        "ui_test_cases": ["TC-UI-001"],
+        "next": "proceed"|"prompt_user"
+    }
 """
 
+import argparse
 import json
-import sys
-from pathlib import Path
 
-from scripts.filter_test_cases import filter_and_confirm_test_cases
+from scripts.filter_test_cases import apply_reimplement, filter_test_cases, get_all_tc_ids
 from scripts.utils.error_utils import exit_error
+from scripts.validate import check_interactive
 
 
-def get_filtered_tcs(feature_dir: str, field_name: str, tc_ids: list[str] | None = None) -> list[str]:
+def decide_reimplement_next(already_implemented: list, *, interactive: bool, skip_prompt: bool) -> str:
+    """Return the Step 0.2b action: prompt the user, or skip the re-implement menu."""
+    if skip_prompt:
+        return "proceed"
+    if already_implemented and interactive:
+        return "prompt_user"
+    return "proceed"
+
+
+def get_filtered_tcs(
+    feature_dir: str,
+    tc_ids: list[str] | None = None,
+    include_implemented: bool = False,
+    reimplement_ids: list[str] | None = None,
+) -> dict:
     """
-    Get filtered test cases for a specific field.
-
-    If .test_cases_filter.json doesn't exist, automatically creates it by
-    running filter_and_confirm_test_cases() with confirmation behavior
-    determined by CLAUDE_NON_INTERACTIVE environment variable.
+    Filter test cases from live TC files.
 
     Args:
         feature_dir: Path to feature directory
-        field_name: Field to extract (be_test_cases, ui_test_cases, already_implemented)
-        tc_ids: Optional list of TC IDs to filter (returns intersection with field)
+        tc_ids: Optional list of TC IDs to filter (discovers all if None/empty)
+        include_implemented: If True, fold every already_implemented TC back
+            into be_test_cases / ui_test_cases by category
+        reimplement_ids: Specific already_implemented IDs to fold back.
+            Cannot be combined with include_implemented.
 
     Returns:
-        List of TC IDs
-
-    Raises:
-        KeyError: If field_name is not valid
+        dict with be_test_cases, already_implemented, ui_test_cases lists,
+        and next ("proceed" or "prompt_user")
     """
-    filter_file = Path(feature_dir) / ".test_cases_filter.json"
+    if include_implemented and reimplement_ids is not None:
+        raise ValueError("Cannot combine include_implemented with reimplement_ids")
 
-    # If filter file doesn't exist, create it (with auto-confirmation based on env)
-    if not filter_file.exists():
-        # Always pass None to filter ALL TCs - tc_ids is only for final intersection
-        filter_and_confirm_test_cases(feature_dir, None, confirm=True)
+    if not tc_ids:
+        ids = get_all_tc_ids(feature_dir)
+    else:
+        ids = [part.removesuffix(".md") for item in tc_ids for part in item.replace(",", " ").split()]
+        if not ids:
+            ids = get_all_tc_ids(feature_dir)
 
-    data = json.loads(filter_file.read_text())
+    result = json.loads(filter_test_cases(feature_dir, ids))
 
-    valid_fields = ["be_test_cases", "ui_test_cases", "already_implemented"]
-    if field_name not in valid_fields:
-        raise KeyError(f"Invalid field '{field_name}'. Valid fields: {', '.join(valid_fields)}")
+    if include_implemented:
+        fold_ids = list(result["already_implemented"])
+    elif reimplement_ids:
+        fold_ids = reimplement_ids
+    else:
+        fold_ids = []
 
-    result = data[field_name]
-
-    # If specific TC IDs provided, return only those that are in the field
-    if tc_ids:
-        # Strip .md extension if present (handles both TC-NEG-001 and TC-NEG-001.md)
-        tc_set = {tc.removesuffix(".md") for tc in tc_ids}
-        result = [tc for tc in result if tc in tc_set]
-
+    result = apply_reimplement(result, ids=fold_ids)
+    result["next"] = decide_reimplement_next(
+        result["already_implemented"],
+        interactive=check_interactive()["interactive"],
+        skip_prompt=include_implemented or reimplement_ids is not None,
+    )
     return result
 
 
 def main():
     """CLI entry point."""
-    if len(sys.argv) < 3:
-        exit_error("Usage: python scripts/get_filtered_tcs.py <feature_dir> <field_name> [tc_id ...]")
+    parser = argparse.ArgumentParser(description="Filter test cases for implementation")
+    parser.add_argument("feature_dir", help="Path to feature directory")
+    parser.add_argument("tc_ids", nargs="*", help="Optional TC IDs to filter")
+    parser.add_argument(
+        "--include-implemented",
+        action="store_true",
+        help="Fold all already-implemented TCs back into be/ui lists",
+    )
+    parser.add_argument(
+        "--reimplement-ids",
+        metavar="IDS",
+        help="Comma-separated already-implemented TC IDs to fold back into be/ui lists",
+    )
+    args = parser.parse_args()
 
-    feature_dir = sys.argv[1]
-    field_name = sys.argv[2]
-    tc_ids = sys.argv[3:] if len(sys.argv) > 3 else None
+    tc_ids = args.tc_ids or None
 
-    # Handle both comma-separated and space-separated TC IDs
-    # Example: "TC-001,TC-002" OR "TC-001 TC-002"
-    if tc_ids and len(tc_ids) == 1 and "," in tc_ids[0]:
-        tc_ids = tc_ids[0].split(",")
+    reimplement_ids = args.reimplement_ids.replace(",", " ").split() if args.reimplement_ids is not None else None
 
     try:
-        result = get_filtered_tcs(feature_dir, field_name, tc_ids)
-        # Print space-separated for easy use in bash
-        print(" ".join(result))
-    except KeyError as e:
-        exit_error(f"Error: {e}")
+        result = get_filtered_tcs(
+            args.feature_dir,
+            tc_ids,
+            include_implemented=args.include_implemented,
+            reimplement_ids=reimplement_ids,
+        )
+        print(json.dumps(result, indent=2))
     except Exception as e:
         exit_error(f"Unexpected error: {e}")
 

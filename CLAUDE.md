@@ -28,7 +28,7 @@ CI enforces `--cov-fail-under=65` for test coverage.
 
 **Design principle**: Procedural logic is extracted to deterministic Python scripts in `scripts/` (no LLM calls). Scripts that return structured data output JSON, not text. Single-value CLI utilities consumed via bash `$()` (e.g., `get_framework.py`, `get_component_test_dir.py`) output bare strings. LLMs are only used for semantic work (analyzing requirements, writing test code, quality scoring).
 
-**Sub-agent orchestration**: 8 internal skills use `context: fork` for clean isolation and parallel execution. 1 skill (review) runs in-parent context to write persistent files. All are invoked via the Skill tool.
+**Sub-agent orchestration**: 7 internal skills use `context: fork` for clean isolation and parallel execution. 1 skill (review) runs in-parent context to write persistent files. All are invoked via the Skill tool.
 
 **Key directories**:
 - `scripts/` — Python modules for deterministic operations (validation, parsing, AST extraction, Jira API)

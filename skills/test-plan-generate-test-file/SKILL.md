@@ -25,9 +25,9 @@ Generate a complete test file for test cases assigned to one file from the file_
 
 Write tool is intentionally excluded from allowedTools. Uses `context: fork` for clean return.
 
-## Inputs (from Agent prompt)
+## Inputs (from Skill args / `$ARGUMENTS`)
 
-Parent passes all data via Agent prompt as JSON block:
+Parent passes all data via Skill `args` as a JSON block:
 ```json
 {
   "file_index": 0,
@@ -42,20 +42,20 @@ Parent passes all data via Agent prompt as JSON block:
   "pattern_guide": "...content or null...",
   "repo_instructions": "...content or null...",
   "common_setup_requirements": [...],
-  "code_repo_path": "/path/to/repo",
+  "target_repo_path": "/path/to/repo",
   "feature_dir": "/path/to/feature"
 }
 ```
 
-Parse this JSON from prompt to extract all needed variables.
+Parse this JSON from `$ARGUMENTS` to extract all needed variables.
 
 ## Process
 
 ### Step 0: Extract Data from Prompt
 
-Extract JSON data block from the Agent prompt. Parse to get:
+Extract JSON data block from `$ARGUMENTS`. Parse to get:
 - `file_index` - Index for temp file naming
-- `file_path` - Target file path in code repo
+- `file_path` - Target file path in the target repo
 - `test_cases` - Array of TC objects for this file (already filtered)
 - `function_names` - Array of function names for TCs
 - `framework` - Test framework (pytest, go, jest)
@@ -63,7 +63,7 @@ Extract JSON data block from the Agent prompt. Parse to get:
 - `pattern_guide` - Pattern guide content (or null)
 - `repo_instructions` - Repo instructions content (or null)
 - `common_setup_requirements` - Array of shared preconditions
-- `code_repo_path` - Repository path
+- `target_repo_path` - Repository path
 - `feature_dir` - Feature directory path
 
 Store `test_cases` as `tcs_for_this_file` for use in later steps.
@@ -72,7 +72,7 @@ Store `test_cases` as `tcs_for_this_file` for use in later steps.
 
 **IMPORTANT:** When analyzing target repository: Read code files and use grep/bash. Do NOT import target repo dependencies (not in test-plan venv) or use inspect.signature().
 
-Get full file path: `<code_repo_path>/<file_path>`
+Get full file path: `<target_repo_path>/<file_path>`
 
 If file exists, list existing functions:
 ```bash

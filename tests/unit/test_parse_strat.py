@@ -1,5 +1,6 @@
 """Unit tests for scripts/parse_strat.py — STRAT section extraction."""
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -467,6 +468,31 @@ class TestLoadStratContentContainment:
 
         with pytest.raises(ValueError, match="strategy_file_not_permitted"):
             _load_strat_content(str(link))
+
+    def test_output_dir_marker_permits_snapshot(self, tmp_path, monkeypatch):
+        """A .source-strategy.md under an output dir is permitted when
+        .test-plan-output-dir.json records that output dir."""
+        output_dir = tmp_path / "plans"
+        feature_dir = output_dir / "my_feature"
+        feature_dir.mkdir(parents=True)
+        snapshot = feature_dir / ".source-strategy.md"
+        snapshot.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+        marker = feature_dir / ".test-plan-output-dir.json"
+        marker.write_text(json.dumps({"output_dir": str(output_dir)}))
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
+        assert "Given X" in _load_strat_content(str(snapshot))
+
+    def test_missing_output_dir_marker_rejects_snapshot(self, tmp_path, monkeypatch):
+        """Without the marker, a snapshot outside artifacts/ is rejected."""
+        feature_dir = tmp_path / "plans" / "my_feature"
+        feature_dir.mkdir(parents=True)
+        snapshot = feature_dir / ".source-strategy.md"
+        snapshot.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
+        with pytest.raises(ValueError, match="strategy_file_not_permitted"):
+            _load_strat_content(str(snapshot))
 
 
 class TestCmdResolveLocal:

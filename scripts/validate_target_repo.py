@@ -20,7 +20,13 @@ import re
 import sys
 from pathlib import Path
 
+from scripts.parse_skill_args import extract_flag_value
 from scripts.utils.error_utils import exit_error
+
+# GitHub owner: 1–39 chars, alphanumeric or hyphen, cannot start/end with hyphen.
+# GitHub repo: alphanumeric, hyphen, underscore, or period.
+_GITHUB_OWNER_RE = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?$")
+_GITHUB_REPO_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 def get_default_target_repo() -> str:
@@ -64,10 +70,13 @@ def validate_target_repo(repo_name: str) -> dict:
     if len(parts) != 2 or not parts[0] or not parts[1]:
         return {"valid": False, "error": "Repository must be in format 'org/repo'"}
 
-    # Accept any valid org/repo format (escape hatch)
+    owner, repo = parts
+    if not _GITHUB_OWNER_RE.fullmatch(owner) or not _GITHUB_REPO_RE.fullmatch(repo):
+        return {"valid": False, "error": "Repository must be in format 'org/repo'"}
+
     return {
         "valid": True,
-        "repo": repo_name,
+        "repo": f"{owner}/{repo}",
     }
 
 
@@ -105,24 +114,9 @@ def validate_target_repo_path(repo_path: str) -> dict:
 
 
 def extract_target_repo_from_args(args_string: str) -> str | None:
-    """
-    Extract --target-repo value from arguments string.
-
-    Args:
-        args_string: Full arguments string (e.g., "path --target-repo value --other-flag")
-
-    Returns:
-        Target repo value if found, None otherwise
-    """
-    if not args_string or "--target-repo" not in args_string:
-        return None
-
-    # Match --target-repo followed by value (stops at next -- or end of string)
-    match = re.search(r"--target-repo\s+([^\s-][^\s]*)", args_string)
-    if match:
-        return match.group(1)
-
-    return None
+    """Extract --target-repo value using the shared flag parser."""
+    value = extract_flag_value(args_string or "", "target-repo")
+    return value or None
 
 
 def main():
@@ -158,7 +152,7 @@ def main():
         # Try as org/repo format
         result = validate_target_repo(target_repo_value)
         if result["valid"]:
-            print(target_repo_value)
+            print(result["repo"])
             return
         else:
             exit_error(result["error"])

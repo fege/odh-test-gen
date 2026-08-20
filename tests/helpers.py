@@ -7,10 +7,26 @@ from scripts.utils.schemas import TEMPLATE_HEADINGS
 from tests.constants import TESTPLAN_VALID_BODY, VALID_TEST_PLAN_DATA
 
 
-def write_valid_testplan(path):
-    """Write a TestPlan.md with validated frontmatter and proper structure."""
+def write_valid_testplan(path, **frontmatter_overrides):
+    """Write a TestPlan.md with validated frontmatter and proper structure.
+
+    Extra keyword arguments are merged into VALID_TEST_PLAN_DATA (e.g. components=[...]).
+    """
     Path(path).write_text(TESTPLAN_VALID_BODY)
-    write_frontmatter(str(path), {**VALID_TEST_PLAN_DATA}, "test-plan")
+    write_frontmatter(str(path), {**VALID_TEST_PLAN_DATA, **frontmatter_overrides}, "test-plan")
+
+
+def write_tc(tc_dir, tc_id, automation_status="Not Started", status=None):
+    """Write a minimal TC-*.md whose frontmatter is enough for filter_test_cases."""
+    path = Path(tc_dir) / f"{tc_id}.md"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = ["---", f"test_case_id: {tc_id}"]
+    if status is not None:
+        lines.append(f"status: {status}")
+    lines.append(f"automation_status: {automation_status}")
+    lines.append("---\n")
+    path.write_text("\n".join(lines))
+    return path
 
 
 def write_testplan_with_objectives(path, objectives_body):

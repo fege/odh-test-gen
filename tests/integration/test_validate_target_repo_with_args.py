@@ -11,7 +11,10 @@ import pytest
 
 from scripts.get_component_test_dir import get_component_test_dir
 from scripts.parse_skill_args import extract_flag_value
-from scripts.utils.repo_utils import load_repo_test_context
+from scripts.utils.repo_utils import find_target_repo, load_repo_test_context
+
+
+REPO_ROOT = Path(__file__).parent.parent.parent
 
 
 def run_validate_target_repo(args_string: str = "") -> tuple[str, int]:
@@ -20,7 +23,18 @@ def run_validate_target_repo(args_string: str = "") -> tuple[str, int]:
         ["uv", "run", "python", "scripts/validate_target_repo.py", args_string],
         capture_output=True,
         text=True,
-        cwd=Path(__file__).parent.parent.parent,
+        cwd=REPO_ROOT,
+    )
+    return result.stdout.strip(), result.returncode
+
+
+def run_parse_skill_args(flag: str, args_string: str) -> tuple[str, int]:
+    """Run parse_skill_args.py and return (stdout, exit_code)."""
+    result = subprocess.run(
+        ["uv", "run", "python", "scripts/parse_skill_args.py", flag, args_string],
+        capture_output=True,
+        text=True,
+        cwd=REPO_ROOT,
     )
     return result.stdout.strip(), result.returncode
 
@@ -59,12 +73,31 @@ class TestValidateTargetRepoWithArgs:
         assert exit_code == 0
         assert output == str(fake_git_repo)
 
+    def test_local_path_is_usable_by_find_target(self, fake_git_repo):
+        """validate_target_repo output for a clone path must resolve via find-target."""
+        args = f"feature/path --target-repo {fake_git_repo}"
+        output, exit_code = run_validate_target_repo(args)
+
+        assert exit_code == 0
+        found = find_target_repo(output)
+        assert found is not None
+        assert Path(found).resolve() == fake_git_repo.resolve()
+
     def test_rejects_invalid_repo_format(self):
         """Test that invalid repo format is rejected."""
         args = "--target-repo invalid-no-slash"
         _, exit_code = run_validate_target_repo(args)
 
         assert exit_code == 1
+
+    def test_prints_normalized_repo_not_credentialed_url(self):
+        """CLI must print org/repo, never a URL with userinfo."""
+        args = "--target-repo https://user:token@github.com/opendatahub-io/opendatahub-tests"
+        output, exit_code = run_validate_target_repo(args)
+
+        assert exit_code == 0
+        assert output == "opendatahub-io/opendatahub-tests"
+        assert "token" not in output
 
 
 class TestParseSkillArgs:
@@ -96,6 +129,12 @@ class TestParseSkillArgs:
         value = value.replace(",", " ")
         assert value == "TC-NEG-001 TC-E2E-002"
 
+    def test_triple_hyphen_flag_is_not_treated_as_double_hyphen(self):
+        """---test-cases must not strip down to test-cases via lstrip('--')."""
+        output, exit_code = run_parse_skill_args("---test-cases", "path --test-cases TC-001")
+        assert exit_code == 0
+        assert output == ""
+
 
 class TestGetComponentTestDir:
     """Test get_component_test_dir function."""
@@ -106,6 +145,11 @@ class TestGetComponentTestDir:
         tests_dir.mkdir(parents=True)
         result = get_component_test_dir("Model Serving", str(tmp_path))
         assert result == "tests/model_serving"
+
+    def test_alias_used_when_sanitized_name_dir_missing(self, tmp_path):
+        """Jira alias 'AI Core Dashboard' maps to tests/ai_hub, not tests/ai_core_dashboard."""
+        (tmp_path / "tests" / "ai_hub").mkdir(parents=True)
+        assert get_component_test_dir("AI Core Dashboard", str(tmp_path)) == "tests/ai_hub"
 
     def test_falls_back_to_tests_for_missing_component(self, tmp_path):
         """Test fallback to tests/ when component dir doesn't exist."""

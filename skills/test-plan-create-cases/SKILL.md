@@ -32,17 +32,14 @@ Parse `$ARGUMENTS` to extract:
    - GitHub PR: `https://github.com/org/repo/pull/5`
 2. **`--output-dir`** (optional): Force creation in specified directory (contributor override, skips validation)
 
-### Auto-detection from session
-If no arguments are provided, check for session context from `/test-plan-create`:
+### Auto-detection from saved preference
+If no arguments are provided, check for saved output directory from `/test-plan-create`:
 ```bash
-# Check if TEST_PLAN_OUTPUT_DIR environment variable is set
-if [ -n "$TEST_PLAN_OUTPUT_DIR" ]; then
-    # /test-plan-create was just run in this session
-    feature_dir="$TEST_PLAN_OUTPUT_DIR/<feature_name>"
-    echo "✓ Auto-detected from /test-plan-create session: $feature_dir"
-    # Proceed directly to Step 1 (skip Step 0.2)
-fi
+saved_dir=$(jq -r '.["test-plan"]?.output_dir // empty' .claude/settings.json 2>/dev/null)
 ```
+If `saved_dir` is set, look for feature directories containing `.test-plan-output-dir.json`
+(written by `save-snapshot`). If exactly one is found, use it. If multiple, ask the user
+which one to use via AskUserQuestion.
 
 ### Interactive fallback
 If no arguments AND no session context, ask the user via AskUserQuestion:

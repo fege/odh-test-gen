@@ -56,7 +56,7 @@ def main():
     if len(sys.argv) != 3 or not sys.argv[1].startswith("--"):
         exit_error("Usage: python scripts/parse_skill_args.py --flag-name <args_string>")
 
-    flag_name = sys.argv[1].lstrip("--")
+    flag_name = sys.argv[1][2:]
     args_string = sys.argv[2]
 
     value = extract_flag_value(args_string, flag_name)

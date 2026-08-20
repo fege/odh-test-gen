@@ -10,21 +10,14 @@ For execution instructions, see [SKILL.md](SKILL.md).
 
 This skill uses the following forked sub-agents:
 
-### test-plan.create.test-function
-- **When**: Step 5.3 (test code generation from TC specs)
-- **Input**: TC file, function name, framework, conventions, pattern guide, repo instructions, common setup, target repo
-- **Output**: Test function code (framework-specific: pytest/Go/TypeScript/etc.)
-- **Purpose**: Generate test function from TC specification matching repository conventions
-- **Parallelization**: Invoked once per TC, all run in parallel for speed
+### test-plan-generate-test-file
+- **When**: Step 4 (test code generation from TC specs)
+- **Input**: file path, TCs for that file, function names, framework, conventions, pattern guide, repo instructions, common setup, target repo path, feature dir
+- **Output**: Complete test file content plus quality summary (written to `/tmp/test_plan_results/file_{i}.json`)
+- **Purpose**: Generate one test file matching repository conventions, including scoring and auto-revision
+- **Parallelization**: Invoked once per mapped file, all run in parallel
 - **user-invocable**: false
-
-### test-plan.score.test-function
-- **When**: Step 5.6 (quality assessment after test generation)
-- **Input**: Generated test code, TC file, conventions file, framework, output file path
-- **Output**: Quality assessment written to file with score (0-10), verdict, issues, revision feedback
-- **Purpose**: Score test quality using 5-criteria rubric (coverage, assertions, conventions, test data, code quality)
-- **Triggers auto-revision**: If score 4-6, regenerates test with feedback from score file
-- **user-invocable**: false
+- **Note**: Scoring via `test-plan-score-test-function` happens inside this sub-agent, not in the parent
 
 ---
 
@@ -34,7 +27,7 @@ This skill uses the following utility scripts:
 
 ### scripts/utils/repo_utils.py
 - `find_known_repo(repo_type)` - Locate known repos ('odh-test-context', 'tiger-team'), returns (path, clone_url)
-- `find_target_repo(repo_name)` - Find target code repo in common locations
+- `find_target_repo(repo_name)` - Find target repo by org/repo name or local git clone path
 - `find_repo_in_common_locations(repo_name)` - Search common locations for a repository
 - `clone_repo(repo_url, target_path)` - Clone Git repository from GitHub
 - `map_components_to_repos(components, odh_path)` - Map component names to GitHub repos
@@ -73,7 +66,7 @@ This skill uses the following utility scripts:
 ## Dependencies
 
 ### Required
-- **Python 3.8+** - For test code generation and validation
+- **Python 3.10+** - For test code generation and validation
 - **uv** - For running frontmatter scripts
 - **git** - For cloning repositories
 - **gh CLI** - For fetching artifacts from GitHub branches (if feature source is remote)
@@ -100,9 +93,9 @@ This skill uses the following utility scripts:
 
 ## How Dependencies Work Together
 
-### For Test Code Generation (Step 5.3):
+### For Test Code Generation (Step 4):
 ```
-Tiger Team pattern guides     odh-test-context         test-plan.create.test-function
+Tiger Team pattern guides     odh-test-context         test-plan-generate-test-file
 (code patterns, examples)  +  (basic conventions)  →   (sub-agent)
           ↓                           ↓                       ↓
    "Use Ginkgo BeforeSuite,    "Framework: pytest,      Generated test code

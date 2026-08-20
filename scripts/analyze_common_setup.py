@@ -16,7 +16,7 @@ def analyze_common_setup(feature_dir: str, tc_ids: list[str] | None = None) -> s
 
     Args:
         feature_dir: Path to feature directory
-        tc_ids: Optional list of TC IDs to analyze (analyzes all if None)
+        tc_ids: Optional list of TC IDs to analyze (analyzes all if None or empty)
 
     Returns:
         JSON string with common setup requirements
@@ -25,8 +25,8 @@ def analyze_common_setup(feature_dir: str, tc_ids: list[str] | None = None) -> s
     if not tc_dir.exists():
         return json.dumps([])
 
-    # If no TC IDs provided, analyze all TCs
-    if not tc_ids:
+    # None or [] means no filter: analyze all TCs
+    if tc_ids is None or len(tc_ids) == 0:
         tc_ids = [f.stem for f in tc_dir.glob("TC-*.md")]
 
     if not tc_ids:

@@ -56,6 +56,14 @@ class TestValidateTargetRepo:
             ("https://github.com/org/repo", True, "org/repo", None),
             ("https://github.com/opendatahub-io/opendatahub-tests", True, "opendatahub-io/opendatahub-tests", None),
             ("http://github.com/my-org/my-repo", True, "my-org/my-repo", None),
+            ("my org/repo", False, None, "org/repo"),
+            ("org/repo?ref=main", False, None, "org/repo"),
+            (
+                "https://user:token@github.com/opendatahub-io/opendatahub-tests",
+                True,
+                "opendatahub-io/opendatahub-tests",
+                None,
+            ),
         ],
     )
     def test_validates_repo_format(self, repo_name, valid, expected_repo, error_fragment):

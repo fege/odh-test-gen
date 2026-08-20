@@ -6,13 +6,11 @@ get_filtered_tcs.py instead.
 
 Always returns 3 lists:
 - be_test_cases: Backend/non-UI TCs that are NOT implemented
-- already_implemented: TCs with automation_status='Implemented' (UI or non-UI)
+- already_implemented: TCs with automation_status='Complete' and status='Automated'
 - ui_test_cases: UI test cases (TC-UI-*) that are NOT implemented
 """
 
 import json
-import os
-import sys
 from pathlib import Path
 
 from scripts.utils.frontmatter_utils import read_frontmatter
@@ -46,69 +44,42 @@ def get_all_tc_ids(feature_dir: str) -> list[str]:
     return [tc_file.stem for tc_file in tc_files]
 
 
-def confirm_re_implement(already_implemented: list[str]) -> bool:
+def apply_reimplement(result: dict, *, ids: list[str]) -> dict:
+    """Move selected already_implemented TCs back into be/ui lists by category.
+
+    Empty ``ids`` is a noop (returns the same dict). IDs not present in
+    ``already_implemented`` raise ValueError.
     """
-    Ask user whether to re-implement already_implemented test cases.
+    if not ids:
+        return result
 
-    Args:
-        already_implemented: List of TC IDs that are already implemented
+    already = result["already_implemented"]
+    already_set = set(already)
+    unknown = [tc_id for tc_id in ids if tc_id not in already_set]
+    if unknown:
+        raise ValueError(f"IDs not in already_implemented: {', '.join(unknown)}")
 
-    Returns:
-        bool: True if user wants to re-implement, False otherwise
-        In non-interactive mode (CLAUDE_NON_INTERACTIVE=true), returns False
-    """
-    if not already_implemented:
-        return False
+    selected: list[str] = []
+    seen: set[str] = set()
+    for tc_id in ids:
+        if tc_id not in seen:
+            seen.add(tc_id)
+            selected.append(tc_id)
 
-    is_interactive = os.getenv("CLAUDE_NON_INTERACTIVE", "").lower() not in ("true", "1", "yes")
+    be_test_cases = list(result["be_test_cases"])
+    ui_test_cases = list(result["ui_test_cases"])
 
-    if is_interactive:
-        print(
-            f"\n{len(already_implemented)} test case(s) already implemented: {', '.join(already_implemented)}",
-            file=sys.stderr,
-        )
-        response = input("Re-implement these? [y/n]: ").strip().lower()
-        return response in ("y", "yes")
-    else:
-        # Non-interactive mode: default to NO
-        return False
+    for tc_id in selected:
+        if extract_category_from_tc_id(tc_id) == "ui":
+            ui_test_cases.append(tc_id)
+        else:
+            be_test_cases.append(tc_id)
 
-
-def filter_and_confirm_test_cases(feature_dir: str, tc_ids: list[str] | None = None, confirm: bool = False) -> dict:
-    """
-    Filter test cases with optional confirmation for re-implementing.
-
-    Args:
-        feature_dir: Path to feature directory
-        tc_ids: List of test case IDs (if None and confirm=True, auto-discovers all TCs)
-        confirm: If True, prompts for re-implement and writes .test_cases_filter.json
-
-    Returns:
-        dict with be_test_cases, already_implemented, ui_test_cases lists
-    """
-    # Auto-discover TCs if no IDs provided
-    if tc_ids is None or len(tc_ids) == 0:
-        tc_ids = get_all_tc_ids(feature_dir)
-
-    # Filter test cases
-    result_json = filter_test_cases(feature_dir, tc_ids or [])
-    result = json.loads(result_json)
-
-    # In confirm mode, ask about re-implementing
-    if confirm and confirm_re_implement(result["already_implemented"]):
-        for tc_id in result["already_implemented"]:
-            category = extract_category_from_tc_id(tc_id)
-            if category == "ui":
-                result["ui_test_cases"].append(tc_id)
-            else:
-                result["be_test_cases"].append(tc_id)
-        result["already_implemented"] = []
-
-    # Always write persistent file
-    output_file = Path(feature_dir) / ".test_cases_filter.json"
-    output_file.write_text(json.dumps(result, indent=2) + "\n")
-
-    return result
+    return {
+        "be_test_cases": be_test_cases,
+        "already_implemented": [tc_id for tc_id in already if tc_id not in seen],
+        "ui_test_cases": ui_test_cases,
+    }
 
 
 def filter_test_cases(feature_dir: str, tc_ids: list[str]) -> str:
@@ -116,7 +87,7 @@ def filter_test_cases(feature_dir: str, tc_ids: list[str]) -> str:
     Filter test cases by automation status first, then by UI category.
 
     Priority logic:
-    1. If automation_status='Implemented' → already_implemented (UI or non-UI)
+    1. If automation_status='Complete' and status='Automated' → already_implemented
     2. Else if TC-UI-* → ui_test_cases
     3. Else → be_test_cases (backend/non-UI tests)
 
@@ -151,11 +122,10 @@ def filter_test_cases(feature_dir: str, tc_ids: list[str]) -> str:
         # Read frontmatter
         frontmatter, _ = read_frontmatter(str(tc_file))
 
-        # Check automation_status FIRST
         automation_status = frontmatter.get("automation_status", "").strip().lower()
+        status = frontmatter.get("status", "").strip().lower()
 
-        if automation_status == "implemented":
-            # Implemented TCs go to already_implemented (UI or not)
+        if automation_status == "complete" and status == "automated":
             already_implemented.append(tc_id)
         else:
             # Not implemented: check if UI
