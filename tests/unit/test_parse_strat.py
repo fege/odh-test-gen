@@ -494,6 +494,45 @@ class TestLoadStratContentContainment:
         with pytest.raises(ValueError, match="strategy_file_not_permitted"):
             _load_strat_content(str(snapshot))
 
+    @pytest.mark.parametrize(
+        "marker_content",
+        [
+            "null",
+            "[]",
+            '{"other_key": "value"}',
+            '{"output_dir": null}',
+            '{"output_dir": 123}',
+            '{"output_dir": []}',
+        ],
+    )
+    def test_malformed_marker_ignored_snapshot_rejected(self, tmp_path, monkeypatch, marker_content):
+        """Malformed marker JSON is ignored; snapshot outside artifacts/ is rejected."""
+        self._setup_snapshot_outside_artifacts(tmp_path, monkeypatch)
+        marker = tmp_path / "plans" / "my_feature" / ".test-plan-output-dir.json"
+        marker.write_text(marker_content)
+
+        # Malformed marker should be ignored → snapshot not permitted
+        with pytest.raises(ValueError, match="strategy_file_not_permitted"):
+            _load_strat_content(str(tmp_path / "plans" / "my_feature" / ".source-strategy.md"))
+
+    def test_marker_with_nonexistent_dir_ignored(self, tmp_path, monkeypatch):
+        """Marker pointing to nonexistent dir is ignored; snapshot rejected."""
+        self._setup_snapshot_outside_artifacts(tmp_path, monkeypatch)
+        marker = tmp_path / "plans" / "my_feature" / ".test-plan-output-dir.json"
+        marker.write_text(json.dumps({"output_dir": str(tmp_path / "nonexistent")}))
+
+        # Marker points to nonexistent dir → ignored → snapshot not permitted
+        with pytest.raises(ValueError, match="strategy_file_not_permitted"):
+            _load_strat_content(str(tmp_path / "plans" / "my_feature" / ".source-strategy.md"))
+
+    def _setup_snapshot_outside_artifacts(self, tmp_path, monkeypatch):
+        """Helper: create snapshot outside artifacts/ for marker tests."""
+        feature_dir = tmp_path / "plans" / "my_feature"
+        feature_dir.mkdir(parents=True)
+        snapshot = feature_dir / ".source-strategy.md"
+        snapshot.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+
 
 class TestCmdResolveLocal:
     """CLI-level tests for parse_strat.py's resolve-local — validates a Jira key before

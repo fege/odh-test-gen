@@ -58,16 +58,27 @@ def ensure_feature_test_dir(feature_dir: str, target_repo_path: str, test_dir: s
     if not test_dir:
         raise ValueError("test_dir is empty")
 
+    # Validate test_dir before constructing paths: reject absolute paths
+    test_dir_path = Path(test_dir)
+    if test_dir_path.is_absolute():
+        raise ValueError("test_dir must be relative with no parent directory references")
+
     if Path(test_dir).name == feature_name:
         return test_dir
 
+    # Validate parent stays within target repo (catches both ".." and symlink escapes)
     parent = Path(target_repo_path) / test_dir
+    parent_resolved = parent.resolve()
+    target_repo_resolved = Path(target_repo_path).resolve()
+    if not parent_resolved.is_relative_to(target_repo_resolved):
+        raise ValueError(f"test_dir escapes target repo: {test_dir}")
+
     if not parent.is_dir():
         raise FileNotFoundError(f"Component test directory does not exist: {parent}")
 
     dest = parent / feature_name
     dest_resolved = dest.resolve()
-    if not dest_resolved.is_relative_to(parent.resolve()):
+    if not dest_resolved.is_relative_to(parent_resolved):
         raise ValueError(f"Feature package path escapes test_dir: {dest}")
 
     created = not dest.exists()

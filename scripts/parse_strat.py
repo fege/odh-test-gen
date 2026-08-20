@@ -61,9 +61,13 @@ def _permitted_strat_path(raw_path: str) -> Path:
     feature_dir = resolved.parent
     marker = feature_dir / OUTPUT_DIR_MARKER
     if marker.is_file() and not marker.is_symlink():
-        with contextlib.suppress(json.JSONDecodeError, OSError, KeyError):
+        with contextlib.suppress(json.JSONDecodeError, OSError, KeyError, TypeError, ValueError):
             data = json.loads(marker.read_text())
-            allowed_roots.append(Path(data["output_dir"]).resolve())
+            # Validate marker shape: must be dict with string output_dir pointing to existing dir
+            if isinstance(data, dict) and isinstance(data.get("output_dir"), str):
+                output_dir_path = Path(data["output_dir"]).resolve()
+                if output_dir_path.is_dir():
+                    allowed_roots.append(output_dir_path)
 
     if not any(resolved == root or resolved.is_relative_to(root) for root in allowed_roots):
         raise ValueError("strategy_file_not_permitted")

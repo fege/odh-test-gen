@@ -124,6 +124,39 @@ class TestEnsureFeatureTestDir:
         with pytest.raises(NotADirectoryError):
             ensure_feature_test_dir(str(feature_dir), str(tmp_path), "tests/ai_safety")
 
+    @pytest.mark.parametrize(
+        "test_dir",
+        [
+            "../evil_outside",
+            "/tmp/evil",
+            "tests/../../outside",
+            "tests/../../../tmp",
+        ],
+    )
+    def test_rejects_path_traversal(self, tmp_path, test_dir):
+        """test_dir with parent refs or absolute paths must not create files outside repo."""
+        feature_dir = _feature_dir(tmp_path)
+        _component_dir(tmp_path)
+        # Create plausible outside dirs so paths resolve successfully
+        (tmp_path / "evil_outside").mkdir(exist_ok=True)
+        (tmp_path / "outside").mkdir(exist_ok=True)
+
+        # Should reject with either "must be relative" (absolute) or "escapes target repo" (.. traversal)
+        with pytest.raises(ValueError, match="(must be relative|escapes target repo)"):
+            ensure_feature_test_dir(str(feature_dir), str(tmp_path), test_dir)
+
+    def test_accepts_deep_nested_relative_path(self, tmp_path):
+        """Valid deep relative paths within repo must work."""
+        feature_dir = _feature_dir(tmp_path)
+        deep = tmp_path / "tests" / "integration" / "ai_safety"
+        deep.mkdir(parents=True)
+        (deep / "__init__.py").write_text("")
+
+        result = ensure_feature_test_dir(str(feature_dir), str(tmp_path), "tests/integration/ai_safety")
+
+        assert result == "tests/integration/ai_safety/nemo_guardrails_runtime_state_api"
+        assert (deep / "nemo_guardrails_runtime_state_api").is_dir()
+
 
 def test_cli_prints_path(tmp_path):
     feature_dir = _feature_dir(tmp_path)

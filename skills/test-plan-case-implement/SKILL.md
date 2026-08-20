@@ -229,7 +229,7 @@ If `test_context` is not None (target repo has odh-test-context):
 Extract and format conventions as markdown:
 ```bash
 # Extract repo name from org/repo or local path (e.g., opendatahub-io/opendatahub-tests -> opendatahub-tests)
-target_repo_name=$(echo "$target_repo" | sed 's|.*/||')
+target_repo_name=$(basename "${target_repo%/}")
 
 (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/extract_and_format_conventions.py "$feature_dir" "$target_repo_name" "$odh_test_context_path") > "$feature_dir/.test_implementation_conventions.md"
 ```

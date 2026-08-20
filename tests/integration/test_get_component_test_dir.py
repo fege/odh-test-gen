@@ -201,3 +201,38 @@ def test_missing_testplan_errors(tmp_path):
 
     assert result.returncode == 1
     assert "TestPlan.md not found" in result.stderr
+
+
+def test_scalar_components_normalized_to_list(tmp_path):
+    """components field as scalar string is normalized to single-element list."""
+    tests_dir = tmp_path / "tests"
+    tests_dir.mkdir()
+    (tests_dir / "ai_hub").mkdir()
+    feature_dir = tmp_path / "feature"
+    feature_dir.mkdir()
+    testplan = feature_dir / "TestPlan.md"
+    # Write malformed frontmatter with scalar components
+    testplan.write_text(
+        """---
+source_key: RHAISTRAT-999
+feature: test-feature
+components: AI Hub
+---
+
+# Test Plan
+"""
+    )
+
+    # Should normalize "AI Hub" to ["AI Hub"] and map correctly
+    result = get_component_test_dir_for_feature(str(feature_dir), str(tmp_path))
+    assert result == "tests/ai_hub"
+
+    # CLI should also work
+    cli_result = subprocess.run(
+        ["uv", "run", "python", "scripts/get_component_test_dir.py", str(feature_dir), str(tmp_path)],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+
+    assert cli_result.stdout.strip() == "tests/ai_hub"

@@ -44,6 +44,13 @@ def get_frontmatter_components(feature_dir: str) -> list[str]:
 
     frontmatter, _ = read_frontmatter(str(testplan_path))
     components = frontmatter.get("components") or []
+
+    # Normalize scalar to list (forgive malformed frontmatter)
+    if isinstance(components, str):
+        components = [components]
+    elif not isinstance(components, list):
+        components = []
+
     return [c.strip() for c in components if isinstance(c, str) and c.strip()]
 
 
