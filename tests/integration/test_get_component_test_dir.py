@@ -12,16 +12,21 @@ from scripts.get_component_test_dir import (
 from tests.helpers import write_valid_testplan
 
 
-def _feature_with_components(tmp_path, components: list[str] | None):
+def _feature_with_components(tmp_path, components: list[str] | None, *, feature: str | None = None):
     """Feature dir with a schema-valid TestPlan.md, optionally setting components."""
-    feature = tmp_path / "feature"
-    feature.mkdir()
-    testplan = feature / "TestPlan.md"
-    if components is None:
-        write_valid_testplan(testplan)
+    feature_dir = tmp_path / "feature"
+    feature_dir.mkdir()
+    testplan = feature_dir / "TestPlan.md"
+    overrides = {}
+    if components is not None:
+        overrides["components"] = components
+    if feature is not None:
+        overrides["feature"] = feature
+    if overrides:
+        write_valid_testplan(testplan, **overrides)
     else:
-        write_valid_testplan(testplan, components=components)
-    return feature
+        write_valid_testplan(testplan)
+    return feature_dir
 
 
 def test_get_component_test_dir_with_existing_component(tmp_path):
@@ -112,6 +117,24 @@ def test_multiple_components_one_existing_dir(tmp_path):
     feature = _feature_with_components(tmp_path, ["Model Serving", "Unknown Feature"])
 
     assert get_component_test_dir_for_feature(str(feature), str(tmp_path)) == "tests/model_serving"
+
+
+def test_stops_at_component_dir_when_child_packages_exist(tmp_path):
+    """Component mapping does not enter feature packages — that is ensure_feature_test_dir."""
+    tests_dir = tmp_path / "tests"
+    ai_safety = tests_dir / "ai_safety"
+    ai_safety.mkdir(parents=True)
+    (ai_safety / "evalhub").mkdir()
+    (ai_safety / "guardrails").mkdir()
+    (ai_safety / "nemo_guardrails").mkdir()
+
+    feature = _feature_with_components(
+        tmp_path,
+        ["AI Safety", "AI Guardrails"],
+        feature="nemo_guardrails_runtime_state_api",
+    )
+
+    assert get_component_test_dir_for_feature(str(feature), str(tmp_path)) == "tests/ai_safety"
 
 
 def test_multiple_components_distinct_dirs_are_ambiguous(tmp_path):

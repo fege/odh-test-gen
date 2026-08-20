@@ -667,6 +667,8 @@ class TestCmdSaveSnapshot:
         assert output["source"] == "cache"
         assert strategy_file.is_file()  # shared cache is never deleted
         assert "Given X" in (feature_dir / ".source-strategy.md").read_text()
+        marker = feature_dir / ".test-plan-output-dir.json"
+        assert json.loads(marker.read_text()) == {"output_dir": str(feature_dir.parent.resolve())}
 
     def test_feature_dir_is_created_if_missing(self, tmp_path, monkeypatch, run_cli):
         monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
@@ -706,6 +708,25 @@ class TestCmdSaveSnapshot:
         secret_file = tmp_path / "secret.md"
         secret_file.write_text("TOP SECRET — must never be overwritten")
         (feature_dir / ".source-strategy.md").symlink_to(secret_file)
+
+        exit_code, output = run_cli(main, ["save-snapshot", str(strategy_file), str(feature_dir)])
+
+        assert exit_code == 1
+        assert output == {"status": "error", "error": "snapshot_write_unsafe"}
+        assert secret_file.read_text() == "TOP SECRET — must never be overwritten"
+
+    def test_rejects_preexisting_symlink_at_output_dir_marker(self, tmp_path, monkeypatch, run_cli):
+        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        strat_dir = tmp_path / "artifacts" / "strat-tasks"
+        strat_dir.mkdir(parents=True)
+        strategy_file = strat_dir / "RHAISTRAT-1746.md"
+        strategy_file.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
+
+        feature_dir = tmp_path / "mcp_catalog"
+        feature_dir.mkdir()
+        secret_file = tmp_path / "secret.md"
+        secret_file.write_text("TOP SECRET — must never be overwritten")
+        (feature_dir / ".test-plan-output-dir.json").symlink_to(secret_file)
 
         exit_code, output = run_cli(main, ["save-snapshot", str(strategy_file), str(feature_dir)])
 

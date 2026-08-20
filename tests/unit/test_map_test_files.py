@@ -14,13 +14,32 @@ from scripts.map_test_files import map_test_files
 class TestMapTestFiles:
     """Test map_test_files function."""
 
-    def _create_tc_file(self, tc_dir, tc_id, priority="P0", title="Test"):
+    def _create_tc_file(
+        self,
+        tc_dir,
+        tc_id,
+        priority="P0",
+        title="Test",
+        status=None,
+        automation_status=None,
+        automation_file=None,
+        automation_function=None,
+    ):
         """Helper to create a TC file."""
+        extra = ""
+        if status is not None:
+            extra += f"status: {status}\n"
+        if automation_status is not None:
+            extra += f"automation_status: {automation_status}\n"
+        if automation_file is not None:
+            extra += f"automation_file: {automation_file}\n"
+        if automation_function is not None:
+            extra += f"automation_function: {automation_function}\n"
         tc_file = tc_dir / f"{tc_id}.md"
         tc_file.write_text(f"""---
 test_case_id: {tc_id}
 priority: {priority}
----
+{extra}---
 
 ## Title
 {title}
@@ -90,8 +109,8 @@ priority: {priority}
         assert e2e_file["test_cases"] == ["TC-E2E-001"]
         assert "test_full_workflow" in e2e_file["function_names"]
 
-    def test_by_category_with_subdirs_strategy(self, tmp_path):
-        """Should create category subdirectories."""
+    def test_by_category_with_subdirs_is_flat_like_by_category(self, tmp_path):
+        """TC prefixes (neg, e2e, nfr) are never directories."""
         tc_dir = tmp_path / "test_cases"
         tc_dir.mkdir()
         (tc_dir / "INDEX.md").write_text("# Index")
@@ -105,14 +124,110 @@ priority: {priority}
         data = json.loads(result)
 
         assert len(data["file_mapping"]) == 2
+        paths = {f["file_path"] for f in data["file_mapping"]}
+        assert paths == {"tests/test_neg_notebooks.py", "tests/test_nfr_notebooks.py"}
+        assert not any("/neg/" in p or "/nfr/" in p or "/e2e/" in p for p in paths)
 
-        # Find NEG file (should be in subdirectory)
-        neg_file = next(f for f in data["file_mapping"] if "neg" in f["file_path"])
-        assert neg_file["file_path"] == "tests/neg/test_notebooks.py"
+    def test_reimplement_uses_automation_file(self, tmp_path):
+        """Complete + Automated TCs rewrite the recorded automation_file."""
+        tc_dir = tmp_path / "test_cases"
+        tc_dir.mkdir()
+        existing = "tests/ai_safety/nemo_guardrails/test_e2e_nemo_guardrails_runtime_state_api.py"
+        self._create_tc_file(
+            tc_dir,
+            "TC-E2E-001",
+            title="Runtime state API",
+            status="Automated",
+            automation_status="Complete",
+            automation_file=existing,
+            automation_function="test_runtime_state_api",
+        )
 
-        # Find NFR file
-        nfr_file = next(f for f in data["file_mapping"] if "nfr" in f["file_path"])
-        assert nfr_file["file_path"] == "tests/nfr/test_notebooks.py"
+        result = map_test_files(str(tmp_path), ["TC-E2E-001"], "by-category", "tests/ai_safety", feature_name="nemo")
+        data = json.loads(result)
+
+        assert data["file_mapping"] == [
+            {
+                "file_path": existing,
+                "test_cases": ["TC-E2E-001"],
+                "function_names": ["test_runtime_state_api"],
+            }
+        ]
+
+    def test_reimplement_groups_tcs_that_share_automation_file(self, tmp_path):
+        tc_dir = tmp_path / "test_cases"
+        tc_dir.mkdir()
+        shared = "tests/ai_safety/nemo_guardrails/test_e2e_nemo_guardrails_runtime_state_api.py"
+        self._create_tc_file(
+            tc_dir,
+            "TC-E2E-001",
+            title="First",
+            status="Automated",
+            automation_status="Complete",
+            automation_file=shared,
+            automation_function="test_first",
+        )
+        self._create_tc_file(
+            tc_dir,
+            "TC-E2E-002",
+            title="Second",
+            status="Automated",
+            automation_status="Complete",
+            automation_file=shared,
+            automation_function="test_second",
+        )
+
+        result = map_test_files(str(tmp_path), ["TC-E2E-001", "TC-E2E-002"], "by-category", "tests")
+        data = json.loads(result)
+
+        assert len(data["file_mapping"]) == 1
+        assert data["file_mapping"][0]["file_path"] == shared
+        assert data["file_mapping"][0]["test_cases"] == ["TC-E2E-001", "TC-E2E-002"]
+        assert data["file_mapping"][0]["function_names"] == ["test_first", "test_second"]
+
+    def test_mixed_reimplement_and_new_tcs(self, tmp_path):
+        tc_dir = tmp_path / "test_cases"
+        tc_dir.mkdir()
+        existing = "tests/ai_safety/nemo_guardrails/test_e2e_nemo_guardrails_runtime_state_api.py"
+        self._create_tc_file(
+            tc_dir,
+            "TC-E2E-001",
+            title="Existing",
+            status="Automated",
+            automation_status="Complete",
+            automation_file=existing,
+            automation_function="test_existing",
+        )
+        self._create_tc_file(tc_dir, "TC-NEG-001", title="New negative")
+
+        result = map_test_files(
+            str(tmp_path),
+            ["TC-E2E-001", "TC-NEG-001"],
+            "by-category",
+            "tests/ai_safety",
+            feature_name="nemo",
+        )
+        data = json.loads(result)
+
+        by_id = {entry["test_cases"][0]: entry for entry in data["file_mapping"]}
+        assert by_id["TC-E2E-001"]["file_path"] == existing
+        assert by_id["TC-NEG-001"]["file_path"] == "tests/ai_safety/test_neg_nemo.py"
+
+    def test_complete_without_automation_file_uses_strategy(self, tmp_path):
+        tc_dir = tmp_path / "test_cases"
+        tc_dir.mkdir()
+        self._create_tc_file(
+            tc_dir,
+            "TC-E2E-001",
+            title="Missing path",
+            status="Automated",
+            automation_status="Complete",
+        )
+
+        result = map_test_files(str(tmp_path), ["TC-E2E-001"], "by-category", "tests/ai_safety", feature_name="nemo")
+        data = json.loads(result)
+
+        assert data["file_mapping"][0]["file_path"] == "tests/ai_safety/test_e2e_nemo.py"
 
     def test_function_name_generation(self, tmp_path):
         """Should generate valid Python function names from TC titles."""

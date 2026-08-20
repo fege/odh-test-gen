@@ -99,10 +99,13 @@ def get_component_test_dir_for_feature(feature_dir: str, target_repo_path: str) 
     specific = list(dict.fromkeys(d for d in mapped if d != FALLBACK_TEST_DIR))
 
     if len(specific) == 1:
-        return specific[0]
-    if len(specific) == 0:
-        return FALLBACK_TEST_DIR
-    raise AmbiguousComponentTestDirError(specific)
+        test_dir = specific[0]
+    elif len(specific) == 0:
+        test_dir = FALLBACK_TEST_DIR
+    else:
+        raise AmbiguousComponentTestDirError(specific)
+
+    return test_dir
 
 
 def main():

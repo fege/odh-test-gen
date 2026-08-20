@@ -323,14 +323,28 @@ test_dir=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
 ```
 
 - One component, or several that map to the same existing directory → that directory (e.g. "AI Hub" + "Model Registry" → `tests/ai_hub`)
+- Stops at the component directory (e.g. `tests/ai_safety`) — does not enter child packages
 - No matching directory → `tests`
 - Distinct existing directories → script exits 1 listing them. If interactive, AskUserQuestion which to use; if non-interactive, stop.
+
+Then look for or create a package named after TestPlan.md `feature` under that directory:
+
+```bash
+test_dir=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+  uv run python scripts/ensure_feature_test_dir.py "$feature_dir" "$target_repo_path" "$test_dir")
+feature_name=$(basename "$test_dir")
+```
+
+- Existing `{component_dir}/{feature}` → use it
+- Missing → create it (and `__init__.py` when the parent is a Python package)
+- `feature_name` is the last path segment (used in Step 3.3 file names)
 
 #### 3.2 Determine file organization strategy
 
 Determine file organization strategy from conventions:
-- If `test_context` shows subdirectories (unit/, api/, etc.) → `by-category-with-subdirs`
-- Default → `by-category` (flat structure, one file per category)
+- Default → `by-category` (flat: `test_{category}_{feature}.py` under `test_dir`)
+- TC category prefixes (`e2e`, `neg`, `nfr`, `ui`) are **never** directories
+- `by-category-with-subdirs` is an alias of `by-category`
 - If unclear, ask user (by-category / one-per-tc)
 
 Set `strategy` variable based on determination above.
@@ -350,10 +364,12 @@ Parse the JSON output to extract:
 - `strategy`, `total_test_cases`, `total_files`
 
 The script handles:
-- Grouping TCs by category
-- Generating file paths based on strategy
+- Re-implement: TCs with `status: Automated`, `automation_status: Complete`, and a
+  non-empty `automation_file` keep that path (rewrite the existing file; keep
+  `automation_function` when set)
+- Grouping remaining TCs by category
+- Generating file paths based on strategy (never `e2e/` / `neg/` folders)
 - Generating function names from TC titles
-- Checking for existing test files
 
 **DO NOT** manually create /tmp/*.json files, read existing test files, or generate file paths yourself. Use the script output directly.
 

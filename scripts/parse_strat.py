@@ -115,9 +115,11 @@ def save_snapshot(strategy_file: str, feature_dir: str) -> dict:
     content = _load_strat_content(str(resolved))
     _write_snapshot(snapshot_path, content)
 
-    # Persist output dir so scripts/skills can find it without env vars
+    # Persist output dir so scripts/skills can find it without env vars.
+    # Same O_NOFOLLOW writer as the snapshot: a planted symlink at the marker
+    # must not redirect this write.
     marker_path = feature_path / OUTPUT_DIR_MARKER
-    marker_path.write_text(json.dumps({"output_dir": str(feature_path.parent.resolve())}) + "\n")
+    _write_snapshot(marker_path, json.dumps({"output_dir": str(feature_path.parent.resolve())}) + "\n")
 
     if resolved.is_relative_to(tmp_root):
         resolved.unlink()
