@@ -23,6 +23,25 @@ reviews:
     - "!CHANGELOG.md"
 
   path_instructions:
+    # Same `path` key as the inherited org rule, so this replaces
+    # "every Python file needs path-traversal validation" for this repo.
+    - path: "**/*.py"
+      instructions: |
+        THREAT MODEL: local single-user Claude Code plugin CLI. Scripts run as the
+        developer on that developer's machine — not a network service, not setuid,
+        not a shared host with a concurrent untrusted writer.
+
+        Flag as security issues:
+        - Writes that follow a planted symlink (confused-deputy overwrite of a secret)
+        - Paths that escape the intended root (absolute paths, `..`, unsanitized
+          CLI/frontmatter values used as filesystem destinations)
+        - Secrets in argv, URLs, logs, exception messages, or artifacts
+
+        Do NOT flag as security issues:
+        - CWE-367 TOCTOU / check-then-read races on files this process already owns
+        - "use O_NOFOLLOW on every read" unless the write side can overwrite a secret
+        - SSRF, multi-tenant isolation, or untrusted-client assumptions
+
     # ── 1. Python Scripts (scripts/**/*.py) ───────────────────────────
     - path: "scripts/**/*.py"
       instructions: |
@@ -38,6 +57,9 @@ reviews:
            (e.g. get_framework.py, get_component_test_dir.py, parse_skill_args.py) output bare
            strings, not JSON. Do not flag these for missing JSON output — wrapping a single value
            in JSON would break every shell consumer and add jq parsing for no gain.
+        5. LOCAL-CLI THREAT MODEL: Apply the `**/*.py` threat model above. Do not raise
+           path-traversal or TOCTOU findings that require a concurrent untrusted process
+           racing this CLI. Do still flag symlink-following writes and root-escape destinations.
 
     # ── 2. Claude Code Plugin Skills (skills/**/*.md) ──────────────────
     - path: "skills/**/*.md"
