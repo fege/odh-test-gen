@@ -354,10 +354,17 @@ def validate_category_prefixes(testplan_path: str) -> dict:
 
 
 INTERFACE_TABLE_COLUMNS = ["Interface", "Type", "Purpose"]
+ALLOWED_INTERFACE_TYPES = frozenset({"REST", "gRPC", "UI", "CLI", "CRD"})
+MARKDOWN_SEPARATOR_CELL_RE = re.compile(r"^:?-+:?$")
+
+
+def _is_markdown_separator_row(columns: list[str]) -> bool:
+    """True when every cell is a Markdown table separator cell (e.g. ``---``, ``:---:``)."""
+    return bool(columns) and all(MARKDOWN_SEPARATOR_CELL_RE.match(c.strip()) for c in columns)
 
 
 def validate_interface_types(testplan_path: str) -> dict:
-    """Check Section 4 for Config-type entries and correct table columns (no Priority)."""
+    """Check Section 4 for allowed interface types and correct table columns (no Priority)."""
     path = Path(testplan_path)
     if not path.exists():
         return {"valid": False, "error": f"File not found: {testplan_path}"}
@@ -365,35 +372,43 @@ def validate_interface_types(testplan_path: str) -> dict:
     content = path.read_text()
     section_lines, start_line = extract_section(content, TEMPLATE_HEADINGS["4"])
     if not section_lines:
-        return {"valid": True, "config_entries": [], "header": None}
+        return {"valid": True, "disallowed_entries": [], "header": None}
 
-    table_re = re.compile(r"^\|\s*(.+?)\s*\|\s*Config\s*\|", re.IGNORECASE)
-    config_entries = []
+    disallowed_entries = []
     header = None
     header_error = None
-    prev_row = None  # most recent non-separator pipe row: (columns, line_number)
+    first_pipe_row = True
     for i, line in enumerate(section_lines):
-        match = table_re.match(line)
-        if match:
-            config_entries.append({"interface": match.group(1).strip(), "line_number": start_line + i})
-
         stripped = line.strip()
         if not (stripped.startswith("|") and stripped.endswith("|")):
             continue
-        if "---" in stripped:
-            # The header is the pipe row immediately above the separator, even if it has a blank cell.
-            if header is None and prev_row is not None:
-                header, header_line = prev_row
-                if header != INTERFACE_TABLE_COLUMNS:
-                    header_error = {
-                        "expected": INTERFACE_TABLE_COLUMNS,
-                        "found": header,
-                        "line_number": header_line,
-                    }
-        else:
-            prev_row = ([c.strip() for c in stripped.strip("|").split("|")], start_line + i)
 
-    result = {"valid": not config_entries and header_error is None, "config_entries": config_entries, "header": header}
+        columns = [c.strip() for c in stripped.strip("|").split("|")]
+        if _is_markdown_separator_row(columns):
+            continue
+
+        line_number = start_line + i
+        if first_pipe_row:
+            header = columns
+            first_pipe_row = False
+            if header != INTERFACE_TABLE_COLUMNS:
+                header_error = {
+                    "expected": INTERFACE_TABLE_COLUMNS,
+                    "found": header,
+                    "line_number": line_number,
+                }
+            continue
+
+        interface = columns[0] if columns else ""
+        type_cell = columns[1] if len(columns) > 1 else ""
+        if type_cell not in ALLOWED_INTERFACE_TYPES:
+            disallowed_entries.append({"interface": interface, "type": type_cell, "line_number": line_number})
+
+    result = {
+        "valid": not disallowed_entries and header_error is None,
+        "disallowed_entries": disallowed_entries,
+        "header": header,
+    }
     if header_error:
         result["header_error"] = header_error
     return result
@@ -894,7 +909,9 @@ def main():
     p_feature_name.add_argument("feature_name", help="Feature directory name to validate")
     p_feature_name.set_defaults(func=cmd_feature_name)
 
-    p_iface = subparsers.add_parser("interface-types", help="Check Section 4 for Config-type entries")
+    p_iface = subparsers.add_parser(
+        "interface-types", help="Check Section 4 interface types against REST/gRPC/UI/CLI/CRD allowlist"
+    )
     p_iface.add_argument("testplan_path", help="Path to TestPlan.md")
     p_iface.set_defaults(func=cmd_interface_types)
 

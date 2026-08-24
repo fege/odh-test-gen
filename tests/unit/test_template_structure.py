@@ -23,8 +23,8 @@ class TestTemplateSection4Structure:
     def test_template_section4_has_no_priority_column(self):
         result = validate_interface_types(str(TEMPLATE_PATH))
 
-        assert result["valid"] is True, f"Template Section 4 table does not match expected columns: {result}"
         assert result["header"] == ["Interface", "Type", "Purpose"]
+        assert "{REST/gRPC/UI/CLI/CRD}" in TEMPLATE_PATH.read_text()
 
     def test_template_has_no_bold_pseudo_headings(self):
         result = validate_structure(str(TEMPLATE_PATH))

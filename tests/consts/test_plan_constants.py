@@ -427,6 +427,8 @@ author: QE Team
 | Interface | Type | Purpose |
 |-----------|------|---------|
 | `/v1/chat/completions` | REST | Chat inference |
+| Inference gRPC | gRPC | Streaming inference |
+| `oc get` | CLI | Cluster inspection |
 | NemoGuardrails CRD | CRD | Guardrail configuration |
 | Dashboard model page | UI | Model management |
 """
@@ -471,6 +473,103 @@ author: QE Team
 | `config.yaml` | Config | Runtime configuration |
 | `BASE_URL` env var | Config | Service endpoint |
 | Dashboard model page | UI | Model management |
+"""
+
+
+# TestPlan.md with Database-type entry in Section 4 (invalid — not in allowlist).
+# Interface name itself contains "---" so this also regression-covers separator-row
+# detection: a data row must not be mistaken for the header's "---" divider row.
+TESTPLAN_DATABASE_INTERFACES = f"""---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+{TEMPLATE_HEADINGS["4"]}
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| legacy---store | Database | Purpose |
+"""
+
+# TestPlan.md with wrong-case ReST type in Section 4 (invalid — allowlist is exact)
+TESTPLAN_REST_WRONG_CASE_INTERFACES = f"""---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+{TEMPLATE_HEADINGS["4"]}
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| Chat completions API | ReST | Purpose |
+"""
+
+# TestPlan.md with empty Type cell in Section 4 (invalid — empty types fail)
+TESTPLAN_EMPTY_TYPE_INTERFACES = f"""---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+{TEMPLATE_HEADINGS["4"]}
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| Widget API |  | Purpose |
+"""
+
+# Section 4 table with no separator row — data Type must still be checked.
+TESTPLAN_NO_SEPARATOR_INTERFACES = f"""---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+{TEMPLATE_HEADINGS["4"]}
+
+| Interface | Type | Purpose |
+| Unseparated datastore | Database | Purpose |
+"""
+
+# Section 4 data row with a single cell (no Type column) — Type is treated as empty.
+TESTPLAN_MISSING_TYPE_COLUMN_INTERFACES = f"""---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+{TEMPLATE_HEADINGS["4"]}
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| Single-cell interface |
 """
 
 # TestPlan.md where Section 9.2 and 6.2 fully cover Section 4 interfaces
