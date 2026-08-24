@@ -234,6 +234,8 @@ class TestLoadAndDetect:
 
         assert result["valid"] is False
         assert "error" in result
+        assert isinstance(result["error"], str)
+        assert result["error"]
 
     def test_missing_test_plan_path_returns_structured_error(self, tmp_path):
         """Missing TestPlan.md returns a JSON error instead of raising FileNotFoundError."""
