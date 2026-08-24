@@ -71,6 +71,7 @@ def _require_mapping(value, field: str) -> None:
 
 def _list_str_field(config: dict, field: str) -> list[str]:
     """Return config[field] as list[str], defaulting to [] when the key is absent."""
+    _require_mapping(config, "validation config")
     value = config.get(field, [])
     _require_list_str(value, field)
     return list(value)
@@ -78,6 +79,7 @@ def _list_str_field(config: dict, field: str) -> list[str]:
 
 def _boilerplate_category_lists(config: dict) -> dict[str, list[str]]:
     """Return objectives/risks/priorities lists from config['patterns'], validating types."""
+    _require_mapping(config, "validation config")
     patterns = config.get("patterns", {})
     _require_mapping(patterns, "patterns")
     categories: dict[str, list[str]] = {}

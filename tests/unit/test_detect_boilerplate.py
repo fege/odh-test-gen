@@ -222,6 +222,19 @@ class TestLoadAndDetect:
         assert result["valid"] is False
         assert "error" in result
 
+    def test_root_list_config_returns_structured_error(self, tmp_path):
+        """A root JSON array in the core config returns a JSON error instead of raising AttributeError."""
+        checks_dir = tmp_path / "checks"
+        (checks_dir / "core").mkdir(parents=True)
+        (checks_dir / "core" / "boilerplate_patterns.json").write_text("[]")
+        plan_path = tmp_path / "TestPlan.md"
+        plan_path.write_text(TESTPLAN_NO_BOILERPLATE)
+
+        result = load_and_detect(str(plan_path), str(checks_dir), teams=None)
+
+        assert result["valid"] is False
+        assert "error" in result
+
     def test_missing_test_plan_path_returns_structured_error(self, tmp_path):
         """Missing TestPlan.md returns a JSON error instead of raising FileNotFoundError."""
         checks_dir = setup_validation_config(
