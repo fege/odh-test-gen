@@ -129,3 +129,16 @@ author: QE Team
 
 **Mitigation**: Integration test suite with containerized PostgreSQL
 """
+
+# Bytes that are not valid UTF-8 — Path.read_text(encoding="utf-8") raises UnicodeDecodeError.
+NON_UTF8_PLAN_BYTES = b"\xff\xfe not utf-8"
+
+# Kinds of unreadable test_plan_path for load_and_detect / load_and_validate wrappers.
+UNREADABLE_TEST_PLAN_KINDS = ("directory", "non_utf8")
+
+# Values that must not be accepted as list[str] config fields (string splits into chars;
+# null / nested lists TypeError in merge/_dedupe). Loaders must raise ValueError instead.
+INVALID_LIST_STR_FIELD_VALUES = ("a string", None, [["nested"]])
+INVALID_LIST_STR_FIELD_IDS = ("string", "null", "nested-list")
+SCOPE_LIST_FIELDS = ("allowed_test_levels", "forbidden_test_levels", "forbidden_patterns")
+BOILERPLATE_PATTERN_CATEGORIES = ("objectives", "risks", "priorities")

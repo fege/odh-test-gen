@@ -101,7 +101,7 @@ def load_and_detect(test_plan_path: str, checks_dir: str, teams: list[str] | Non
     try:
         patterns = load_boilerplate_patterns(checks_dir, teams=teams)
         result = detect_boilerplate_violations(test_plan_path, patterns)
-    except (FileNotFoundError, ValueError) as e:
+    except (OSError, UnicodeError, ValueError) as e:
         return {"valid": False, "error": str(e)}
 
     return {"valid": result["total_violations"] == 0, **result}

@@ -10,8 +10,9 @@ from tests.consts.validation_constants import (
     CORE_BOILERPLATE_PATTERNS,
     TESTPLAN_NO_BOILERPLATE,
     TESTPLAN_WITH_BOILERPLATE,
+    UNREADABLE_TEST_PLAN_KINDS,
 )
-from tests.helpers import setup_validation_config
+from tests.helpers import make_unreadable_test_plan_path, setup_validation_config
 
 
 # These functions will be imported from the actual implementation
@@ -246,3 +247,18 @@ class TestLoadAndDetect:
 
         assert result["valid"] is False
         assert "error" in result
+
+    @pytest.mark.parametrize("kind", UNREADABLE_TEST_PLAN_KINDS)
+    def test_unreadable_test_plan_path_returns_structured_error(self, tmp_path, kind):
+        """Directory or non-UTF-8 test_plan_path returns JSON error, not a traceback."""
+        checks_dir = setup_validation_config(
+            tmp_path, CORE_BOILERPLATE_PATTERNS, config_filename="boilerplate_patterns.json"
+        )
+        plan_path = make_unreadable_test_plan_path(tmp_path, kind)
+
+        result = load_and_detect(plan_path, checks_dir, teams=None)
+
+        assert result["valid"] is False
+        assert "error" in result
+        assert isinstance(result["error"], str)
+        assert result["error"]

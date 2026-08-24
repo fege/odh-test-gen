@@ -8,7 +8,14 @@ import json
 import pytest
 
 from scripts.utils.validation_config_loader import load_boilerplate_patterns, load_scope_patterns
-from tests.consts.validation_constants import CORE_BOILERPLATE_PATTERNS, CORE_SCOPE_PATTERNS
+from tests.consts.validation_constants import (
+    BOILERPLATE_PATTERN_CATEGORIES,
+    CORE_BOILERPLATE_PATTERNS,
+    CORE_SCOPE_PATTERNS,
+    INVALID_LIST_STR_FIELD_IDS,
+    INVALID_LIST_STR_FIELD_VALUES,
+    SCOPE_LIST_FIELDS,
+)
 from tests.helpers import setup_validation_config
 
 
@@ -81,6 +88,22 @@ class TestLoadScopePatterns:
         assert result["forbidden_test_levels"].count("Unit Testing") == 1
         assert result["forbidden_patterns"].count("(?i)functional testing(?! as part of)") == 1
 
+    @pytest.mark.parametrize("field", SCOPE_LIST_FIELDS)
+    @pytest.mark.parametrize("bad_value", INVALID_LIST_STR_FIELD_VALUES, ids=INVALID_LIST_STR_FIELD_IDS)
+    def test_non_list_str_field_raises_value_error(self, tmp_path, field, bad_value):
+        """String, null, or nested-list scope fields raise ValueError, not TypeError or silent split."""
+        config = {
+            "version": "1.0",
+            "allowed_test_levels": ["E2E System Testing"],
+            "forbidden_test_levels": ["Unit Testing"],
+            "forbidden_patterns": ["pattern"],
+        }
+        config[field] = bad_value
+        checks_dir = setup_validation_config(tmp_path, config)
+
+        with pytest.raises(ValueError):
+            load_scope_patterns(checks_dir)
+
 
 class TestLoadBoilerplatePatterns:
     """Tests for boilerplate pattern loading and merging."""
@@ -144,3 +167,31 @@ class TestLoadBoilerplatePatterns:
         assert result["patterns"][category].count("dup1") == 1
         assert "dup2" in result["patterns"][category]
         assert "unique" in result["patterns"][category]
+
+    @pytest.mark.parametrize("category", BOILERPLATE_PATTERN_CATEGORIES)
+    @pytest.mark.parametrize("bad_value", INVALID_LIST_STR_FIELD_VALUES, ids=INVALID_LIST_STR_FIELD_IDS)
+    def test_non_list_str_category_raises_value_error(self, tmp_path, category, bad_value):
+        """String, null, or nested-list category lists raise ValueError before merge."""
+        config = {
+            "version": "1.0",
+            "patterns": {
+                "objectives": ["verify .* works as expected"],
+                "risks": ["environment instability"],
+                "priorities": ["basic workflow"],
+            },
+        }
+        config["patterns"][category] = bad_value
+        checks_dir = setup_validation_config(tmp_path, config, config_filename="boilerplate_patterns.json")
+
+        with pytest.raises(ValueError):
+            load_boilerplate_patterns(checks_dir)
+
+    @pytest.mark.parametrize("bad_value", INVALID_LIST_STR_FIELD_VALUES, ids=INVALID_LIST_STR_FIELD_IDS)
+    def test_patterns_must_be_mapping_raises_value_error(self, tmp_path, bad_value):
+        """Non-mapping `patterns` (string, null, nested-list) raises ValueError."""
+        checks_dir = setup_validation_config(
+            tmp_path, {"version": "1.0", "patterns": bad_value}, config_filename="boilerplate_patterns.json"
+        )
+
+        with pytest.raises(ValueError):
+            load_boilerplate_patterns(checks_dir)

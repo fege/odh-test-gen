@@ -302,7 +302,12 @@ testplan="<absolute_path_to_output_dir>/<feature_name>/TestPlan.md"
 feature_dir="<absolute_path_to_output_dir>/<feature_name>"
 repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
 
-team_list=$(cd "$repo_root" && uv run python scripts/get_component_test_dir.py --teams-only "$feature_dir")
+team_list=$(cd "$repo_root" && uv run python scripts/get_component_test_dir.py --teams-only "$feature_dir") || {
+    echo "ERROR: scripts/get_component_test_dir.py --teams-only failed — stopping." >&2
+    echo "$team_list" >&2
+    exit 1
+}
+
 (cd "$repo_root" && \
  scope_result=$(uv run python scripts/validate_test_scope.py "$testplan" \
      --include-teams="$team_list" --checks-dir=scripts/checks) && \

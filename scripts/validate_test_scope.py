@@ -127,7 +127,7 @@ def load_and_validate(test_plan_path: str, checks_dir: str, teams: list[str] | N
     try:
         patterns = load_scope_patterns(checks_dir, teams=teams)
         violations = detect_scope_violations(test_plan_path, patterns)
-    except (FileNotFoundError, ValueError) as e:
+    except (OSError, UnicodeError, ValueError) as e:
         return {"valid": False, "error": str(e)}
 
     return {"valid": len(violations) == 0, "violations": violations}
