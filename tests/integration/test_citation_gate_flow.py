@@ -10,10 +10,9 @@ enforce_citation_gate computes the right numbers in isolation.
 from scripts.enforce_citation_gate import enforce_citation_gate
 from scripts.filter_for_revision import filter_for_revision
 from scripts.utils.frontmatter_utils import write_frontmatter_with_body
+from tests.consts.validation_constants import VALID_BOILERPLATE, VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK
 from tests.helpers import build_review_payload
 
-VALID_CITATIONS = {"valid": True, "total": 5, "cited": 5, "uncited": [], "invalid_citations": []}
-VALID_COVERAGE = {"valid": True, "ac_count": 5, "covered": [1, 2, 3, 4, 5], "missing": []}
 INVALID_CITATIONS = {
     "valid": False,
     "total": 5,
@@ -38,7 +37,7 @@ class TestCitationGateToRevisionFlow:
 
         assert filter_for_revision(str(tmp_path)) == "SKIP"  # the bug: never revises
 
-        enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE)
+        enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
 
         assert filter_for_revision(str(tmp_path)) == "REVISE"  # fixed: now it does
 
@@ -46,7 +45,7 @@ class TestCitationGateToRevisionFlow:
         scores = {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 2, "consistency": 2}
         _write_review(tmp_path / "TestPlanReview.md", scores, score=10, before_score=10)
 
-        enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE)
+        enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
 
         assert filter_for_revision(str(tmp_path)) == "REVISE"
 
@@ -55,6 +54,6 @@ class TestCitationGateToRevisionFlow:
         scores = {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 2, "consistency": 2}
         _write_review(tmp_path / "TestPlanReview.md", scores, score=10, verdict="Ready", passed=True)
 
-        enforce_citation_gate(str(tmp_path), VALID_CITATIONS, VALID_COVERAGE)
+        enforce_citation_gate(str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
 
         assert filter_for_revision(str(tmp_path)) == "SKIP"

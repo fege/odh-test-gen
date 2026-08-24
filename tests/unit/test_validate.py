@@ -20,14 +20,14 @@ from scripts.validate import (
     validate_infra_scope,
     validate_interface_coverage,
     validate_interface_types,
-    validate_scope,
     validate_structure,
     validate_tc_counts,
     validate_tc_scope,
     validate_tc_traceability,
     validate_test_cases,
 )
-from tests.constants import (
+from scripts.validate_test_scope import load_and_validate as validate_scope
+from tests.consts.test_plan_constants import (
     TESTPLAN_AC_BULLET_FORMAT,
     TESTPLAN_AC_CITED,
     TESTPLAN_AC_MISSING,
@@ -54,11 +54,10 @@ from tests.constants import (
     TESTPLAN_NO_SECTION_52,
     TESTPLAN_VALID_CATEGORIES,
     TESTPLAN_VALID_INTERFACES,
-    VALID_TC_CONTENT,
-    VALID_TEST_GAPS_DATA,
     VALID_TEST_PLAN_DATA,
     VALID_TESTPLAN_CONTENT,
 )
+from tests.constants import VALID_TC_CONTENT, VALID_TEST_GAPS_DATA
 from tests.helpers import write_testplan_with_objectives, write_valid_testplan
 
 
@@ -245,6 +244,17 @@ class TestValidateAll:
         assert result["valid"] is False
         assert result["test_cases"]["valid"] is False
 
+    def test_flags_disallowed_test_level_in_scope(self, tmp_path):
+        """validate_all must catch Section 2.1 scope violations (not just infra/tc scope)."""
+        write_valid_testplan(tmp_path / "TestPlan.md")
+        testplan_path = tmp_path / "TestPlan.md"
+        testplan_path.write_text(testplan_path.read_text().replace("E2E System Testing", "Unit Testing"))
+
+        result = validate_all(str(tmp_path))
+
+        assert result["valid"] is False
+        assert result["test_scope"]["valid"] is False
+
 
 class TestValidateScope:
     """Tests for validate_scope — disallowed test levels in Section 2.1."""
@@ -253,7 +263,7 @@ class TestValidateScope:
         testplan = tmp_path / "TestPlan.md"
         testplan.write_text(TESTPLAN_E2E_ONLY)
 
-        result = validate_scope(str(testplan))
+        result = validate_scope(str(testplan), checks_dir="scripts/checks", teams=None)
 
         assert result["valid"] is True
         assert result["violations"] == []
@@ -262,26 +272,27 @@ class TestValidateScope:
         testplan = tmp_path / "TestPlan.md"
         testplan.write_text(TESTPLAN_BROAD_LEVELS)
 
-        result = validate_scope(str(testplan))
+        result = validate_scope(str(testplan), checks_dir="scripts/checks", teams=None)
 
         assert result["valid"] is False
         assert len(result["violations"]) == 3
-        violation_names = [v["level"] for v in result["violations"]]
+        violation_names = [v["matched_pattern"] for v in result["violations"]]
         assert "API Integration Testing" in violation_names
         assert "Data Validation Testing" in violation_names
-        assert "Functional Testing" in violation_names
+        # Functional Testing is caught by regex pattern
+        assert any("functional" in pattern.lower() for pattern in violation_names)
 
     def test_missing_section_passes(self, tmp_path):
         testplan = tmp_path / "TestPlan.md"
         testplan.write_text(TESTPLAN_NO_SECTION_21)
 
-        result = validate_scope(str(testplan))
+        result = validate_scope(str(testplan), checks_dir="scripts/checks", teams=None)
 
         assert result["valid"] is True
         assert result["violations"] == []
 
     def test_file_not_found(self):
-        result = validate_scope("/nonexistent/TestPlan.md")
+        result = validate_scope("/nonexistent/TestPlan.md", checks_dir="scripts/checks", teams=None)
 
         assert result["valid"] is False
         assert "error" in result

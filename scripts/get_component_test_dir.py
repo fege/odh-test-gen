@@ -4,6 +4,7 @@ Map TestPlan.md components to a test directory in the target repository.
 
 Usage:
     python scripts/get_component_test_dir.py <feature_dir> <target_repo_path>
+    python scripts/get_component_test_dir.py --teams-only <feature_dir>
 
 Args:
     feature_dir: Path to feature directory containing TestPlan.md
@@ -12,6 +13,12 @@ Args:
 Output:
     Test directory path if a unique component directory exists, otherwise "tests".
     Exits 1 if multiple components map to different existing directories.
+
+    With `--teams-only`, prints a comma-separated, sorted, de-duplicated list of every
+    matching `COMPONENT_TEST_DIR_MAP` team name instead (no target repo needed, no
+    directory-existence check, no ambiguity error) — used as the `--include-teams` value
+    for `validate_test_scope.py`/`detect_boilerplate.py`, where each component's team may
+    contribute its own pattern overrides independently of the others.
 """
 
 import os
@@ -115,9 +122,28 @@ def get_component_test_dir_for_feature(feature_dir: str, target_repo_path: str) 
     return test_dir
 
 
+def get_teams_for_feature(feature_dir: str) -> str:
+    """Comma-separated, sorted, de-duplicated `COMPONENT_TEST_DIR_MAP` teams for every
+    TestPlan.md component — unlike `get_component_test_dir_for_feature`, needs no target
+    repo and returns ALL matching teams instead of requiring them to agree on one.
+    """
+    teams = {get_test_dir_for_component(c) for c in get_frontmatter_components(feature_dir)}
+    return ",".join(sorted(t for t in teams if t))
+
+
 def main():
     if len(sys.argv) != 3:
+        if "--teams-only" in sys.argv:
+            exit_error("Usage: get_component_test_dir.py --teams-only <feature_dir>")
         exit_error("Usage: get_component_test_dir.py <feature_dir> <target_repo_path>")
+
+    # `--teams-only <feature_dir>` skips the target-repo requirement entirely.
+    if sys.argv[1] == "--teams-only":
+        try:
+            print(get_teams_for_feature(sys.argv[2]))
+        except FileNotFoundError as e:
+            exit_error(str(e))
+        return
 
     feature_dir = sys.argv[1]
     target_repo_path = sys.argv[2]

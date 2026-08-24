@@ -15,7 +15,8 @@ from scripts.utils.schemas import (
     get_schema_yaml,
     validate,
 )
-from tests.constants import VALID_TEST_CASE_DATA, VALID_TEST_GAPS_DATA, VALID_TEST_PLAN_DATA
+from tests.constants import VALID_TEST_CASE_DATA, VALID_TEST_GAPS_DATA
+from tests.consts.test_plan_constants import VALID_TEST_PLAN_DATA
 
 
 class TestSchemaDetection:

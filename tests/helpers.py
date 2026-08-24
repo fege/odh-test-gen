@@ -1,10 +1,12 @@
 """Shared test helper functions."""
 
+import json
 from pathlib import Path
 
 from scripts.utils.frontmatter_utils import write_frontmatter
 from scripts.utils.schemas import TEMPLATE_HEADINGS
-from tests.constants import TESTPLAN_VALID_BODY, VALID_TEST_PLAN_DATA
+from tests.consts.test_plan_constants import TESTPLAN_VALID_BODY, VALID_TEST_PLAN_DATA
+from tests.consts.validation_constants import NON_UTF8_PLAN_BYTES
 
 
 def write_valid_testplan(path, **frontmatter_overrides):
@@ -106,3 +108,45 @@ def strat_with_testability_heading(heading: str) -> str:
         "# *Rate limit*: Given many attempts When threshold hit Then requests are throttled\n\n"
         "h3. Effort Estimate\n\n(bounds the section)\n"
     )
+
+
+def setup_validation_config(base_dir, core_config, team_configs=None, config_filename="scope_patterns.json"):
+    """Setup validation config files for testing.
+
+    Args:
+        base_dir: Base path (typically tmp_path from pytest fixture)
+        core_config: Core config dict to write to checks/core/{config_filename}
+        team_configs: Optional dict of {team_name: config_dict}
+        config_filename: Config filename (scope_patterns.json or boilerplate_patterns.json)
+
+    Returns:
+        str: Path to checks directory
+    """
+    checks_dir = Path(base_dir) / "checks"
+    (checks_dir / "core").mkdir(parents=True, exist_ok=True)
+    (checks_dir / "core" / config_filename).write_text(json.dumps(core_config))
+
+    if team_configs:
+        for team_name, config in team_configs.items():
+            (checks_dir / team_name).mkdir(parents=True, exist_ok=True)
+            (checks_dir / team_name / config_filename).write_text(json.dumps(config))
+
+    return str(checks_dir)
+
+
+def make_unreadable_test_plan_path(base_dir, kind):
+    """Return a test_plan_path that exists but cannot be read as UTF-8 text.
+
+    kind "directory": path is a directory (IsADirectoryError from Path.read_text).
+    kind "non_utf8": file whose bytes are not valid UTF-8 (UnicodeDecodeError).
+    """
+    base = Path(base_dir)
+    if kind == "directory":
+        path = base / "as_directory"
+        path.mkdir()
+        return str(path)
+    if kind == "non_utf8":
+        path = base / "TestPlan.md"
+        path.write_bytes(NON_UTF8_PLAN_BYTES)
+        return str(path)
+    raise ValueError(f"unknown unreadable plan kind: {kind}")
