@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "allowed_test_levels": ["E2E System Testing", "UI Testing"],
+  "forbidden_test_levels": [
+    "Unit Testing",
+    "Integration Testing",
+    "Component Testing",
+    "Data Validation Testing",
+    "API Integration Testing"
+  ],
+  "forbidden_patterns": ["(?i)functional testing(?! as part of)"]
+}

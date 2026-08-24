@@ -13,6 +13,8 @@ Interface coverage result (precomputed, inline JSON): {INTERFACE_COVERAGE_RESULT
 Citation validity result (precomputed, inline JSON): {AC_CITATIONS_RESULT}
 AC coverage result (precomputed, inline JSON): {AC_COVERAGE_RESULT}
 Additional documents (precomputed, inline JSON): {ADDITIONAL_DOCS_CONTENT}
+Scope check result (precomputed, inline JSON): {SCOPE_CHECK_RESULT}
+Boilerplate detection result (precomputed, inline JSON): {BOILERPLATE_RESULT}
 
 ## Inputs
 
@@ -22,6 +24,8 @@ Additional documents (precomputed, inline JSON): {ADDITIONAL_DOCS_CONTENT}
 4. The interface coverage result is provided inline above — it is the precomputed, deterministic diff of Section 4 interfaces against Section 9.2 and Section 6.2. Use its `missing_in_9_2` and `missing_in_6_2` fields directly for the corresponding Consistency cross-checks below. Do NOT re-derive these two checks by reading the tables yourself.
 5. The citation validity result is provided inline above — it is the precomputed, deterministic check of each Section 1.3 objective's `(AC: #N)`/`(NFR: category)` citation against the STRAT's real AC count and NFR categories. Use its `valid`, `uncited`, and `invalid_citations` fields directly for Scope Fidelity and Consistency below. Do NOT re-derive citation validity yourself.
 6. The AC coverage result is provided inline above — it is the precomputed, deterministic check of the reverse direction: whether every AC number `1..ac_count` is cited by *some* Section 1.3 objective. Citation validity (step 5) cannot catch an AC that has no objective at all; this can. Use its `valid` and `missing` fields directly for Scope Fidelity below. Do NOT re-derive it yourself.
+7. The scope check result is provided inline above — it is the precomputed, deterministic check of Section 2.1 (Test Levels) against the allowed e2e/UI test levels. Use its `valid` and `violations` fields directly for Scope Fidelity below. Do NOT re-derive it yourself.
+8. The boilerplate detection result is provided inline above — it is the precomputed, deterministic scan of Sections 1.3/2.3/8 for generic phrases ("verify X works as expected," "core functionality," etc.). Use its `total_violations` and `by_section` fields directly for Specificity below. Do NOT re-derive it yourself.
 
 ## Rubric — 5 Criteria, 0-2 Each, Total 0-10
 
@@ -34,6 +38,11 @@ Additional documents (precomputed, inline JSON): {ADDITIONAL_DOCS_CONTENT}
 | **2** | Priorities reference feature-specific scenarios. Risks name specific dependencies and failure modes unique to this feature. Test levels justified by the interface types under test. |
 
 **Smell test:** Take any risk from Section 8 and mentally paste it into a test plan for a completely different feature. If it still makes sense, it's generic.
+
+**Enforcement (apply after scoring against the table above):**
+- If `BOILERPLATE_RESULT.total_violations >= 5`: cap score to 0
+- If `BOILERPLATE_RESULT.total_violations >= 3`: cap score to 1
+- Otherwise: the rubric logic above applies unmodified
 
 ### 2. GROUNDING — Are details traceable to source material, or fabricated?
 
@@ -60,6 +69,10 @@ Additional documents (precomputed, inline JSON): {ADDITIONAL_DOCS_CONTENT}
 | **2** | Every in-scope item from the strategy maps to at least one test objective. Every out-of-scope item is truly absent from interfaces and test levels. `ac_citations_result.valid` and `ac_coverage_result.valid` are `true` (read directly — do not re-derive). No scope creep, no scope gaps. |
 
 **Smell test:** List the strategy's deliverables. For each one, find the test objective that covers it. Any orphans in either direction = misalignment.
+
+**Enforcement (apply after scoring against the table above):**
+- If `SCOPE_CHECK_RESULT.valid == false`: cap score to 1
+- Otherwise: the rubric logic above applies unmodified
 
 ### 4. ACTIONABILITY — Could a QE engineer start testing from this plan alone?
 
@@ -99,9 +112,9 @@ Return your assessment in this exact structure:
 
 | Criterion | Score | Evidence | Notes |
 |-----------|-------|----------|-------|
-| Specificity | {0-2} | {key evidence from the test plan} | {why this score, referencing smell test} |
+| Specificity | {0-2} | {key evidence from the test plan + BOILERPLATE_RESULT.total_violations} | {why this score, referencing smell test and any enforcement cap applied} |
 | Grounding | {0-2} | {source match summary} | {count of grounded vs suspected fabrications} |
-| Scope Fidelity | {0-2} | {strategy deliverable mapping + ac_citations_result.valid + ac_coverage_result.valid} | {orphans, uncited/invalid citations, or missing AC numbers} |
+| Scope Fidelity | {0-2} | {strategy deliverable mapping + ac_citations_result.valid + ac_coverage_result.valid + SCOPE_CHECK_RESULT.valid} | {orphans, uncited/invalid citations, missing AC numbers, or scope check violations} |
 | Actionability | {0-2} | {concrete vs vague sections} | {questions a tester would still have} |
 | Consistency | {0-2} | {cross-check results} | {specific mismatches found} |
 

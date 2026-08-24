@@ -12,7 +12,8 @@ import pytest
 
 from scripts import frontmatter
 from scripts.utils.frontmatter_utils import write_frontmatter
-from tests.constants import VALID_TEST_GAPS_DATA, VALID_TEST_PLAN_DATA, VALID_TEST_PLAN_REVIEW_DATA
+from tests.constants import VALID_TEST_GAPS_DATA
+from tests.consts.test_plan_constants import VALID_TEST_PLAN_DATA, VALID_TEST_PLAN_REVIEW_DATA
 
 
 class TestReadFieldArgument:

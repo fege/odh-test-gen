@@ -1,0 +1,13 @@
+{
+  "version": "1.0",
+  "patterns": {
+    "objectives": [
+      "verify .* works as expected",
+      "verify .* works correctly",
+      "ensure proper error handling(?! for)",
+      "test core functionality"
+    ],
+    "risks": ["dependency on external services(?! - )", "environment instability"],
+    "priorities": ["core functionality(?! - )", "basic workflow"]
+  }
+}

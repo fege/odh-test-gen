@@ -16,7 +16,7 @@ from scripts.utils.frontmatter_utils import (
     write_frontmatter,
     write_frontmatter_with_body,
 )
-from tests.constants import VALID_TEST_PLAN_DATA
+from tests.consts.test_plan_constants import VALID_TEST_PLAN_DATA
 
 
 class TestFrontmatterReadWrite:

@@ -299,8 +299,14 @@ After setting frontmatter, run the deterministic validation checks (`$ac_count`/
 
 ```bash
 testplan="<absolute_path_to_output_dir>/<feature_name>/TestPlan.md"
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
- uv run python scripts/validate.py scope-check "$testplan" && \
+feature_dir="<absolute_path_to_output_dir>/<feature_name>"
+repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+
+team_list=$(cd "$repo_root" && uv run python scripts/get_component_test_dir.py --teams-only "$feature_dir")
+(cd "$repo_root" && \
+ scope_result=$(uv run python scripts/validate_test_scope.py "$testplan" \
+     --include-teams="$team_list" --checks-dir=scripts/checks) && \
+ (echo "$scope_result" | jq -e '.valid' >/dev/null || { echo "$scope_result" >&2; exit 1; }) && \
  uv run python scripts/validate.py ac-citations "$testplan" --ac-count "$ac_count" "${nfr_category_flags[@]}" && \
  uv run python scripts/validate.py ac-coverage "$testplan" --ac-count "$ac_count" && \
  uv run python scripts/validate.py structure "$testplan" && \

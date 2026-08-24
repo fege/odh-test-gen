@@ -8,6 +8,7 @@ from scripts.get_component_test_dir import (
     AmbiguousComponentTestDirError,
     get_component_test_dir,
     get_component_test_dir_for_feature,
+    get_teams_for_feature,
 )
 from tests.helpers import write_valid_testplan
 
@@ -236,3 +237,80 @@ components: AI Hub
     )
 
     assert cli_result.stdout.strip() == "tests/ai_hub"
+
+
+class TestGetTeamsForFeature:
+    """Tests for get_teams_for_feature / the --teams-only CLI mode — the --include-teams value
+    source for validate_test_scope.py/detect_boilerplate.py, used by test-plan-review/create/score.
+    """
+
+    @pytest.mark.parametrize(
+        "components, expected",
+        [
+            pytest.param(["AI Hub"], "ai_hub", id="single-component-single-team"),
+            # "Model Registry" also maps to ai_hub — deduped; sorted alphabetically.
+            pytest.param(["Model Serving", "AI Hub", "Model Registry"], "ai_hub,model_serving", id="deduped-sorted"),
+            pytest.param(["Nonexistent Component"], "", id="unmapped-component"),
+            pytest.param(None, "", id="no-components"),
+        ],
+    )
+    def test_get_teams_for_feature(self, tmp_path, components, expected):
+        feature = _feature_with_components(tmp_path, components)
+
+        assert get_teams_for_feature(str(feature)) == expected
+
+    def test_missing_testplan_raises_file_not_found(self, tmp_path):
+        feature = tmp_path / "feature"
+        feature.mkdir()
+
+        with pytest.raises(FileNotFoundError):
+            get_teams_for_feature(str(feature))
+
+    def test_cli_teams_only_prints_team_list(self, tmp_path):
+        feature = _feature_with_components(tmp_path, ["AI Hub"])
+
+        result = subprocess.run(
+            ["uv", "run", "python", "scripts/get_component_test_dir.py", "--teams-only", str(feature)],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+
+        assert result.stdout.strip() == "ai_hub"
+
+    def test_cli_teams_only_missing_testplan_errors(self, tmp_path):
+        feature = tmp_path / "feature"
+        feature.mkdir()
+
+        result = subprocess.run(
+            ["uv", "run", "python", "scripts/get_component_test_dir.py", "--teams-only", str(feature)],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 1
+        assert "TestPlan.md not found" in result.stderr
+
+    @pytest.mark.parametrize(
+        "extra_argv",
+        [
+            pytest.param([], id="missing-feature-dir"),
+            pytest.param(["extra"], id="extra-trailing-arg"),
+        ],
+    )
+    def test_cli_teams_only_wrong_arg_count_shows_teams_only_usage(self, tmp_path, extra_argv):
+        """A wrong arg count while attempting --teams-only must not show the two-positional-arg
+        usage text — that previously left the real problem (missing/extra feature_dir) unexplained.
+        """
+        feature = _feature_with_components(tmp_path, ["AI Hub"])
+        argv = ["--teams-only", *([str(feature)] if extra_argv else []), *extra_argv]
+
+        result = subprocess.run(
+            ["uv", "run", "python", "scripts/get_component_test_dir.py", *argv],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 1
+        assert "--teams-only <feature_dir>" in result.stderr
+        assert "<target_repo_path>" not in result.stderr

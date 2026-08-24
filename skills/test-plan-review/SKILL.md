@@ -98,6 +98,39 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
    ```
 
+6. Run the deterministic scope and boilerplate checks. These flag out-of-scope test levels
+   (Section 2.1) and generic boilerplate language (Sections 1.3/2.3/8) without an LLM call —
+   results feed the SCOPE FIDELITY and SPECIFICITY rubric criteria in Step 2. Team-specific
+   pattern overrides are resolved from the TestPlan.md `components` frontmatter, mapped to
+   `COMPONENT_TEST_DIR_MAP` team names via `get_component_test_dir.py --teams-only`:
+
+   ```bash
+   team_list=$(cd "$repo_root" && uv run python scripts/get_component_test_dir.py --teams-only <feature_dir>) || {
+       echo "ERROR: scripts/get_component_test_dir.py --teams-only failed — stopping review." >&2
+       echo "$team_list" >&2
+       exit 1
+   }
+
+   scope_check_result=$(cd "$repo_root" && uv run python scripts/validate_test_scope.py <feature_dir>/TestPlan.md \
+       --include-teams="$team_list" --checks-dir=scripts/checks) || {
+       echo "ERROR: scripts/validate_test_scope.py failed — stopping review." >&2
+       echo "$scope_check_result" >&2
+       exit 1
+   }
+
+   boilerplate_result=$(cd "$repo_root" && uv run python scripts/detect_boilerplate.py <feature_dir>/TestPlan.md \
+       --include-teams="$team_list" --checks-dir=scripts/checks) || {
+       echo "ERROR: scripts/detect_boilerplate.py failed — stopping review." >&2
+       echo "$boilerplate_result" >&2
+       exit 1
+   }
+   ```
+
+   `validate_test_scope.py`/`detect_boilerplate.py` always exit 0 by design (results are JSON,
+   not pass/fail signals) — a nonzero exit here means the script itself crashed (bad path,
+   malformed config), an execution failure worth stopping for, same treatment as the other
+   Step 1 scripts.
+
 ### Step 2: Score (fork)
 
 Read the score agent prompt from `${CLAUDE_SKILL_DIR}/prompts/score-agent.md`.
@@ -111,6 +144,8 @@ Launch a **forked** score agent with these substitutions:
 - `{AC_CITATIONS_RESULT}` = JSON from Step 1 (`ac_citations_result`)
 - `{AC_COVERAGE_RESULT}` = JSON from Step 1 (`ac_coverage_result`)
 - `{ADDITIONAL_DOCS_CONTENT}` = JSON from Step 1 (`additional_docs_result`)
+- `{SCOPE_CHECK_RESULT}` = JSON from Step 1 (`scope_check_result`)
+- `{BOILERPLATE_RESULT}` = JSON from Step 1 (`boilerplate_result`)
 
 The score agent evaluates the test plan against a 5-criterion rubric (specificity, grounding, scope fidelity, actionability, consistency) and returns a structured assessment with per-criterion scores and a grounding cross-reference table.
 
@@ -157,12 +192,13 @@ The review agent writes `<feature_dir>/TestPlanReview.md` with rubric scores, fe
 
 ### Step 3.5: Enforce Citation Gate
 
-The review agent is instructed to read `ac_citations_result.valid`/`ac_coverage_result.valid` directly and cap Scope Fidelity to `<= 1` when either is false — but LLM compliance with that instruction isn't guaranteed. Deterministically re-apply it, and check the result — `enforce_citation_gate.py` always exits 0 by design (so malformed input doesn't kill the review run) and reports its outcome as JSON on stdout, never bare text, so a broken gate can't be mistaken for a clean result:
+Deterministically re-apply the Scope Fidelity/Specificity caps the review agent was instructed to self-apply but might not have — `enforce_citation_gate.py` always exits 0 and reports outcome as JSON:
 
 ```bash
 repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
 gate_result=$(cd "$repo_root" && uv run python scripts/enforce_citation_gate.py <feature_dir> \
-    --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result")
+    --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result" \
+    --scope-check-result "$scope_check_result" --boilerplate-result "$boilerplate_result")
 gate_status=$(echo "$gate_result" | jq -r '.status')
 
 case "$gate_status" in
@@ -175,7 +211,7 @@ case "$gate_status" in
 esac
 ```
 
-If this overrides `scope_fidelity` (`gate_status = overridden`), the corrected value (and an injected feedback note explaining why) is what Step 4 evaluates below — not whatever the review agent originally wrote. Anything other than `overridden`/`ok`/`skip` — most concretely `error` (malformed `ac_citations_result`/`ac_coverage_result`, or an invalid `TestPlanReview.md`; see `gate_result`'s `.error` field) — means the gate itself failed to run: stop rather than let an unenforced score pass through.
+If `overridden`, Step 4 evaluates the corrected scores/feedback note, not the review agent's own numbers. Anything other than `overridden`/`ok`/`skip` means the gate itself failed to run — stop.
 
 ### Step 4: Check Criteria and Revise (max 2 cycles)
 
@@ -255,13 +291,33 @@ additional_docs_raw=$(cd "$repo_root" && uv run python scripts/resolve_additiona
 }
 
 additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
+
+team_list=$(cd "$repo_root" && uv run python scripts/get_component_test_dir.py --teams-only <feature_dir>) || {
+    echo "ERROR: scripts/get_component_test_dir.py --teams-only failed — stopping review." >&2
+    echo "$team_list" >&2
+    exit 1
+}
+
+scope_check_result=$(cd "$repo_root" && uv run python scripts/validate_test_scope.py <feature_dir>/TestPlan.md \
+    --include-teams="$team_list" --checks-dir=scripts/checks) || {
+    echo "ERROR: scripts/validate_test_scope.py failed — stopping review." >&2
+    echo "$scope_check_result" >&2
+    exit 1
+}
+
+boilerplate_result=$(cd "$repo_root" && uv run python scripts/detect_boilerplate.py <feature_dir>/TestPlan.md \
+    --include-teams="$team_list" --checks-dir=scripts/checks) || {
+    echo "ERROR: scripts/detect_boilerplate.py failed — stopping review." >&2
+    echo "$boilerplate_result" >&2
+    exit 1
+}
 ```
 
 Repeat Step 2 (score agent) with the revised TestPlan.md and the recomputed results.
 
 **4f. Re-review:**
 
-Repeat Step 3 (review agent) with `{FIRST_PASS}=false`, then repeat Step 3.5 (Enforce Citation Gate) against the recomputed `ac_citations_result`/`ac_coverage_result` from 4e.
+Repeat Step 3 (review agent) with `{FIRST_PASS}=false`, then repeat Step 3.5 (Enforce Citation Gate) against the recomputed results from 4e.
 
 **4g. Restore before_scores and revision history:**
 

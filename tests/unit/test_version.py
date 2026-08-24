@@ -12,7 +12,7 @@ import pytest
 from scripts import version
 from scripts.utils.frontmatter_utils import read_frontmatter, write_frontmatter
 from scripts.version import bump_version
-from tests.constants import VALID_TEST_PLAN_DATA
+from tests.consts.test_plan_constants import VALID_TEST_PLAN_DATA
 
 
 def _create_test_plan(tmpdir, ver="1.0.0", body="# Test Plan\n\nBody content.\n"):

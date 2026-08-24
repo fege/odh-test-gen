@@ -10,7 +10,6 @@ Usage:
     uv run python scripts/validate.py gap-counts <feature_dir> <resolved> <unresolved> <new>
     uv run python scripts/validate.py test-cases <feature_dir>
     uv run python scripts/validate.py all <feature_dir>
-    uv run python scripts/validate.py scope-check <testplan_path>
     uv run python scripts/validate.py ac-citations <testplan_path> [--ac-count N] [--nfr-category CATEGORY ...]
     uv run python scripts/validate.py ac-coverage <testplan_path> --ac-count N
     uv run python scripts/validate.py structure <testplan_path>
@@ -45,6 +44,7 @@ from scripts.utils.markdown_utils import (
     parse_table_rows,
 )
 from scripts.utils.schemas import TEMPLATE_HEADINGS, TESTPLAN_STRUCTURE, detect_schema_type
+from scripts.validate_test_scope import load_and_validate as validate_test_scope
 
 
 def validate_feature_dir(feature_dir: str) -> str:
@@ -183,27 +183,6 @@ def validate_test_cases(feature_dir: str, schema_type: str = "test-case") -> dic
         "failed": len(errors),
         "errors": errors,
     }
-
-
-def validate_scope(testplan_path: str) -> dict:
-    """Check Section 2.1 for disallowed test level names."""
-    path = Path(testplan_path)
-    if not path.exists():
-        return {"valid": False, "error": f"File not found: {testplan_path}"}
-
-    content = path.read_text()
-    section_lines, start_line = extract_section(content, TEMPLATE_HEADINGS["2.1"])
-    if not section_lines:
-        return {"valid": True, "violations": []}
-
-    violations = [
-        {"level": level_name, "line_number": start_line + i}
-        for i, line in enumerate(section_lines)
-        for level_name in TESTPLAN_STRUCTURE["disallowed_test_levels"]
-        if f"**{level_name}**" in line
-    ]
-
-    return {"valid": not violations, "violations": violations}
 
 
 def _citation_reason(citation: dict, ac_count: int, nfr_categories: list) -> str | None:
@@ -685,7 +664,7 @@ def check_interactive() -> dict:
     return {"interactive": True, "reason": "no CI or CLAUDE_NON_INTERACTIVE env var detected"}
 
 
-def validate_all(feature_dir: str) -> dict:
+def validate_all(feature_dir: str, checks_dir: str = "scripts/checks") -> dict:
     """Run all validations on a feature directory.
 
     Only TestPlan.md is required. TestPlanGaps.md and test_cases/ are
@@ -709,13 +688,13 @@ def validate_all(feature_dir: str) -> dict:
             frontmatter_results.append({"file": artifact, "valid": False, "error": str(e)})
 
     tc_result = validate_test_cases(feature_dir)
-    scope_result = validate_scope(str(testplan_path))
     ac_result = validate_ac_citations(str(testplan_path))
     structure_result = validate_structure(str(testplan_path))
     category_result = validate_category_prefixes(str(testplan_path))
     interface_result = validate_interface_types(str(testplan_path))
     interface_coverage_result = validate_interface_coverage(str(testplan_path))
     infra_result = validate_infra_scope(str(testplan_path))
+    test_scope_result = validate_test_scope(str(testplan_path), checks_dir)
     tc_counts_result = validate_tc_counts(feature_dir)
     tc_scope_result = validate_tc_scope(feature_dir)
     tc_traceability_result = validate_tc_traceability(feature_dir)
@@ -723,13 +702,13 @@ def validate_all(feature_dir: str) -> dict:
     valid = (
         all(f["valid"] for f in frontmatter_results)
         and tc_result["valid"]
-        and scope_result["valid"]
         and ac_result["valid"]
         and structure_result["valid"]
         and category_result["valid"]
         and interface_result["valid"]
         and interface_coverage_result["valid"]
         and infra_result["valid"]
+        and test_scope_result["valid"]
         and tc_counts_result["valid"]
         and tc_scope_result["valid"]
         and tc_traceability_result["valid"]
@@ -739,13 +718,13 @@ def validate_all(feature_dir: str) -> dict:
         "valid": valid,
         "frontmatter": frontmatter_results,
         "test_cases": tc_result,
-        "scope": scope_result,
         "ac_citations": ac_result,
         "structure": structure_result,
         "category_prefixes": category_result,
         "interface_types": interface_result,
         "interface_coverage": interface_coverage_result,
         "infra_scope": infra_result,
+        "test_scope": test_scope_result,
         "tc_counts": tc_counts_result,
         "tc_scope": tc_scope_result,
         "tc_traceability": tc_traceability_result,
@@ -772,13 +751,7 @@ def cmd_test_cases(args):
 
 
 def cmd_all(args):
-    result = validate_all(args.feature_dir)
-    print(json.dumps(result, indent=2))
-    sys.exit(0 if result["valid"] else 1)
-
-
-def cmd_scope_check(args):
-    result = validate_scope(args.testplan_path)
+    result = validate_all(args.feature_dir, args.checks_dir)
     print(json.dumps(result, indent=2))
     sys.exit(0 if result["valid"] else 1)
 
@@ -880,11 +853,8 @@ def main():
 
     p_all = subparsers.add_parser("all", help="Run all validations on a feature directory")
     p_all.add_argument("feature_dir", help="Path to feature directory")
+    p_all.add_argument("--checks-dir", default="scripts/checks", help="Base directory for check config files")
     p_all.set_defaults(func=cmd_all)
-
-    p_scope = subparsers.add_parser("scope-check", help="Check Section 2.1 for disallowed test levels")
-    p_scope.add_argument("testplan_path", help="Path to TestPlan.md")
-    p_scope.set_defaults(func=cmd_scope_check)
 
     p_ac = subparsers.add_parser("ac-citations", help="Check Section 1.3 objectives for AC/NFR citations")
     p_ac.add_argument("testplan_path", help="Path to TestPlan.md")

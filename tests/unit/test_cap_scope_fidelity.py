@@ -1,5 +1,5 @@
 """Unit tests for scripts/cap_scope_fidelity.py — the stateless CLI wrapper around
-enforce_citation_gate.cap_scope_fidelity(), for callers with no TestPlanReview.md to persist to
+enforce_citation_gate.apply_score_caps(), for callers with no TestPlanReview.md to persist to
 (test-plan-score, which presents a rubric assessment directly without writing a review file).
 
 Scores are passed as a single --scores-json argument — a JSON object with five rubric keys,
@@ -12,13 +12,29 @@ import sys
 import pytest
 
 from scripts.cap_scope_fidelity import main
-
-VALID_CITATIONS = {"valid": True, "total": 5, "cited": 5, "uncited": [], "invalid_citations": []}
-VALID_COVERAGE = {"valid": True, "ac_count": 5, "covered": [1, 2, 3, 4, 5], "missing": []}
-INVALID_CITATIONS = {"valid": False, "total": 5, "cited": 0, "uncited": [], "invalid_citations": []}
+from tests.consts.validation_constants import (
+    BOILERPLATE_FIVE_VIOLATIONS,
+    BOILERPLATE_THREE_VIOLATIONS,
+    INVALID_CITATIONS,
+    INVALID_SCOPE_CHECK,
+    VALID_BOILERPLATE,
+    VALID_CITATIONS,
+    VALID_COVERAGE,
+    VALID_SCOPE_CHECK,
+)
 
 ALL_TWOS = {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 2, "consistency": 2}
 ALL_TWOS_ARGS = ["--scores-json", json.dumps(ALL_TWOS)]
+DEFAULT_RESULT_ARGS = [
+    "--ac-citations-result",
+    json.dumps(VALID_CITATIONS),
+    "--ac-coverage-result",
+    json.dumps(VALID_COVERAGE),
+    "--scope-check-result",
+    json.dumps(VALID_SCOPE_CHECK),
+    "--boilerplate-result",
+    json.dumps(VALID_BOILERPLATE),
+]
 
 
 def _run(argv, capsys):
@@ -54,25 +70,90 @@ class TestCapScopeFidelityVerdict:
                 json.dumps(citations),
                 "--ac-coverage-result",
                 json.dumps(VALID_COVERAGE),
+                "--scope-check-result",
+                json.dumps(VALID_SCOPE_CHECK),
+                "--boilerplate-result",
+                json.dumps(VALID_BOILERPLATE),
             ],
             capsys,
         )
 
         assert output["status"] == expected_status
         if expected_status == "ok":
-            expected_scores = {
-                "specificity": 2,
-                "grounding": 2,
-                "scope_fidelity": 2,
-                "actionability": 2,
-                "consistency": 2,
-            }
-            assert output == {"status": "ok", "scores": expected_scores}
+            assert output == {"status": "ok", "scores": ALL_TWOS}
         else:
             assert output["scores"]["scope_fidelity"] == 1
             assert output["score"] == 9
             assert output["verdict"] == "Ready"
             assert output["pass"] is True
+
+    def test_overridden_when_scope_check_invalid(self, capsys):
+        output = _run(
+            [
+                *ALL_TWOS_ARGS,
+                "--ac-citations-result",
+                json.dumps(VALID_CITATIONS),
+                "--ac-coverage-result",
+                json.dumps(VALID_COVERAGE),
+                "--scope-check-result",
+                json.dumps(INVALID_SCOPE_CHECK),
+                "--boilerplate-result",
+                json.dumps(VALID_BOILERPLATE),
+            ],
+            capsys,
+        )
+
+        assert output["status"] == "overridden"
+        assert output["scores"]["scope_fidelity"] == 1
+        assert output["scores"]["specificity"] == 2  # untouched
+
+    @pytest.mark.parametrize(
+        "boilerplate, expected_cap",
+        [
+            pytest.param(BOILERPLATE_THREE_VIOLATIONS, 1, id="three-violations-caps-to-1"),
+            pytest.param(BOILERPLATE_FIVE_VIOLATIONS, 0, id="five-violations-caps-to-0"),
+        ],
+    )
+    def test_overridden_when_boilerplate_present(self, boilerplate, expected_cap, capsys):
+        output = _run(
+            [
+                *ALL_TWOS_ARGS,
+                "--ac-citations-result",
+                json.dumps(VALID_CITATIONS),
+                "--ac-coverage-result",
+                json.dumps(VALID_COVERAGE),
+                "--scope-check-result",
+                json.dumps(VALID_SCOPE_CHECK),
+                "--boilerplate-result",
+                json.dumps(boilerplate),
+            ],
+            capsys,
+        )
+
+        assert output["status"] == "overridden"
+        assert output["scores"]["specificity"] == expected_cap
+        assert output["scores"]["scope_fidelity"] == 2  # untouched
+
+    def test_both_scope_fidelity_and_specificity_capped_together(self, capsys):
+        output = _run(
+            [
+                *ALL_TWOS_ARGS,
+                "--ac-citations-result",
+                json.dumps(INVALID_CITATIONS),
+                "--ac-coverage-result",
+                json.dumps(VALID_COVERAGE),
+                "--scope-check-result",
+                json.dumps(VALID_SCOPE_CHECK),
+                "--boilerplate-result",
+                json.dumps(BOILERPLATE_FIVE_VIOLATIONS),
+            ],
+            capsys,
+        )
+
+        assert output["status"] == "overridden"
+        assert output["scores"]["scope_fidelity"] == 1
+        assert output["scores"]["specificity"] == 0
+        assert output["score"] == 7  # 0 + 2 + 1 + 2 + 2
 
 
 class TestCapScopeFidelityStructuredErrors:
@@ -89,14 +170,7 @@ class TestCapScopeFidelityStructuredErrors:
     )
     def test_score_validation_error(self, override, expected_substring, capsys):
         scores = {**ALL_TWOS, **override}
-        argv = [
-            "--scores-json",
-            json.dumps(scores),
-            "--ac-citations-result",
-            json.dumps(VALID_CITATIONS),
-            "--ac-coverage-result",
-            json.dumps(VALID_COVERAGE),
-        ]
+        argv = ["--scores-json", json.dumps(scores), *DEFAULT_RESULT_ARGS]
 
         output = _run(argv, capsys)
 
@@ -116,17 +190,7 @@ class TestCapScopeFidelityStructuredErrors:
         ],
     )
     def test_scores_json_validation_error(self, scores_json, expected_substring, capsys):
-        output = _run(
-            [
-                "--scores-json",
-                scores_json,
-                "--ac-citations-result",
-                json.dumps(VALID_CITATIONS),
-                "--ac-coverage-result",
-                json.dumps(VALID_COVERAGE),
-            ],
-            capsys,
-        )
+        output = _run(["--scores-json", scores_json, *DEFAULT_RESULT_ARGS], capsys)
 
         assert output["status"] == "error"
         assert expected_substring in output["error"]
@@ -146,6 +210,10 @@ class TestCapScopeFidelityStructuredErrors:
                 citations_arg,
                 "--ac-coverage-result",
                 coverage_arg,
+                "--scope-check-result",
+                json.dumps(VALID_SCOPE_CHECK),
+                "--boilerplate-result",
+                json.dumps(VALID_BOILERPLATE),
             ],
             capsys,
         )
@@ -161,12 +229,54 @@ class TestCapScopeFidelityStructuredErrors:
                 json.dumps({"total": 5}),
                 "--ac-coverage-result",
                 json.dumps(VALID_COVERAGE),
+                "--scope-check-result",
+                json.dumps(VALID_SCOPE_CHECK),
+                "--boilerplate-result",
+                json.dumps(VALID_BOILERPLATE),
             ],
             capsys,
         )
 
         assert output["status"] == "error"
         assert "valid" in output["error"]
+
+    def test_missing_valid_field_in_scope_check(self, capsys):
+        output = _run(
+            [
+                *ALL_TWOS_ARGS,
+                "--ac-citations-result",
+                json.dumps(VALID_CITATIONS),
+                "--ac-coverage-result",
+                json.dumps(VALID_COVERAGE),
+                "--scope-check-result",
+                json.dumps({"violations": []}),
+                "--boilerplate-result",
+                json.dumps(VALID_BOILERPLATE),
+            ],
+            capsys,
+        )
+
+        assert output["status"] == "error"
+        assert "valid" in output["error"]
+
+    def test_non_integer_total_violations_in_boilerplate(self, capsys):
+        output = _run(
+            [
+                *ALL_TWOS_ARGS,
+                "--ac-citations-result",
+                json.dumps(VALID_CITATIONS),
+                "--ac-coverage-result",
+                json.dumps(VALID_COVERAGE),
+                "--scope-check-result",
+                json.dumps(VALID_SCOPE_CHECK),
+                "--boilerplate-result",
+                json.dumps({"valid": False, "total_violations": "many"}),
+            ],
+            capsys,
+        )
+
+        assert output["status"] == "error"
+        assert "total_violations" in output["error"]
 
 
 class TestCapScopeFidelityArgparseRejection:
@@ -175,12 +285,25 @@ class TestCapScopeFidelityArgparseRejection:
     def test_missing_scores_json_exits_with_code_2(self):
         old_argv = sys.argv
         try:
+            sys.argv = ["cap_scope_fidelity.py", *DEFAULT_RESULT_ARGS]
+            with pytest.raises(SystemExit) as exc_info:
+                main()
+            assert exc_info.value.code == 2
+        finally:
+            sys.argv = old_argv
+
+    def test_missing_scope_check_result_exits_with_code_2(self):
+        old_argv = sys.argv
+        try:
             sys.argv = [
                 "cap_scope_fidelity.py",
+                *ALL_TWOS_ARGS,
                 "--ac-citations-result",
                 json.dumps(VALID_CITATIONS),
                 "--ac-coverage-result",
                 json.dumps(VALID_COVERAGE),
+                "--boilerplate-result",
+                json.dumps(VALID_BOILERPLATE),
             ]
             with pytest.raises(SystemExit) as exc_info:
                 main()

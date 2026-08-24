@@ -98,6 +98,30 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
    ```
 
+6. Compute scope/boilerplate results (mirrors `test-plan.review` Step 1):
+
+   ```bash
+   team_list=$(cd "$repo_root" && uv run python scripts/get_component_test_dir.py --teams-only <feature_dir>) || {
+       echo "ERROR: scripts/get_component_test_dir.py --teams-only failed — stopping." >&2
+       echo "$team_list" >&2
+       exit 1
+   }
+
+   scope_check_result=$(cd "$repo_root" && uv run python scripts/validate_test_scope.py <feature_dir>/TestPlan.md \
+       --include-teams="$team_list" --checks-dir=scripts/checks) || {
+       echo "ERROR: scripts/validate_test_scope.py failed — stopping." >&2
+       echo "$scope_check_result" >&2
+       exit 1
+   }
+
+   boilerplate_result=$(cd "$repo_root" && uv run python scripts/detect_boilerplate.py <feature_dir>/TestPlan.md \
+       --include-teams="$team_list" --checks-dir=scripts/checks) || {
+       echo "ERROR: scripts/detect_boilerplate.py failed — stopping." >&2
+       echo "$boilerplate_result" >&2
+       exit 1
+   }
+   ```
+
 ### Step 2: Score (fork)
 
 Read the score agent prompt from `skills/test-plan-review/prompts/score-agent.md`.
@@ -111,10 +135,12 @@ Launch a **forked** score agent with substitutions:
 - `{AC_CITATIONS_RESULT}` = JSON from Step 1 (`ac_citations_result`)
 - `{AC_COVERAGE_RESULT}` = JSON from Step 1 (`ac_coverage_result`)
 - `{ADDITIONAL_DOCS_CONTENT}` = JSON from Step 1 (`additional_docs_result`)
+- `{SCOPE_CHECK_RESULT}` = JSON from Step 1 (`scope_check_result`)
+- `{BOILERPLATE_RESULT}` = JSON from Step 1 (`boilerplate_result`)
 
-### Step 2.5: Enforce Citation Gate
+### Step 2.5: Enforce Score Caps
 
-The score agent is instructed to cap Scope Fidelity to `<= 1` when `ac_citations_result.valid`/`ac_coverage_result.valid` is false — but LLM compliance isn't guaranteed, and this skill writes no `TestPlanReview.md` for a gate to correct after the fact (unlike `test-plan.review`, which re-applies the rule via `enforce_citation_gate.py` once the file exists). Re-apply it directly against the agent's self-reported scores (each 0-2, from the Score Table in Step 2), before presenting anything.
+The score agent is instructed to cap Scope Fidelity/Specificity per the precomputed results above — but LLM compliance isn't guaranteed, and this skill writes no `TestPlanReview.md` for a gate to correct after the fact (unlike `test-plan.review`, which re-applies the rule via `enforce_citation_gate.py` once the file exists). Re-apply it directly against the agent's self-reported scores (each 0-2, from the Score Table in Step 2), before presenting anything.
 
 Write the five rubric scores from the Score Table as a JSON object (use `scope_fidelity` with an underscore, matching the rubric key):
 
@@ -129,7 +155,8 @@ repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
 scores_json='{"specificity": N, "grounding": N, "scope_fidelity": N, "actionability": N, "consistency": N}'
 cap_result=$(cd "$repo_root" && uv run python scripts/cap_scope_fidelity.py \
     --scores-json "$scores_json" \
-    --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result") || {
+    --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result" \
+    --scope-check-result "$scope_check_result" --boilerplate-result "$boilerplate_result") || {
     echo "ERROR: scripts/cap_scope_fidelity.py failed — stopping." >&2
     echo "$cap_result" >&2
     exit 1
@@ -142,7 +169,7 @@ if [ "$cap_status" = "error" ]; then
 fi
 ```
 
-The Python helper validates that `scores_json` contains exactly five integer scores (0-2 each) before processing — malformed or out-of-range values produce a structured error, not a shell failure. If `cap_status` is `overridden`, Step 3 below presents `cap_result`'s `scores`/`score`/`verdict`/`pass` — not the agent's own numbers — and flags Scope Fidelity as automatically corrected.
+The Python helper validates that `scores_json` contains exactly five integer scores (0-2 each) before processing — malformed or out-of-range values produce a structured error, not a shell failure. If `cap_status` is `overridden`, Step 3 below presents `cap_result`'s `scores`/`score`/`verdict`/`pass` — not the agent's own numbers — and flags whichever of Scope Fidelity/Specificity was automatically corrected.
 
 ### Step 3: Present Results
 
@@ -155,9 +182,9 @@ Parse the score agent's output and present the results to the user, substituting
 
 | Criterion | Score | Notes |
 |-----------|-------|-------|
-| Specificity | {n}/2 | {brief rationale} |
+| Specificity | {n}/2 | {brief rationale, or "Automatically corrected — boilerplate check failed" if Step 2.5 overrode it} |
 | Grounding | {n}/2 | {brief rationale} |
-| Scope Fidelity | {n}/2 | {brief rationale, or "Automatically corrected — citation/coverage checks failed" if Step 2.5 overrode it} |
+| Scope Fidelity | {n}/2 | {brief rationale, or "Automatically corrected — citation/coverage/scope checks failed" if Step 2.5 overrode it} |
 | Actionability | {n}/2 | {brief rationale} |
 | Consistency | {n}/2 | {brief rationale} |
 

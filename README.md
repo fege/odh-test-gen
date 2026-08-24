@@ -370,7 +370,8 @@ scripts/
 ├── parse_strat.py          # Parse STRAT sections; snapshot strategy files for test-plan-create
 ├── resolve_strategy.py     # Snapshot-primary strategy resolution for test-plan-review/score
 ├── build_citation_inputs.py # Build citation gate inputs (AC/NFR/interface coverage) from a strategy
-├── enforce_citation_gate.py # Deterministically cap Scope Fidelity when citation checks fail
+├── enforce_citation_gate.py # Deterministically cap Scope Fidelity/Specificity when citation/scope/boilerplate checks fail
+├── cap_scope_fidelity.py   # Same caps, no-persist variant for test-plan-score
 ├── filter_for_revision.py # Decide whether a test plan review warrants revision
 ├── preserve_review_state.py # Save/restore cumulative review state across re-assessment cycles
 ├── add_jira_labels.py      # Add labels to Jira issues (CLI wrapper)
