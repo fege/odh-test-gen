@@ -35,8 +35,10 @@ from tests.consts.test_plan_constants import (
     TESTPLAN_BROAD_LEVELS,
     TESTPLAN_CLEAN_INFRA,
     TESTPLAN_CONFIG_INTERFACES,
+    TESTPLAN_DATABASE_INTERFACES,
     TESTPLAN_DEV_TOOLING_INFRA,
     TESTPLAN_E2E_ONLY,
+    TESTPLAN_EMPTY_TYPE_INTERFACES,
     TESTPLAN_FEATURE_CATEGORIES,
     TESTPLAN_INTERFACE_COVERAGE_EMPTY_6_2_CELL,
     TESTPLAN_INTERFACE_COVERAGE_EMPTY_9_2_CELL,
@@ -49,9 +51,12 @@ from tests.consts.test_plan_constants import (
     TESTPLAN_INTERFACE_COVERAGE_PLACEHOLDER_TC_CELL,
     TESTPLAN_INTERFACE_TYPES_BLANK_HEADER_CELL,
     TESTPLAN_MISSING_SECTIONS,
+    TESTPLAN_MISSING_TYPE_COLUMN_INTERFACES,
     TESTPLAN_NO_SECTION_13,
     TESTPLAN_NO_SECTION_21,
     TESTPLAN_NO_SECTION_52,
+    TESTPLAN_NO_SEPARATOR_INTERFACES,
+    TESTPLAN_REST_WRONG_CASE_INTERFACES,
     TESTPLAN_VALID_CATEGORIES,
     TESTPLAN_VALID_INTERFACES,
     VALID_TEST_PLAN_DATA,
@@ -625,7 +630,7 @@ class TestValidateFeatureName:
 
 
 class TestValidateInterfaceTypes:
-    """Tests for validate_interface_types — Config-type entries in Section 4."""
+    """Tests for validate_interface_types — Section 4 Type is a positive allowlist."""
 
     def test_valid_types_pass(self, tmp_path):
         testplan = tmp_path / "TestPlan.md"
@@ -634,7 +639,7 @@ class TestValidateInterfaceTypes:
         result = validate_interface_types(str(testplan))
 
         assert result["valid"] is True
-        assert result["config_entries"] == []
+        assert result["disallowed_entries"] == []
 
     def test_config_type_warns(self, tmp_path):
         testplan = tmp_path / "TestPlan.md"
@@ -643,10 +648,39 @@ class TestValidateInterfaceTypes:
         result = validate_interface_types(str(testplan))
 
         assert result["valid"] is False
-        assert len(result["config_entries"]) == 2
-        interfaces = [e["interface"] for e in result["config_entries"]]
+        assert "header_error" not in result
+        config_disallowed = [e for e in result["disallowed_entries"] if e["type"] == "Config"]
+        assert len(config_disallowed) == 2
+        interfaces = [e["interface"] for e in config_disallowed]
         assert "`config.yaml`" in interfaces
         assert "`BASE_URL` env var" in interfaces
+        for entry in config_disallowed:
+            assert isinstance(entry["line_number"], int)
+
+    @pytest.mark.parametrize(
+        "content, disallowed_type, interface",
+        [
+            (TESTPLAN_DATABASE_INTERFACES, "Database", "legacy---store"),
+            (TESTPLAN_REST_WRONG_CASE_INTERFACES, "ReST", "Chat completions API"),
+            (TESTPLAN_EMPTY_TYPE_INTERFACES, "", "Widget API"),
+            (TESTPLAN_NO_SEPARATOR_INTERFACES, "Database", "Unseparated datastore"),
+            (TESTPLAN_MISSING_TYPE_COLUMN_INTERFACES, "", "Single-cell interface"),
+        ],
+        ids=["Database", "ReST", "empty_type", "no_separator", "missing_type_column"],
+    )
+    def test_disallowed_section4_types_fail(self, tmp_path, content, disallowed_type, interface):
+        testplan = tmp_path / "TestPlan.md"
+        testplan.write_text(content)
+
+        result = validate_interface_types(str(testplan))
+
+        assert result["valid"] is False
+        assert "header_error" not in result
+        matching = [
+            e for e in result["disallowed_entries"] if e["interface"] == interface and e["type"] == disallowed_type
+        ]
+        assert matching
+        assert isinstance(matching[0]["line_number"], int)
 
     def test_no_section_passes(self, tmp_path):
         testplan = tmp_path / "TestPlan.md"
@@ -655,7 +689,7 @@ class TestValidateInterfaceTypes:
         result = validate_interface_types(str(testplan))
 
         assert result["valid"] is True
-        assert result["config_entries"] == []
+        assert result["disallowed_entries"] == []
 
     def test_blank_header_cell_reports_real_header(self, tmp_path):
         testplan = tmp_path / "TestPlan.md"
