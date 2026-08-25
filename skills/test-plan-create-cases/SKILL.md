@@ -14,41 +14,57 @@ Generate individual test case specification files from an existing test plan.
 ## Usage
 
 ```
-/test-plan-create-cases [FEATURE_DIR]
+/test-plan-create-cases [FEATURE_SOURCE] [--output-dir PATH]
 ```
 
 Examples:
-- `/test-plan-create-cases` (auto-detects from prior `/test-plan-create` run)
+- `/test-plan-create-cases` (prompts for the feature directory)
 - `/test-plan-create-cases mcp_catalog`
 - `/test-plan-create-cases /path/to/feature_dir`
+- `/test-plan-create-cases mcp_catalog --output-dir .` (contributor override)
 
 ## Inputs
 
-### From arguments
-Parse `$ARGUMENTS` to extract:
-1. **First argument** (optional): Feature source - can be:
-   - Local directory path: `mcp_catalog` or `/path/to/mcp_catalog`
-   - GitHub branch: `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`
-   - GitHub PR: `https://github.com/org/repo/pull/5`
-2. **`--output-dir`** (optional): Force creation in specified directory (contributor override, skips validation)
+If `$ARGUMENTS` is empty, set `FORCE_OUTPUT_DIR=false` and go to **Interactive fallback**.
 
-### Auto-detection from saved preference
-If no arguments are provided, check for saved output directory from `/test-plan-create`:
+If `$ARGUMENTS` is non-empty, parse **after** Step 0.1. Consume `--output-dir` before the positional feature source:
+
 ```bash
-saved_dir=$(jq -r '.["test-plan"]?.output_dir // empty' .claude/settings.json 2>/dev/null)
+OUTPUT_DIR=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+  uv run python scripts/parse_skill_args.py --output-dir "$ARGUMENTS")
+FORCE_OUTPUT_DIR=false
+if [ -n "$OUTPUT_DIR" ]; then
+    FORCE_OUTPUT_DIR=true
+fi
 ```
-If `saved_dir` is set, look for feature directories containing `.test-plan-output-dir.json`
-(written by `save-snapshot`). If exactly one is found, use it. If multiple, ask the user
-which one to use via AskUserQuestion.
 
-### Interactive fallback
-If no arguments AND no session context, ask the user via AskUserQuestion:
-> **Where is the TestPlan.md located?**
+`--output-dir` is a contributor override. When `FORCE_OUTPUT_DIR=true`, run marker validation
+in Step 0.2.2 and omit skill-repository path validation in Step 0.2.3.
+`FEATURE_SOURCE` is the positional argument or the interactive answer; the flag's `PATH` only
+sets `FORCE_OUTPUT_DIR`. If the flag is present with no positional feature source, go to
+**Interactive fallback**.
+
+### From arguments (optional)
+
+After flags are consumed, if a remaining argument does not start with `--`, it is the feature source:
+- Local directory path: `mcp_catalog` or `/path/to/mcp_catalog`
+- GitHub branch: `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`
+- GitHub PR: `https://github.com/org/repo/pull/5`
+
+**Action:** Set `FEATURE_SOURCE` to that positional value and proceed to Step 0.2.
+
+### Interactive fallback (no positional feature source)
+
+If `$ARGUMENTS` is empty, or no positional feature source remains after flags, invoke AskUserQuestion:
+
+> **Where is the feature directory containing your test plan?**
 >
 > You can provide:
-> - Local directory path (e.g., `~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog`)
-> - GitHub branch URL (e.g., `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`)
-> - GitHub PR URL (e.g., `https://github.com/org/repo/pull/5`)
+> - **Local directory path** (e.g., `/Users/username/Code/ai-hub-test-plans/mcp_catalog`)
+> - **GitHub branch URL** (e.g., `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`)
+> - **GitHub PR URL** (e.g., `https://github.com/org/repo/pull/5`)
+
+**Action:** Capture the user's selection as `FEATURE_SOURCE` and proceed to Step 0.2.
 
 ## Process
 
@@ -65,11 +81,9 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 #### 0.2 Locate Feature Directory
 
-**Skip this step if session context was found** (see "Auto-detection from session" above).
-
-1. **Use the shared locate-feature-dir utility**:
+1. **Use the shared locate-feature-dir utility** to resolve `FEATURE_SOURCE` (local path or GitHub branch/PR) into a local directory:
    ```bash
-   result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py locate-feature-dir "<source>")
+   result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py locate-feature-dir "$FEATURE_SOURCE")
    if [ $? -ne 0 ]; then
        echo "$result"
        exit 1
@@ -80,20 +94,27 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    source_type=$(echo "$result" | jq -r '.source_type')
    ```
 
-2. **Validate local paths against skill repository** (unless `--output-dir` flag was used):
+2. **For local sources, validate the feature directory is self-contained** (was created by
+   `/test-plan-create`, which always writes `<feature_dir>/.test-plan-output-dir.json`):
    ```bash
    if [ "$source_type" = "local" ]; then
-       # Check for --output-dir flag (contributor override)
-       FORCE_OUTPUT_DIR="${FORCE_OUTPUT_DIR:-false}"
-
-       # Validate against skill repository
-       export CLAUDE_SKILL_DIR
-       force_flag=$([ "$FORCE_OUTPUT_DIR" = "true" ] && echo "--force" || echo "")
-       (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-local-path "$feature_dir" $force_flag) || exit 1
+       marker_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/discover_feature_dir.py "$feature_dir")
+       if [ $? -ne 0 ]; then
+           echo "$marker_result"
+           exit 1
+       fi
    fi
    ```
 
-**Note**: GitHub sources are always external repos, so no skill repo validation needed.
+3. **Validate local paths against skill repository** unless `FORCE_OUTPUT_DIR=true`:
+   ```bash
+   if [ "$FORCE_OUTPUT_DIR" != "true" ] && [ "$source_type" = "local" ]; then
+       export CLAUDE_SKILL_DIR
+       (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-local-path "$feature_dir") || exit 1
+   fi
+   ```
+
+**Note**: GitHub sources are always external repos, so no marker check or skill repo validation needed.
 
 ### Step 1: Read the Test Plan
 
