@@ -44,8 +44,18 @@ class TestDiscoverFeatureDirCore:
             ("no_marker_here", True, None),
             ("does_not_exist", False, None),
             ("nemo_guardrails", True, "{not valid json"),
+            ("nemo_guardrails", True, "[]"),
+            ("nemo_guardrails", True, "null"),
+            ("nemo_guardrails", True, '"not-an-object"'),
         ],
-        ids=["missing-marker-file", "missing-feature-dir", "malformed-marker-json"],
+        ids=[
+            "missing-marker-file",
+            "missing-feature-dir",
+            "malformed-marker-json",
+            "marker-json-array",
+            "marker-json-null",
+            "marker-json-string",
+        ],
     )
     def test_discover_invalid_raises_error(self, tmp_path, dir_name, dir_exists, marker_content):
         feature_dir = tmp_path / dir_name
@@ -95,8 +105,17 @@ class TestDiscoverFeatureDirCli:
         [
             ("no_marker_here", None, "invalid_output_dir_marker"),
             ("nemo_guardrails", "{not valid json", "invalid_output_dir_marker"),
+            ("nemo_guardrails", "[]", "invalid_output_dir_marker"),
+            ("nemo_guardrails", "null", "invalid_output_dir_marker"),
+            ("nemo_guardrails", '"not-an-object"', "invalid_output_dir_marker"),
         ],
-        ids=["missing-marker-file", "malformed-marker-json"],
+        ids=[
+            "missing-marker-file",
+            "malformed-marker-json",
+            "marker-json-array",
+            "marker-json-null",
+            "marker-json-string",
+        ],
     )
     def test_cli_invalid_marker_error(self, tmp_path, run_cli, dir_name, marker_content, expected_error):
         feature_dir = tmp_path / dir_name

@@ -28,7 +28,7 @@ def discover_feature_dir(feature_dir: str) -> dict:
     object", so the marker can grow new fields later without coordination here.
 
     Raises:
-        ValueError: If the marker file is missing, unreadable, or not valid JSON.
+        ValueError: If the marker file is missing, unreadable, not valid JSON, or not a JSON object.
     """
     marker_path = Path(feature_dir) / OUTPUT_DIR_MARKER
 
@@ -45,7 +45,7 @@ def discover_feature_dir(feature_dir: str) -> dict:
     except json.JSONDecodeError as e:
         raise ValueError(f"Invalid JSON in {marker_path}: {e}") from e
     if not isinstance(data, dict):
-        raise TypeError(f"Invalid marker object in {marker_path}")
+        raise ValueError(f"Invalid marker object in {marker_path}")
 
     return data
 
@@ -68,7 +68,6 @@ def main():
 
     if not feature_dir:
         exit_error_with_json(message="No feature directory provided", error_key="missing_feature_dir")
-        return
 
     try:
         result = discover_feature_dir(feature_dir)

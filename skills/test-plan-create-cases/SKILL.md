@@ -14,26 +14,44 @@ Generate individual test case specification files from an existing test plan.
 ## Usage
 
 ```
-/test-plan-create-cases [FEATURE_DIR]
+/test-plan-create-cases [FEATURE_SOURCE] [--output-dir PATH]
 ```
 
 Examples:
-- `/test-plan-create-cases` (auto-detects from prior `/test-plan-create` run)
+- `/test-plan-create-cases` (prompts for the feature directory)
 - `/test-plan-create-cases mcp_catalog`
 - `/test-plan-create-cases /path/to/feature_dir`
+- `/test-plan-create-cases mcp_catalog --output-dir .` (contributor override)
 
 ## Inputs
 
+If `$ARGUMENTS` is empty, do **not** parse flags. Set `FORCE_OUTPUT_DIR=false` and go to **Interactive fallback**.
+
+If `$ARGUMENTS` is non-empty, parse **after** Step 0.1. Consume `--output-dir` before the positional feature source:
+
+```bash
+OUTPUT_DIR=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+  uv run python scripts/parse_skill_args.py --output-dir "$ARGUMENTS")
+FORCE_OUTPUT_DIR=false
+if [ -n "$OUTPUT_DIR" ]; then
+    FORCE_OUTPUT_DIR=true
+fi
+```
+
+`--output-dir` is a contributor override: skip skill-repository path validation in Step 0.2. It does **not** skip marker validation. Never treat `--output-dir` or its `PATH` as `FEATURE_SOURCE`. If the flag is present but there is no positional feature source, go to **Interactive fallback** (do not use `PATH` as the plan location).
+
 ### From arguments (optional)
-If the user provided a feature source as the first argument, use it directly:
+
+After flags are consumed, if a remaining argument does not start with `--`, it is the feature source:
 - Local directory path: `mcp_catalog` or `/path/to/mcp_catalog`
 - GitHub branch: `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`
 - GitHub PR: `https://github.com/org/repo/pull/5`
 
-**Action:** If an argument was provided, set `FEATURE_SOURCE` to that value and proceed to Step 0.2.
+**Action:** Set `FEATURE_SOURCE` to that positional value and proceed to Step 0.2.
 
-### Interactive fallback (no argument provided)
-If no feature source argument was provided, invoke AskUserQuestion to ask the user:
+### Interactive fallback (no positional feature source)
+
+If `$ARGUMENTS` is empty, or no positional feature source remains after flags, invoke AskUserQuestion:
 
 > **Where is the feature directory containing your test plan?**
 >
@@ -43,9 +61,6 @@ If no feature source argument was provided, invoke AskUserQuestion to ask the us
 > - **GitHub PR URL** (e.g., `https://github.com/org/repo/pull/5`)
 
 **Action:** Capture the user's selection as `FEATURE_SOURCE` and proceed to Step 0.2.
-
-### Special flags
-- **`--output-dir`** (optional): Force test case creation in specified directory (contributor override, skips validation)
 
 ## Process
 
@@ -59,6 +74,8 @@ Install the test-plan package (makes all scripts importable):
 ```
 
 If installation fails, inform the user and do NOT proceed. Once installed, all Python scripts will work from any directory.
+
+Then resolve inputs as specified above: if `$ARGUMENTS` is empty, prompt for `FEATURE_SOURCE`; otherwise parse `--output-dir` first, then the positional feature source.
 
 #### 0.2 Locate Feature Directory
 
@@ -75,30 +92,27 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    source_type=$(echo "$result" | jq -r '.source_type')
    ```
 
-2. **Validate the feature directory is self-contained** (was created by `/test-plan-create`, which
-   always writes `<feature_dir>/.test-plan-output-dir.json`):
-   ```bash
-   marker_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/discover_feature_dir.py "$feature_dir")
-   if [ $? -ne 0 ]; then
-       echo "$marker_result"
-       exit 1
-   fi
-   ```
-
-3. **Validate local paths against skill repository** (unless `--output-dir` flag was used):
+2. **For local sources, validate the feature directory is self-contained** (was created by
+   `/test-plan-create`, which always writes `<feature_dir>/.test-plan-output-dir.json`):
    ```bash
    if [ "$source_type" = "local" ]; then
-       # Check for --output-dir flag (contributor override)
-       FORCE_OUTPUT_DIR="${FORCE_OUTPUT_DIR:-false}"
-
-       # Validate against skill repository
-       export CLAUDE_SKILL_DIR
-       force_flag=$([ "$FORCE_OUTPUT_DIR" = "true" ] && echo "--force" || echo "")
-       (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-local-path "$feature_dir" $force_flag) || exit 1
+       marker_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/discover_feature_dir.py "$feature_dir")
+       if [ $? -ne 0 ]; then
+           echo "$marker_result"
+           exit 1
+       fi
    fi
    ```
 
-**Note**: GitHub sources are always external repos, so no skill repo validation needed.
+3. **Validate local paths against skill repository** unless `FORCE_OUTPUT_DIR=true`:
+   ```bash
+   if [ "$FORCE_OUTPUT_DIR" != "true" ] && [ "$source_type" = "local" ]; then
+       export CLAUDE_SKILL_DIR
+       (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-local-path "$feature_dir") || exit 1
+   fi
+   ```
+
+**Note**: GitHub sources are always external repos, so no marker check or skill repo validation needed.
 
 ### Step 1: Read the Test Plan
 
