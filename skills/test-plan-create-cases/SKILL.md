@@ -25,7 +25,7 @@ Examples:
 
 ## Inputs
 
-If `$ARGUMENTS` is empty, do **not** parse flags. Set `FORCE_OUTPUT_DIR=false` and go to **Interactive fallback**.
+If `$ARGUMENTS` is empty, set `FORCE_OUTPUT_DIR=false` and go to **Interactive fallback**.
 
 If `$ARGUMENTS` is non-empty, parse **after** Step 0.1. Consume `--output-dir` before the positional feature source:
 
@@ -38,7 +38,11 @@ if [ -n "$OUTPUT_DIR" ]; then
 fi
 ```
 
-`--output-dir` is a contributor override: skip skill-repository path validation in Step 0.2. It does **not** skip marker validation. Never treat `--output-dir` or its `PATH` as `FEATURE_SOURCE`. If the flag is present but there is no positional feature source, go to **Interactive fallback** (do not use `PATH` as the plan location).
+`--output-dir` is a contributor override. When `FORCE_OUTPUT_DIR=true`, run marker validation
+in Step 0.2.2 and omit skill-repository path validation in Step 0.2.3.
+`FEATURE_SOURCE` is the positional argument or the interactive answer; the flag's `PATH` only
+sets `FORCE_OUTPUT_DIR`. If the flag is present with no positional feature source, go to
+**Interactive fallback**.
 
 ### From arguments (optional)
 
@@ -74,8 +78,6 @@ Install the test-plan package (makes all scripts importable):
 ```
 
 If installation fails, inform the user and do NOT proceed. Once installed, all Python scripts will work from any directory.
-
-Then resolve inputs as specified above: if `$ARGUMENTS` is empty, prompt for `FEATURE_SOURCE`; otherwise parse `--output-dir` first, then the positional feature source.
 
 #### 0.2 Locate Feature Directory
 
