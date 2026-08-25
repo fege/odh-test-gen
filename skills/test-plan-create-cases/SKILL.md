@@ -24,31 +24,28 @@ Examples:
 
 ## Inputs
 
-### From arguments
-Parse `$ARGUMENTS` to extract:
-1. **First argument** (optional): Feature source - can be:
-   - Local directory path: `mcp_catalog` or `/path/to/mcp_catalog`
-   - GitHub branch: `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`
-   - GitHub PR: `https://github.com/org/repo/pull/5`
-2. **`--output-dir`** (optional): Force creation in specified directory (contributor override, skips validation)
+### From arguments (optional)
+If the user provided a feature source as the first argument, use it directly:
+- Local directory path: `mcp_catalog` or `/path/to/mcp_catalog`
+- GitHub branch: `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`
+- GitHub PR: `https://github.com/org/repo/pull/5`
 
-### Auto-detection from saved preference
-If no arguments are provided, check for saved output directory from `/test-plan-create`:
-```bash
-saved_dir=$(jq -r '.["test-plan"]?.output_dir // empty' .claude/settings.json 2>/dev/null)
-```
-If `saved_dir` is set, look for feature directories containing `.test-plan-output-dir.json`
-(written by `save-snapshot`). If exactly one is found, use it. If multiple, ask the user
-which one to use via AskUserQuestion.
+**Action:** If an argument was provided, set `FEATURE_SOURCE` to that value and proceed to Step 0.2.
 
-### Interactive fallback
-If no arguments AND no session context, ask the user via AskUserQuestion:
-> **Where is the TestPlan.md located?**
+### Interactive fallback (no argument provided)
+If no feature source argument was provided, invoke AskUserQuestion to ask the user:
+
+> **Where is the feature directory containing your test plan?**
 >
 > You can provide:
-> - Local directory path (e.g., `~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog`)
-> - GitHub branch URL (e.g., `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`)
-> - GitHub PR URL (e.g., `https://github.com/org/repo/pull/5`)
+> - **Local directory path** (e.g., `/Users/username/Code/ai-hub-test-plans/mcp_catalog`)
+> - **GitHub branch URL** (e.g., `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`)
+> - **GitHub PR URL** (e.g., `https://github.com/org/repo/pull/5`)
+
+**Action:** Capture the user's selection as `FEATURE_SOURCE` and proceed to Step 0.2.
+
+### Special flags
+- **`--output-dir`** (optional): Force test case creation in specified directory (contributor override, skips validation)
 
 ## Process
 
@@ -65,11 +62,9 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 #### 0.2 Locate Feature Directory
 
-**Skip this step if session context was found** (see "Auto-detection from session" above).
-
-1. **Use the shared locate-feature-dir utility**:
+1. **Use the shared locate-feature-dir utility** to resolve `FEATURE_SOURCE` (local path or GitHub branch/PR) into a local directory:
    ```bash
-   result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py locate-feature-dir "<source>")
+   result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py locate-feature-dir "$FEATURE_SOURCE")
    if [ $? -ne 0 ]; then
        echo "$result"
        exit 1
@@ -80,7 +75,17 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    source_type=$(echo "$result" | jq -r '.source_type')
    ```
 
-2. **Validate local paths against skill repository** (unless `--output-dir` flag was used):
+2. **Validate the feature directory is self-contained** (was created by `/test-plan-create`, which
+   always writes `<feature_dir>/.test-plan-output-dir.json`):
+   ```bash
+   marker_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/discover_feature_dir.py "$feature_dir")
+   if [ $? -ne 0 ]; then
+       echo "$marker_result"
+       exit 1
+   fi
+   ```
+
+3. **Validate local paths against skill repository** (unless `--output-dir` flag was used):
    ```bash
    if [ "$source_type" = "local" ]; then
        # Check for --output-dir flag (contributor override)
