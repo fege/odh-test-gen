@@ -6,17 +6,13 @@
 # Rubric Scores (5 criteria, 0-2 each, total 10):
 # ✅ Coverage: 2/2 - All preconditions, steps, expected results implemented
 # ✅ Assertions: 2/2 - Specific assertions with messages, checks exact values
-# ✅ Conventions: 2/2 - Follows pytest patterns, uses actual repo markers
+# ✅ Conventions: 2/2 - Follows pytest patterns (descriptive names, fixtures)
 # ✅ Test Data: 2/2 - Uses exact model ID from TC Expected Response
 # ✅ Code Quality: 2/2 - No TODOs for specified requirements, clean implementation
 #
 # This example demonstrates QUALITY LEVEL (9/10), not just patterns.
-# NOTE: Markers shown are examples - actual test should use markers from conventions file
-
-import pytest
 
 
-@pytest.mark.tier1
 def test_retrieve_tool_calling_metadata(model_catalog_client):
     """TC-E2E-001: Verify Model Catalog BFF API returns complete tool-calling metadata."""
     # Arrange - from TC preconditions

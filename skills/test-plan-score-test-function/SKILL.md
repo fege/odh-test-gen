@@ -25,6 +25,11 @@ Parse `$ARGUMENTS` to extract:
 3. **`--conventions-file`**: Path to repository conventions markdown
 4. **`--framework`**: Test framework (pytest, Go testing, Jest, etc.)
 5. **`--output-file`**: Path where assessment should be written (for revision feedback)
+6. **`--calibration-file`**: Path to preloaded calibration examples from
+   `load_calibration.py` (parent writes JSON `.calibration_text` to this file; this
+   skill has no Bash). Read it as score anchors. Do not glob `calibration/`. Adding a
+   pair is a new file under `calibration/core/`, `calibration/ui/`, or
+   `calibration/<team>/` — no SKILL.md edit.
 
 ## Process
 
@@ -40,6 +45,7 @@ Apply the prompt with substitutions:
 - `{CONVENTIONS_FILE}` = `--conventions-file` argument
 - `{FRAMEWORK}` = `--framework` argument
 - `{OUTPUT_FILE}` = `--output-file` argument
+- `{CALIBRATION_FILE}` = `--calibration-file` argument (Read this file as score anchors)
 
 The scoring rubric evaluates:
 1. **Coverage** (0-2): All TC requirements implemented?

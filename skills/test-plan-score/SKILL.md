@@ -124,13 +124,28 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 ### Step 2: Score (fork)
 
+Load calibration examples from the shared review skill tree (fail closed — stop on nonzero
+exit). Adding a pair is dropping a file in that `calibration/core/`, optional
+`calibration/ui/`, or `calibration/<team>/`.
+
+```bash
+calibration_raw=$(cd "$repo_root" && uv run python scripts/load_calibration.py \
+    "${CLAUDE_SKILL_DIR}/../test-plan-review/calibration" --include-teams="$team_list") || {
+    echo "ERROR: scripts/load_calibration.py failed — stopping." >&2
+    echo "$calibration_raw" >&2
+    exit 1
+}
+
+calibration_text=$(echo "$calibration_raw" | jq -r '.calibration_text')
+```
+
 Read the score agent prompt from `skills/test-plan-review/prompts/score-agent.md`.
 
 Launch a **forked** score agent with substitutions:
 - `{FEATURE_DIR}` = feature directory path
 - `{TEST_PLAN_PATH}` = `<feature_dir>/TestPlan.md`
 - `{STRATEGY_FILE_PATH}` = `strategy_path` from Step 1
-- `{CALIBRATION_DIR}` = `skills/test-plan-review/calibration/`
+- `{CALIBRATION_TEXT}` = `calibration_text` from `load_calibration.py` above
 - `{INTERFACE_COVERAGE_RESULT}` = JSON from Step 1 (`interface_coverage_result`)
 - `{AC_CITATIONS_RESULT}` = JSON from Step 1 (`ac_citations_result`)
 - `{AC_COVERAGE_RESULT}` = JSON from Step 1 (`ac_coverage_result`)

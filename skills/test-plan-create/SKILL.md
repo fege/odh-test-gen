@@ -72,7 +72,7 @@ Verify that Jira API credentials are configured via environment variables:
 ```
 
 If the check above exits non-zero, **STOP immediately**. Do NOT proceed with the rest of the skill. Do NOT attempt alternative data sources (MCP tools, cached files, web fetches, or any other workaround). Report the error and tell the user to set the missing variables:
-   - `JIRA_URL`: Base URL for the Jira instance (e.g., `https://issues.redhat.com`)
+   - `JIRA_URL`: Base URL for the Jira instance (e.g., `https://redhat.atlassian.net`)
    - `JIRA_USER`: Username or email for authentication
    - `JIRA_TOKEN`: API token for authentication
 
@@ -246,14 +246,19 @@ Once all three sub-agents return:
 ### Step 3: Generate Files
 
 1. Ensure `test_cases/` exists: `mkdir -p -- "$feature_dir/test_cases"`
-2. Read the template from `${CLAUDE_SKILL_DIR}/test-plan-template.md` using the Read tool
-3. Generate `<feature_name>/TestPlan.md` by filling in the template with the gathered information. Follow the template structure exactly — do not add, remove, or reorder sections. Do NOT write frontmatter manually — Step 3.1 handles it.
+2. **Resolve the strategy browse URL from `$JIRA_URL`** (never invent or copy a host from this skill):
+   ```bash
+   strat_url="${JIRA_URL%/}/browse/${JIRA_KEY}"
+   ```
+   Use this exact `strat_url` value for `{strat_url}` in the template and for the Jira strategy link in `README.md`. Do not hardcode a Jira host or guess from examples in this document.
+3. Read the template from `${CLAUDE_SKILL_DIR}/test-plan-template.md` using the Read tool
+4. Generate `<feature_name>/TestPlan.md` by filling in the template with the gathered information. Follow the template structure exactly — do not add, remove, or reorder sections. Do NOT write frontmatter manually — Step 3.1 handles it.
    - **Line length**: Wrap all prose lines to a maximum of 100 characters. This does not apply to tables, code blocks, or headings — only paragraph text and list items.
    - **Markdown headings**: Use proper markdown heading syntax (`##`, `###`, `####`) for all section and subsection titles. Never substitute bold text (`**Title**`) for a heading. This applies to all generated files (TestPlan.md, TestPlanGaps.md, README.md).
-4. For Section 9.2 (Interface Coverage): fill the Interface column from Section 4. Leave Test Cases and Coverage empty (filled later).
-5. Generate `<feature_name>/README.md` with:
+5. For Section 9.2 (Interface Coverage): fill the Interface column from Section 4. Leave Test Cases and Coverage empty (filled later).
+6. Generate `<feature_name>/README.md` with:
    - Feature name and one-line description
-   - Links to Jira strategy, ADR (if provided)
+   - Links to Jira strategy (use `strat_url` from step 2), ADR (if provided)
    - Link to TestPlan.md
    - Brief mention of where automated tests will be implemented
 

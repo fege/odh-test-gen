@@ -15,6 +15,7 @@ AC coverage result (precomputed, inline JSON): {AC_COVERAGE_RESULT}
 Additional documents (precomputed, inline JSON): {ADDITIONAL_DOCS_CONTENT}
 Scope check result (precomputed, inline JSON): {SCOPE_CHECK_RESULT}
 Boilerplate detection result (precomputed, inline JSON): {BOILERPLATE_RESULT}
+Calibration examples (preloaded): {CALIBRATION_TEXT}
 
 ## Inputs
 
@@ -141,6 +142,9 @@ Be rigorous. When in doubt between two scores, choose the lower one and explain 
 
 ## Calibration Reference
 
-Before scoring, read the calibration examples in `{CALIBRATION_DIR}` for score anchoring. These show how the rubric has been applied to real test plans with documented rationale. Use them to calibrate your scoring — particularly for borderline cases on Specificity (swap test) and Actionability (5-question threshold).
+The calibration examples are injected above as `{CALIBRATION_TEXT}` (preloaded; do not glob or
+read a calibration directory). They show how the rubric has been applied to real test plans
+with documented rationale. Use them to calibrate scoring — particularly for borderline cases
+on Specificity (swap test) and Actionability (5-question threshold).
 
 Do not return a summary. Your work is complete when the assessment output above is produced.

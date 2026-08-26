@@ -9,13 +9,17 @@ TC specification: {TC_FILE}
 Conventions file: {CONVENTIONS_FILE}
 Framework: {FRAMEWORK}
 Output file: {OUTPUT_FILE}
+Calibration examples file: {CALIBRATION_FILE}
 
 ## Inputs
 
 1. Read the generated test code from `{TEST_CODE_FILE}`
 2. Read the TC specification from `{TC_FILE}` — this is the ground truth for what should be tested
 3. Read repository conventions from `{CONVENTIONS_FILE}` — this defines correct patterns
-4. Write the assessment to `{OUTPUT_FILE}` after scoring (CRITICAL - see Instructions section)
+4. Read `{CALIBRATION_FILE}` and use its contents as score anchors (good/poor examples
+   for this framework). Do not glob `calibration/` — the parent already loaded the
+   matching files into `{CALIBRATION_FILE}`.
+5. Write the assessment to `{OUTPUT_FILE}` after scoring (CRITICAL - see Instructions section)
 
 ## Rubric — 5 Criteria, 0-2 Each, Total 0-10
 

@@ -167,6 +167,30 @@ If syntax error: Fix once, retry. If still invalid: save as .draft, skip scoring
 
 ### Step 6: Score Quality
 
+This skill has Bash; `test-plan-score-test-function` does not. Load calibration here and pass
+it via a temp file. Fail closed on nonzero exit. Adding a pair is dropping a file under
+`skills/test-plan-score-test-function/calibration/core/`, `calibration/ui/`, or a team dir.
+
+```bash
+repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+team_list=$(cd "$repo_root" && uv run python scripts/get_component_test_dir.py \
+    --teams-only "$feature_dir") || {
+    echo "ERROR: scripts/get_component_test_dir.py --teams-only failed — stopping." >&2
+    echo "$team_list" >&2
+    exit 1
+}
+
+calibration_raw=$(cd "$repo_root" && uv run python scripts/load_calibration.py \
+    "${CLAUDE_SKILL_DIR}/../test-plan-score-test-function/calibration" \
+    --framework "$framework" --include-teams="$team_list") || {
+    echo "ERROR: scripts/load_calibration.py failed — stopping." >&2
+    echo "$calibration_raw" >&2
+    exit 1
+}
+
+echo "$calibration_raw" | jq -r '.calibration_text' > /tmp/calibration_${file_index}.md
+```
+
 For each function, invoke in parallel:
 
 ```bash
@@ -175,7 +199,8 @@ For each function, invoke in parallel:
   --tc-file <tc_file_path> \
   --conventions-file <conventions_file> \
   --framework <framework> \
-  --output-file /tmp/test_scores/${tc_id}_score.md
+  --output-file /tmp/test_scores/${tc_id}_score.md \
+  --calibration-file /tmp/calibration_${file_index}.md
 ```
 
 Parse score, handle verdicts:
