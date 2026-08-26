@@ -92,23 +92,29 @@ Each file has a header with:
 
 ## Scoring Rubric
 
+> The authoritative rubric lives in `../prompts/score-test-function.md`. Keep the two in sync —
+> the summaries below must reflect the same criteria.
+
 ### Coverage (0-2 points)
 
 - **2**: All TC requirements implemented (preconditions, steps, assertions)
 - **1**: Missing 1-2 items, or has TODOs for specified requirements
-- **0**: Missing major sections or mostly TODOs
+- **0**: Missing major sections, or mostly TODOs, or `skip`s a precondition the active
+  feature-under-test must provide (where `fail` is warranted)
 
 ### Assertions (0-2 points)
 
-- **2**: Specific assertions with clear messages
-- **1**: Some generic assertions or missing messages
-- **0**: Mostly generic assertions or expected results have TODOs
+- **2**: Specific, feature-specific assertions with clear messages
+- **1**: Some generic assertions, missing messages, or a loose/probabilistic assertion
+- **0**: Mostly generic "false-green" assertions, probabilistic assertions on model output, or
+  expected results have TODOs
 
 ### Conventions (0-2 points)
 
-- **2**: Follows framework patterns and repo conventions
+- **2**: Follows framework patterns and repo conventions; registered markers, correct tier,
+  `skip_on_disconnected` on live-external tests
 - **1**: Mostly follows with 1-2 deviations
-- **0**: Uses patterns not in conventions, invents markers/helpers
+- **0**: Uses patterns not in conventions, invents/unregistered markers, negative tests in wrong tier
 
 ### Test Data (0-2 points)
 
@@ -118,9 +124,10 @@ Each file has a header with:
 
 ### Code Quality (0-2 points)
 
-- **2**: No TODOs for specified requirements, clean implementation
+- **2**: No TODOs for specified requirements, clean implementation, bounded loops, safe helpers
 - **1**: Some TODOs for unclear items, minor issues
-- **0**: Many TODOs for TC-specified items, fabricated helpers
+- **0**: Many TODOs for TC-specified items, fabricated helpers, unbounded loops, or unsafe helper
+  code (shell injection, substring-vs-exact, unhandled enum)
 
 ## Verdict Mapping
 
