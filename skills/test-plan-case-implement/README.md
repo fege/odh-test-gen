@@ -112,7 +112,9 @@ Tiger Team pattern guides     odh-test-context         test-plan-generate-test-f
 ## What this skill does NOT do
 
 - Does NOT generate test plan or test case specifications — use `/test-plan-create` and `/test-plan-create-cases` for that
-- Does NOT execute tests or verify they pass — generated tests must be reviewed and run manually
+- Does NOT itself execute tests or verify they pass — but Step 5.4 explicitly prompts for live
+  validation and the summary flags unverified coverage; generated tests must still be reviewed and
+  run (against a live cluster) manually before they are trusted
 - Does NOT commit tests to target repository — user must review, run, and commit manually
 - Does NOT guarantee 100% correct test code — always requires manual review and enhancement
 - Does NOT resolve test failures or debug test issues — troubleshooting is manual

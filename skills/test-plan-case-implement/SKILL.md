@@ -492,6 +492,27 @@ If `validate_in_container == True`:
 
 Present validation summary to user.
 
+#### 5.4 Offer live validation before "done"
+
+**"Collects cleanly + scores well" is NOT proof the feature is exercised.** Most severe generation
+defects (an unverified activation gate leaving the feature inactive, false-green assertions) are
+invisible at generation/collection time and only surface when run against a live cluster.
+
+Prompt the user via AskUserQuestion (modeled on the container-validation prompt in Step 1.3):
+
+> These tests have not been run against a live cluster. Generation cannot prove the
+> feature-under-test is actually active — e.g. an activation gate assumed from a credential name may
+> leave it inactive, so every test passes while exercising nothing.
+>
+> Run/verify the generated tests against a live (or as-close-as-possible) cluster now? [yes/no]
+
+- If **yes** and this is a UI feature, point the user at `/test-plan-ui-verify`. Otherwise guide
+  them to run the generated files against a live cluster (the repo's normal `pytest` invocation with
+  live credentials/kubeconfig) and confirm the feature-under-test is actually active before trusting
+  results.
+- If **no**: proceed, but the cases the generator could not verify are reported in Step 6.2 so the
+  gap is explicit.
+
 ### Step 6: Update Test Case Frontmatter and Present Summary
 
 #### 6.1 Update frontmatter
@@ -534,6 +555,12 @@ Display implementation summary:
 - Test quality distribution (Ready/Good/Revised/Flagged)
 - Draft files requiring manual review (if any): List TC IDs with scores and reasons
 - Failed TCs (if any): List TC IDs with error messages
+- **Unverified coverage** (if any): cases/objectives the generator could NOT verify — so reviewers
+  know exactly where coverage is asserted-but-unproven. Include, per affected TC:
+  - Activation gate unconfirmed (feature may be inactive at run time)
+  - Behavior not verifiable with the harness (e.g. on-wire parameter forwarding without request
+    capture, probabilistic model output)
+  - Whether the tests have been run against a live cluster yet (from Step 5.4)
 - Suggested fixtures (if common setup found)
 - Next steps (review, run tests, create PR)
 
