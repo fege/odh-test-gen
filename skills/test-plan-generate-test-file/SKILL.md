@@ -189,6 +189,7 @@ calibration_raw=$(cd "$repo_root" && uv run python scripts/load_calibration.py \
 }
 
 echo "$calibration_raw" | jq -r '.calibration_text' > /tmp/calibration_${file_index}.md
+echo "$calibration_raw" | jq -r '.warnings[]?' >&2
 ```
 
 For each function, invoke in parallel:

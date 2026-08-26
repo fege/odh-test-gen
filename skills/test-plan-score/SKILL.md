@@ -137,6 +137,7 @@ calibration_raw=$(cd "$repo_root" && uv run python scripts/load_calibration.py \
 }
 
 calibration_text=$(echo "$calibration_raw" | jq -r '.calibration_text')
+echo "$calibration_raw" | jq -r '.warnings[]?' >&2
 ```
 
 Read the score agent prompt from `skills/test-plan-review/prompts/score-agent.md`.

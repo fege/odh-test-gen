@@ -246,9 +246,10 @@ Once all three sub-agents return:
 ### Step 3: Generate Files
 
 1. Ensure `test_cases/` exists: `mkdir -p -- "$feature_dir/test_cases"`
-2. **Resolve the strategy browse URL from `$JIRA_URL`** (never invent or copy a host from this skill):
+2. **Resolve the strategy browse URL from the configured Jira URL** (never invent or copy a host from this skill; falls back to the `JIRA_BASE_URL` alias like `require_env` does):
    ```bash
-   strat_url="${JIRA_URL%/}/browse/${JIRA_KEY}"
+   jira_url="${JIRA_URL:-$JIRA_BASE_URL}"
+   strat_url="${jira_url%/}/browse/${JIRA_KEY}"
    ```
    Use this exact `strat_url` value for `{strat_url}` in the template and for the Jira strategy link in `README.md`. Do not hardcode a Jira host or guess from examples in this document.
 3. Read the template from `${CLAUDE_SKILL_DIR}/test-plan-template.md` using the Read tool

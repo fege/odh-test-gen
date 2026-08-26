@@ -362,9 +362,14 @@ If the user declines, stop.
 
 1. Build the PR title: `Test Plan: <feature> (v<version>)`
 
-2. Resolve the strategy browse URL from `$JIRA_URL` (do not hardcode a Jira host):
+2. Resolve the strategy browse URL from the configured Jira URL (do not hardcode a Jira host; falls back to the `JIRA_BASE_URL` alias):
    ```bash
-   strat_url="${JIRA_URL%/}/browse/${source_key}"
+   jira_url="${JIRA_URL:-$JIRA_BASE_URL}"
+   if [ -z "$jira_url" ]; then
+       echo "ERROR: JIRA_URL (or JIRA_BASE_URL) is not set — cannot build the strategy link." >&2
+       exit 1
+   fi
+   strat_url="${jira_url%/}/browse/${source_key}"
    ```
 3. Build the PR body by reading Section 1 (Executive Summary) from TestPlan.md. Format it as:
    ```markdown

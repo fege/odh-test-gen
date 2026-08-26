@@ -184,9 +184,8 @@ class TestLoadCalibrationTeams:
         calibration_dir = setup_calibration_dir(tmp_path, PLAN_CORE_FILES)
         team = _escaped_team_name(tmp_path, escape_kind)
 
-        with pytest.raises(ValueError) as exc_info:
-            result = load_calibration(calibration_dir, teams=[team])
-            assert ESCAPE_BODY not in result["calibration_text"]
+        with pytest.raises(ValueError, match="resolves outside calibration directory") as exc_info:
+            load_calibration(calibration_dir, teams=[team])
 
         message = str(exc_info.value)
         assert team in message
