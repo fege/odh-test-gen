@@ -298,7 +298,7 @@ Skills support non-interactive mode for CI environments:
 
 ### Required for Specific Features
 - **Jira integration**: Environment variables configured (for `/test-plan-create`, `/test-plan-review`, `/test-plan-score`):
-  - `JIRA_URL`: Base URL for your Jira instance (e.g., `https://issues.redhat.com`)
+  - `JIRA_URL`: Base URL for your Jira instance (e.g., `https://redhat.atlassian.net`)
   - `JIRA_USER`: Username or email for authentication
   - `JIRA_TOKEN`: [API token](https://support.atlassian.com/atlassian-account/docs/manage-api-tokens-for-your-atlassian-account/) for authentication
 - **GitHub publishing**: [GitHub CLI (`gh`)](https://cli.github.com/) installed and authenticated (for `/test-plan-publish` and `/test-plan-resolve-feedback`)

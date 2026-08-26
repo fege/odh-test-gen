@@ -134,6 +134,33 @@ def setup_validation_config(base_dir, core_config, team_configs=None, config_fil
     return str(checks_dir)
 
 
+def setup_calibration_dir(base_dir, core_files, team_files=None):
+    """Write a calibration/ tree (core/ plus optional extra dirs) under base_dir.
+
+    Extra directories (reserved ``ui/`` overlay or COMPONENT teams) are written the same
+    way via ``team_files``, e.g. ``{"ui": {filename: content}, "ai_hub": {...}}``.
+
+    Args:
+        base_dir: Base path (typically tmp_path from pytest)
+        core_files: Mapping of filename -> text content under calibration/core/
+        team_files: Optional mapping of directory name -> {filename: content}
+
+    Returns:
+        str: Path to the calibration directory
+    """
+    calibration_dir = Path(base_dir) / "calibration"
+    (calibration_dir / "core").mkdir(parents=True, exist_ok=True)
+    for name, content in core_files.items():
+        (calibration_dir / "core" / name).write_text(content)
+    if team_files:
+        for dir_name, files in team_files.items():
+            extra_dir = calibration_dir / dir_name
+            extra_dir.mkdir(parents=True, exist_ok=True)
+            for name, content in files.items():
+                (extra_dir / name).write_text(content)
+    return str(calibration_dir)
+
+
 def make_unreadable_test_plan_path(base_dir, kind):
     """Return a test_plan_path that exists but cannot be read as UTF-8 text.
 

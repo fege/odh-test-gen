@@ -99,7 +99,7 @@ each scored 0-2.
 1. Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
 2. Set Jira credentials:
    ```bash
-   export JIRA_URL="https://issues.redhat.com"
+   export JIRA_URL="https://redhat.atlassian.net"
    export JIRA_USER="your-email@redhat.com"
    export JIRA_TOKEN="your-jira-api-token"
    ```

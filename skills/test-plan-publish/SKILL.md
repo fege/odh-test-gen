@@ -362,11 +362,20 @@ If the user declines, stop.
 
 1. Build the PR title: `Test Plan: <feature> (v<version>)`
 
-2. Build the PR body by reading Section 1 (Executive Summary) from TestPlan.md. Format it as:
+2. Resolve the strategy browse URL from the configured Jira URL (do not hardcode a Jira host; falls back to the `JIRA_BASE_URL` alias):
+   ```bash
+   jira_url="${JIRA_URL:-$JIRA_BASE_URL}"
+   if [ -z "$jira_url" ]; then
+       echo "ERROR: JIRA_URL (or JIRA_BASE_URL) is not set — cannot build the strategy link." >&2
+       exit 1
+   fi
+   strat_url="${jira_url%/}/browse/${source_key}"
+   ```
+3. Build the PR body by reading Section 1 (Executive Summary) from TestPlan.md. Format it as:
    ```markdown
    ## Test Plan: <feature>
 
-   **Strategy**: [<source_key>](https://redhat.atlassian.net/browse/<source_key>)
+   **Strategy**: [<source_key>](<strat_url>)
    **Version**: <version>
 
    ### Summary
@@ -384,7 +393,7 @@ If the user declines, stop.
    - test_cases/INDEX.md (if exists, with count)
    ```
 
-3. Create or detect existing PR:
+4. Create or detect existing PR:
    ```bash
    pr_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py pr-create "$target_repo" "test-plan/<source_key>" "Test Plan: <feature> (v<version>)" "<pr_body>" $([ -n "$reviewers" ] && echo "--reviewers $reviewers"))
    pr_url=$(echo "$pr_result" | jq -r '.pr_url')
