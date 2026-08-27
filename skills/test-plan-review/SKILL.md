@@ -70,7 +70,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    `strategy_file_path` is the persistent, local-only snapshot — it is never removed (not at Step
    5, not across any re-score cycle) and is reused as-is on every re-score in Step 4e.
 
-4. Compute interface coverage and AC/NFR citation validity deterministically (Section 9.2/6.2 vs Section 4 is a mechanical table diff, and citation validity is a mechanical STRAT cross-check — neither is an LLM judgment call). This is delegated to [`scripts/build_citation_inputs.py`](scripts/build_citation_inputs.py), which derives `ac_count`/`nfr_categories` from `strategy_file_path` and calls the three validators directly:
+4. Compute interface coverage, AC/NFR citation validity, bidirectional scope coverage, and actionability evidence deterministically (these are mechanical checks — none is an LLM judgment call). This is delegated to [`scripts/build_citation_inputs.py`](scripts/build_citation_inputs.py), which derives `ac_count`/`nfr_categories` from `strategy_file_path` and calls the validators directly:
 
    ```bash
    gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> --strategy-file "$strategy_file_path") || {
@@ -82,9 +82,11 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    interface_coverage_result=$(echo "$gate_result" | jq -c '.interface_coverage_result')
    ac_citations_result=$(echo "$gate_result" | jq -c '.ac_citations_result')
    ac_coverage_result=$(echo "$gate_result" | jq -c '.ac_coverage_result')
+   scope_coverage_result=$(echo "$gate_result" | jq -c '.scope_coverage_result')
+   actionability_result=$(echo "$gate_result" | jq -c '.actionability_result')
    ```
 
-   A nonzero exit means gate-input construction itself failed (unreadable strategy file, a parsing bug) — that's an execution failure, not data about the test plan, so stop rather than silently falling back to degraded mode. With the pre-create-cases guards, `valid: true` is expected before test cases exist — both Section 9.2 (Test Cases column blank) and Section 6.2 are recognized as not-yet-populated and skipped. A `valid: false` here signals a genuine coverage gap; pass it as data to the score agent.
+   A nonzero exit means gate-input construction itself failed (unreadable strategy file, a parsing bug) — that's an execution failure, not data about the test plan, so stop rather than silently falling back to degraded mode. With the pre-create-cases guards, `valid: true` is expected before test cases exist — both Section 9.2 (Test Cases column blank) and Section 6.2 are recognized as not-yet-populated and skipped. Once Section 6.2 is populated, `missing_e2e_or_ui_in_6_2` identifies declared, non-pending interfaces with a populated row that lacks both a `TC-E2E-*` and a `TC-UI-*` reference; each populated row must contain at least one `TC-E2E-*` or `TC-UI-*` reference. `missing_in_6_2` continues to identify absent or blank/placeholder interface rows. A `valid: false` here signals a genuine coverage gap; pass it as data to the score agent.
 
 5. Resolve `additional_docs` from TestPlan.md frontmatter deterministically — path validation and file reading happen in Python, not in the LLM prompt. The script reads frontmatter itself (the LLM is not in the trust path for path resolution):
 
@@ -145,7 +147,7 @@ calibration_raw=$(cd "$repo_root" && uv run python scripts/load_calibration.py \
     exit 1
 }
 
-calibration_text=$(echo "$calibration_raw" | jq -r '.calibration_text')
+calibration_text=$(printf '%s\n' "$calibration_raw" | jq -r '.calibration_text')
 echo "$calibration_raw" | jq -r '.warnings[]?' >&2
 ```
 
@@ -159,6 +161,8 @@ Launch a **forked** score agent with these substitutions:
 - `{INTERFACE_COVERAGE_RESULT}` = JSON from Step 1 (`interface_coverage_result`)
 - `{AC_CITATIONS_RESULT}` = JSON from Step 1 (`ac_citations_result`)
 - `{AC_COVERAGE_RESULT}` = JSON from Step 1 (`ac_coverage_result`)
+- `{SCOPE_COVERAGE_RESULT}` = JSON from Step 1 (`scope_coverage_result`)
+- `{ACTIONABILITY_RESULT}` = JSON from Step 1 (`actionability_result`)
 - `{ADDITIONAL_DOCS_CONTENT}` = JSON from Step 1 (`additional_docs_result`)
 - `{SCOPE_CHECK_RESULT}` = JSON from Step 1 (`scope_check_result`)
 - `{BOILERPLATE_RESULT}` = JSON from Step 1 (`boilerplate_result`)
@@ -178,7 +182,7 @@ The score agent evaluates the test plan against a 5-criterion rubric (specificit
 | 3.2 Test Data | Are test data requirements concrete enough to act on? |
 | 4 Interfaces Under Test | Are entries grounded in source documents, not fabricated? |
 | 6.1 E2E Scenarios | Is the E2E Scenario Summary populated with TC-E2E-* entries? (Note: expected to be empty until create-cases runs) |
-| 6.2 E2E Coverage | Does each interface from Section 4 have E2E scenario coverage in Section 6.2? Checked deterministically via `interface-coverage` (Step 1), not LLM table-reading. (Note: expected to be empty until create-cases runs) |
+| 6.2 E2E Coverage | Does each non-pending interface from Section 4 have at least one `TC-E2E-*` or `TC-UI-*` reference in each populated Section 6.2 row? Checked deterministically via `interface-coverage` (Step 1), not LLM table-reading. (Note: expected to be empty until create-cases runs) |
 | 7.1 Disconnected | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
 | 7.2 Upgrade | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
 | 7.3 Performance | Addressed with testing considerations or explicitly marked Not Applicable with justification? |
@@ -204,7 +208,7 @@ The review agent writes `<feature_dir>/TestPlanReview.md` with rubric scores, fe
 - Are priority assignments in Section 6.1 consistent with the definitions in Section 2.3?
 - Does Section 9.2 list all interfaces from Section 4? (deterministic — from the `interface-coverage` result computed in Step 1, not re-derived)
 - Are NFR categories in Section 7 consistent with the feature scope? (e.g., a feature that pulls images should not mark Disconnected as N/A)
-- Does Section 6.2 E2E Coverage Matrix include all interfaces from Section 4? (deterministic — from the `interface-coverage` result; expected unpopulated until create-cases runs)
+- Does Section 6.2 E2E Coverage Matrix include all non-pending interfaces from Section 4 and at least one `TC-E2E-*` or `TC-UI-*` reference per populated interface row? (deterministic — from `missing_in_6_2` and `missing_e2e_or_ui_in_6_2` in the `interface-coverage` result; expected unpopulated until create-cases runs)
 
 ### Step 3.5: Enforce Citation Gate
 
@@ -214,7 +218,8 @@ Deterministically re-apply the Scope Fidelity/Specificity caps the review agent 
 repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
 gate_result=$(cd "$repo_root" && uv run python scripts/enforce_citation_gate.py <feature_dir> \
     --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result" \
-    --scope-check-result "$scope_check_result" --boilerplate-result "$boilerplate_result")
+    --scope-check-result "$scope_check_result" --boilerplate-result "$boilerplate_result" \
+    --scope-coverage-result "$scope_coverage_result" --actionability-result "$actionability_result")
 gate_status=$(echo "$gate_result" | jq -r '.status')
 
 case "$gate_status" in
@@ -260,6 +265,7 @@ Read the revise agent prompt from `${CLAUDE_SKILL_DIR}/prompts/revise-agent.md`.
 Launch with substitutions:
 - `{FEATURE_DIR}` = feature directory path
 - `{STRATEGY_FILE_PATH}` = `strategy_file_path` from Step 1
+- `{ADDITIONAL_DOCS_CONTENT}` = `additional_docs_result` from Step 1 (refreshed by Step 4e on later cycles)
 
 The revise agent edits TestPlan.md (only sections mapped to failing criteria) and sets `auto_revised=true`.
 
@@ -299,6 +305,8 @@ gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py 
 interface_coverage_result=$(echo "$gate_result" | jq -c '.interface_coverage_result')
 ac_citations_result=$(echo "$gate_result" | jq -c '.ac_citations_result')
 ac_coverage_result=$(echo "$gate_result" | jq -c '.ac_coverage_result')
+scope_coverage_result=$(echo "$gate_result" | jq -c '.scope_coverage_result')
+actionability_result=$(echo "$gate_result" | jq -c '.actionability_result')
 
 additional_docs_raw=$(cd "$repo_root" && uv run python scripts/resolve_additional_docs.py <feature_dir>) || {
     echo "ERROR: scripts/resolve_additional_docs.py failed — stopping review." >&2
@@ -394,9 +402,9 @@ When reviewing and suggesting improvements, the score agent MUST follow these co
 - Create specificity improvements by inventing details
 
 **ALWAYS**:
-- Leave TBD as plain "TBD" if the strategy doesn't specify where to find the information
+- For `actionability == 2`, retain an unknown only as `TBD — Resolution: {concrete action} from/with/by/before/after/using {named source or timing}`. The resolution path must be grounded in an actual source or a known owner/timing.
 - Ground all improvements in actual source document content (strategy, ADR, additional_docs)
-- Flag missing information as a gap rather than inventing a solution
+- Flag missing information without a grounded resolution path as a gap; it must not support an Actionability score of 2/2
 - Defer to TestPlanGaps.md for unresolved items
 - Only suggest changes that are directly traceable to source material
 

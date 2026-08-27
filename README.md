@@ -149,6 +149,15 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 
 **No Shell Parsing** - Scripts output JSON, Claude extracts values directly (no jq commands needed)
 
+### Quality Evidence Gate
+
+`validate_quality_evidence.py` produces the scope coverage and actionability evidence payloads
+from the test plan and resolved strategy: `scope_coverage_result` and `actionability_result`.
+The persisted review gate (`enforce_citation_gate.py`) can cap Scope Fidelity/Specificity/Actionability
+when deterministic evidence contradicts a 2/2 rubric score. The stateless scorer gate
+(`cap_scope_fidelity.py`) applies the same Scope Fidelity/Specificity/Actionability caps before
+`test-plan-score` presents its result, so scorer compliance is not trusted.
+
 ## Usage
 
 ### Basic Workflow
@@ -370,8 +379,9 @@ scripts/
 ├── parse_strat.py          # Parse STRAT sections; snapshot strategy files for test-plan-create
 ├── resolve_strategy.py     # Snapshot-primary strategy resolution for test-plan-review/score
 ├── build_citation_inputs.py # Build citation gate inputs (AC/NFR/interface coverage) from a strategy
-├── enforce_citation_gate.py # Deterministically cap Scope Fidelity/Specificity when citation/scope/boilerplate checks fail
-├── cap_scope_fidelity.py   # Same caps, no-persist variant for test-plan-score
+├── validate_quality_evidence.py # Produce scope coverage and actionability evidence payloads
+├── enforce_citation_gate.py # Deterministically cap Scope Fidelity/Specificity/Actionability
+├── cap_scope_fidelity.py   # Stateless scorer enforcement for Scope Fidelity/Specificity/Actionability
 ├── filter_for_revision.py # Decide whether a test plan review warrants revision
 ├── preserve_review_state.py # Save/restore cumulative review state across re-assessment cycles
 ├── add_jira_labels.py      # Add labels to Jira issues (CLI wrapper)

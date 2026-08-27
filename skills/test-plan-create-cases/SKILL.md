@@ -217,8 +217,9 @@ Process **one category at a time** from Section 5.2. For each category:
    - Write the frontmatter directly — validation happens in Step 5.7
    - **Important**: In regeneration mode, files were already read in Step 2.5, so Edit/Write will succeed
 
-3. **E2E test cases (mandatory)**: After processing all categories, generate TC-E2E-*.md test cases that validate the user journeys defined in the strategy:
-   - Every interface from Section 4 MUST be covered by at least one E2E scenario
+3. **E2E/UI interface coverage (mandatory)**: After processing all categories, ensure every non-pending interface from Section 4 is represented in Section 6.2 with at least one `TC-E2E-*` or `TC-UI-*` reference:
+   - Generate `TC-E2E-*.md` test cases for user journeys that require end-to-end system coverage
+   - An appropriate existing or generated `TC-UI-*.md` test case may satisfy the interface row when UI coverage is the applicable path
    - Each E2E test case should represent a complete user journey, not just a single interface call
    - Use `TC-E2E-<NUMBER>` naming convention (e.g., TC-E2E-001, TC-E2E-002)
 
@@ -310,7 +311,7 @@ Update `<feature_dir>/TestPlan.md` using the Edit tool:
 1. **Section 5** — Update the note to reflect test cases have been generated, with a link to `test_cases/INDEX.md`
 2. **Section 5.1** — Fill in the Test Case Organization table with category, test case count, and priority distribution
 3. **Section 6.1** — Fill in the E2E Scenario Summary table with the generated TC-E2E-* scenarios (ID, scenario name, interfaces covered, priority)
-4. **Section 6.2** — Fill in the E2E Coverage Matrix mapping each interface from Section 4 to its E2E scenario IDs
+4. **Section 6.2** — Fill in the E2E Coverage Matrix mapping each interface from Section 4 to the applicable `TC-E2E-*` or `TC-UI-*` references
 5. **Section 9.1** — Fill in the Test Case Summary table with counts per category and priority breakdown
 6. **Section 9.2** — Fill in the Test Cases column with TC IDs mapped to each interface. Leave the Coverage column empty — it will be filled later by `/coverage-assessment`
 
@@ -324,14 +325,14 @@ Update `<feature_dir>/README.md` to add a link to the test cases index:
 
 After generating all test case files and updating the test plan, validate coverage:
 
-1. **Interface coverage**: Run `uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md` (deterministic table diff — do not eyeball Section 9.2/6.2 yourself). If `missing_in_9_2` is non-empty, those interfaces lack test case coverage — flag them as gaps. Interfaces marked "pending details" in Section 4 are listed under `pending` and are already excluded from `missing_in_9_2`/`missing_in_6_2` by the validator.
-2. **E2E coverage**: From the same `interface-coverage` result, if `section_6_2_populated` is `true` and `missing_in_6_2` is non-empty, those interfaces lack E2E scenario coverage — generate the missing TC-E2E-* test case(s), update Sections 6.2/9.2, and re-run the validator before proceeding. `missing_in_6_2` already excludes `pending` interfaces, so this never regenerates cases for interfaces excluded by the anti-hallucination rule.
+1. **Interface coverage**: Run `uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md` (deterministic table diff — do not eyeball Section 9.2/6.2 yourself). If `missing_in_9_2` is non-empty, those interfaces lack test case coverage — flag them as gaps. Interfaces marked "pending details" in Section 4 are listed under `pending` and are already excluded from `missing_in_9_2`, `missing_in_6_2`, and `missing_e2e_or_ui_in_6_2` by the validator.
+2. **E2E-or-UI coverage**: From the same `interface-coverage` result, if `section_6_2_populated` is `true`, both `missing_in_6_2` and `missing_e2e_or_ui_in_6_2` must be empty. Each populated Section 6.2 row must contain at least one `TC-E2E-*` or `TC-UI-*` reference. For `missing_in_6_2`, generate the missing test case(s) and add the interface mapping; for `missing_e2e_or_ui_in_6_2`, add at least one appropriate `TC-E2E-*` or `TC-UI-*` reference to each populated row for every reported interface. Update Sections 6.2/9.2 and re-run the validator before proceeding. Both diagnostics already exclude `pending` interfaces, so this never regenerates cases for interfaces excluded by the anti-hallucination rule.
 3. **Test objective coverage**: Check that every test objective from Section 1.3 is addressed by at least one test case. Flag any uncovered objectives.
 4. **Priority distribution**: Verify that TC priorities align with the flow priorities in Section 6.1 — a P0 flow should not only have P2 test cases.
 5. **Configurable coverage**: Check that every env var, config path, or configurable explicitly named in Section 3.1 has at least one TC that exercises a non-default value. If any is uncovered, flag it as a coverage gap.
 6. **Objective traceability**: Check that every generated TC's `objectives` frontmatter field references at least one valid Section 1.3 objective number, and that every referenced objective has an AC citation. Flag any TC with a missing, empty, or invalid `objectives` field.
 7. **Gap cross-reference**: If `TestPlanGaps.md` was read in Step 1.5, verify that no test cases were created for interfaces or areas flagged as pending/missing. If any were, remove them and flag the inconsistency.
-8. **Append to TestPlanGaps.md**: If `<feature_dir>/TestPlanGaps.md` exists, append a `## Test Case Coverage Gaps` section with any coverage gaps found (uncovered interfaces, missing objectives, priority mismatches, missing E2E scenarios, uncovered configurables). If the file does not exist, create it with just this section.
+8. **Append to TestPlanGaps.md**: If `<feature_dir>/TestPlanGaps.md` exists, append a `## Test Case Coverage Gaps` section with any coverage gaps found (uncovered interfaces, missing objectives, priority mismatches, missing E2E/UI interface coverage, uncovered configurables). If the file does not exist, create it with just this section.
 
 ### Step 5.7: Validate Frontmatter, Counts, Scope, and Traceability
 

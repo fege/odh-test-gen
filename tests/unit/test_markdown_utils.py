@@ -124,6 +124,22 @@ class TestCitationRejectsIncompleteFields:
         assert has_citation(text) is True
         assert parse_citations(text)[0] == {"kind": "NFR", "number": None, "category": "Multi-tenancy"}
 
+    def test_nfr_category_with_parenthetical_qualifier_is_not_truncated(self):
+        # Real STRAT documents define sibling categories that differ only by a parenthetical
+        # qualifier, e.g. "Security" vs "Security (workspace isolation)" vs "Security (transport)" —
+        # the inner ")" must not be mistaken for the citation's own closing paren.
+        text = "Verify namespace scoping (NFR: Security (workspace isolation) — tenant isolation required)"
+        assert has_citation(text) is True
+        assert parse_citations(text)[0] == {
+            "kind": "NFR",
+            "number": None,
+            "category": "Security (workspace isolation)",
+        }
+
+    def test_bare_nfr_category_still_distinct_from_parenthetical_sibling(self):
+        text = "Verify auth (NFR: Security — SA-token auth required)"
+        assert parse_citations(text)[0] == {"kind": "NFR", "number": None, "category": "Security"}
+
 
 class TestCitationSeparatorVariants:
     """The separator must accept ASCII hyphen, en dash, and em dash interchangeably."""
