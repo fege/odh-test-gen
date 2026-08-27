@@ -179,11 +179,16 @@ A test that passes while the feature is absent or broken is worse than no test. 
   parameter forwarding without request capture). Generate the deterministic subset that *can* be
   checked and document the unverifiable gap instead of a flaky assertion.
 - **Bounded loops:** Every stream-consume / poll loop needs a max-iteration or deadline bound that
-  fails loudly on overrun — never iterate until the server closes an unbounded stream.
-- **Helper safety:** Apply the same bar to generated helper/util code as to tests. Validate or
-  allowlist anything interpolated into a shell (never pass a raw name into `sh -c` — CWE-78); use
-  exact comparison over substring (`"SET" in output` also matches `"UNSET"`); reject unknown enum
-  values explicitly instead of silently falling through to a default.
+  fails loudly on overrun — never iterate until the server closes an unbounded stream. A bound
+  checked inside the loop does not stop a blocking read, so also set a client-level read timeout (or
+  cancellation) that enforces the deadline on a stalled `next()`/socket read; on timeout, close the
+  stream and fail the test.
+- **Helper safety:** Apply the same bar to generated helper/util code as to tests. Never invoke a
+  shell on values that may be influenced by test input — use argv-form subprocess calls with
+  `shell=False` and allowlist the executable and argument choices; never use `shell=True`,
+  `os.system`, or `sh -c` (CWE-78). Use exact comparison over substring (`"SET" in output` also
+  matches `"UNSET"`); reject unknown enum values explicitly instead of silently falling through to a
+  default.
 
 Collect each generated function in `functions` array.
 

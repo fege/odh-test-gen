@@ -104,7 +104,10 @@ Each file has a header with:
 
 ### Assertions (0-2 points)
 
-- **2**: Specific, feature-specific assertions with clear messages
+- **2**: Specific, feature-specific assertions with clear messages. Tight, not loose: exact type
+  checks over broad ABCs (`float`, not `numbers.Real`, which also accepts `int`/`bool`); finiteness
+  checks (reject `NaN`/`inf`); non-empty collection checked before indexing (`choices[0]`); iterates
+  **all** candidates (containers/files/matches), not just the first
 - **1**: Some generic assertions, missing messages, or a loose/probabilistic assertion
 - **0**: Mostly generic "false-green" assertions, probabilistic assertions on model output, or
   expected results have TODOs

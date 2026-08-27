@@ -513,6 +513,15 @@ Prompt the user via AskUserQuestion (modeled on the container-validation prompt 
 - If **no**: proceed, but the cases the generator could not verify are reported in Step 6.2 so the
   gap is explicit.
 
+**Record a live-validation status per affected TC — a `yes` answer alone is NOT proof** it ran,
+passed, or covered every case. Derive each TC's status from the live verifier result or test exit
+status, defaulting to `not_run` without concrete evidence, and carry it into Step 6.2:
+
+- `not_run` — declined or never executed for this TC
+- `blocked` — could not run (missing cluster/credentials, collection error, activation gate unconfirmed)
+- `failed` — ran and failed, or the feature-under-test was confirmed inactive
+- `passed` — ran against the live cluster and passed with the feature confirmed active
+
 ### Step 6: Update Test Case Frontmatter and Present Summary
 
 #### 6.1 Update frontmatter
@@ -560,7 +569,9 @@ Display implementation summary:
   - Activation gate unconfirmed (feature may be inactive at run time)
   - Behavior not verifiable with the harness (e.g. on-wire parameter forwarding without request
     capture, probabilistic model output)
-  - Whether the tests have been run against a live cluster yet (from Step 5.4)
+  - Live-validation status from Step 5.4 — the per-TC `not_run`/`blocked`/`failed`/`passed`. Only
+    `passed` counts as verified coverage; report `not_run` for any TC lacking concrete evidence and
+    never mark a TC validated on a `yes` answer alone.
 - Suggested fixtures (if common setup found)
 - Next steps (review, run tests, create PR)
 

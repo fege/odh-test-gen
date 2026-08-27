@@ -106,10 +106,12 @@ Calibration examples file: {CALIBRATION_FILE}
 - Implements error handling if TC specifies it
 - No hardcoded credentials/secrets
 - **Bounded loops:** stream-consume / poll loops have a max-iteration or deadline bound that fails
-  loudly on overrun (no iterating until an unbounded stream closes)
-- **Helper safety:** generated helper/util code validates or allowlists anything interpolated into a
-  shell (no raw name → `sh -c`, CWE-78), uses exact comparison over substring (`"SET" in output`
-  also matches `"UNSET"`), and rejects unknown enum values instead of silently falling through
+  loudly on overrun (no iterating until an unbounded stream closes), plus a client-level read
+  timeout/cancellation so a blocking `next()`/socket read cannot hang past the deadline
+- **Helper safety:** generated helper/util code never invokes a shell on test-influenced values —
+  argv-form subprocess with `shell=False` and an allowlisted executable/arguments, never `shell=True`
+  / `os.system` / `sh -c` (CWE-78) — uses exact comparison over substring (`"SET" in output` also
+  matches `"UNSET"`), and rejects unknown enum values instead of silently falling through
 
 ---
 

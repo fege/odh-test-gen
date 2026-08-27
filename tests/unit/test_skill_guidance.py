@@ -7,6 +7,8 @@ the shipped SKILL.md / rubric / calibration assets so the guidance cannot silent
 regress. Mirrors tests/unit/test_template_structure.py.
 """
 
+import re
+
 from tests.consts.skill_guidance_constants import (
     CALIBRATION_POOR_KEYWORDS,
     CALIBRATION_POOR_PYTEST,
@@ -30,9 +32,22 @@ class TestGenerationGuardrails:
             assert keyword in text, f"generate-test-file SKILL.md missing guidance keyword: {keyword!r}"
 
     def test_generate_skill_classifies_skip_and_fail(self):
+        """The guidance must map each precondition to the *correct* call, not merely mention both:
+        optional environment/harness prerequisites → skip, mandatory active-feature ones → fail."""
         text = GENERATE_SKILL.read_text()
-        assert "pytest.skip" in text
-        assert "pytest.fail" in text
+        # Isolate the skip-vs-fail bullet so proximity assertions reflect the real relationship.
+        start = text.index("skip vs. fail")
+        block = text[start : start + 600]
+        # Optional environment/harness prerequisite → pytest.skip
+        assert re.search(r"[Ee]nvironment/harness prerequisite.*?pytest\.skip", block, re.DOTALL), (
+            "guidance must route optional environment/harness prerequisites to pytest.skip"
+        )
+        # Something the active feature *must* provide → pytest.fail
+        assert re.search(r"active feature \*must\* provide.*?pytest\.fail", block, re.DOTALL), (
+            "guidance must route mandatory active-feature preconditions to pytest.fail"
+        )
+        # ...and it must warn against defaulting every missing precondition to skip.
+        assert "Do NOT default every missing precondition to `skip`" in block
 
 
 class TestScoringRubricChecks:

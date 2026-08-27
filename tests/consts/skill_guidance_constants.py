@@ -39,12 +39,17 @@ SCORE_RUBRIC_KEYWORDS = (
 )
 
 # Keywords that must appear in BOTH the rubric prompt and the duplicated calibration README,
-# so the two copies of the rubric stay in sync.
+# so the two copies of the rubric stay in sync. Includes the tight-assertion criteria (exact type
+# checks, finiteness, non-empty-before-indexing, all-candidates) so an omission in either copy fails.
 RUBRIC_SYNC_KEYWORDS = (
     "false-green",
     "skip_on_disconnected",
     "unbounded loops",
     "shell injection",
+    "numbers.Real",
+    "NaN",
+    "choices[0]",
+    "**all** candidates",
 )
 
 # The extended poor calibration example must demonstrate the new anti-patterns.
