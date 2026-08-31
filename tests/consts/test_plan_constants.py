@@ -612,6 +612,127 @@ author: QE Team
 | `/v1/models` | TC-E2E-002 | |
 """
 
+# TestPlan.md where Section 6.2 is populated with UI-only test case references.
+TESTPLAN_INTERFACE_COVERAGE_UI_ONLY_6_2 = f"""---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+{TEMPLATE_HEADINGS["4"]}
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+{TEMPLATE_HEADINGS["6"]}
+
+{TEMPLATE_HEADINGS["6.2"]}
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-UI-001 |
+| `/v1/models` | TC-UI-002 |
+
+{TEMPLATE_HEADINGS["9"]}
+
+{TEMPLATE_HEADINGS["9.2"]}
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-UI-001 | |
+| `/v1/models` | TC-UI-002 | |
+"""
+
+# TestPlan.md where Section 6.2 rows are populated but reference neither an E2E
+# nor a UI test case.
+TESTPLAN_INTERFACE_COVERAGE_NO_E2E_OR_UI_6_2 = TESTPLAN_INTERFACE_COVERAGE_UI_ONLY_6_2.replace(
+    "TC-UI-001", "Manual coverage note"
+).replace("TC-UI-002", "Manual coverage note")
+
+# TestPlan.md where Section 6.2 contains both UI and E2E references.
+TESTPLAN_INTERFACE_COVERAGE_MIXED_6_2 = f"""---
+feature: Test Feature
+source_key: RHAISTRAT-400
+version: 1.0.0
+status: Draft
+last_updated: 2026-07-15
+author: QE Team
+---
+
+# Test Feature Test Plan
+
+{TEMPLATE_HEADINGS["4"]}
+
+| Interface | Type | Purpose |
+|-----------|------|---------|
+| `/v1/chat/completions` | REST | Chat inference |
+| `/v1/models` | REST | List models |
+
+{TEMPLATE_HEADINGS["6"]}
+
+{TEMPLATE_HEADINGS["6.2"]}
+
+| Interface (from Section 4) | E2E Scenarios |
+|----------------------------|---------------|
+| `/v1/chat/completions` | TC-UI-001, TC-E2E-001 |
+| `/v1/models` | TC-E2E-002 |
+
+{TEMPLATE_HEADINGS["9"]}
+
+{TEMPLATE_HEADINGS["9.2"]}
+
+| Interface | Test Cases | Coverage |
+|-----------|------------|----------|
+| `/v1/chat/completions` | TC-UI-001, TC-E2E-001 | |
+| `/v1/models` | TC-E2E-002 | |
+"""
+
+# TestPlan.md where duplicate Section 6.2 rows for one declared interface both
+# satisfy the E2E-or-UI contract.
+TESTPLAN_INTERFACE_COVERAGE_DUPLICATE_MIXED_6_2 = TESTPLAN_INTERFACE_COVERAGE_FULL.replace(
+    "| `/v1/chat/completions` | TC-E2E-001 |",
+    "| `/v1/chat/completions` | TC-E2E-001 |\n| `/v1/chat/completions` | TC-UI-001 |",
+    1,
+)
+
+# TestPlan.md where a satisfying duplicate must not mask a populated duplicate
+# with neither an E2E nor a UI reference.
+TESTPLAN_INTERFACE_COVERAGE_DUPLICATE_NO_E2E_OR_UI_6_2 = TESTPLAN_INTERFACE_COVERAGE_FULL.replace(
+    "| `/v1/chat/completions` | TC-E2E-001 |",
+    "| `/v1/chat/completions` | TC-E2E-001 |\n| `/v1/chat/completions` | Manual coverage note |",
+    1,
+)
+
+# Template where a satisfying duplicate row must not mask a duplicate row whose
+# scenario/reference cell is blank or a table placeholder.
+TESTPLAN_INTERFACE_COVERAGE_DUPLICATE_PLACEHOLDER_TEMPLATE_6_2 = TESTPLAN_INTERFACE_COVERAGE_FULL.replace(
+    "| `/v1/chat/completions` | TC-E2E-001 |",
+    "| `/v1/chat/completions` | TC-E2E-001 |\n| `/v1/chat/completions` | __SCENARIO_REFERENCE__ |",
+    1,
+)
+
+# TestPlan.md where duplicate Section 6.2 rows all contain E2E references.
+TESTPLAN_INTERFACE_COVERAGE_DUPLICATE_E2E_6_2 = TESTPLAN_INTERFACE_COVERAGE_FULL.replace(
+    "| `/v1/chat/completions` | TC-E2E-001 |",
+    "| `/v1/chat/completions` | TC-E2E-001 |\n| `/v1/chat/completions` | TC-E2E-003 |",
+    1,
+)
+
+# Extra populated Section 6.2 rows for undeclared interfaces are outside this
+# validator's contract and must not affect declared-interface coverage.
+TESTPLAN_INTERFACE_COVERAGE_EXTRA_6_2_ROW = TESTPLAN_INTERFACE_COVERAGE_FULL.replace(
+    "| `/v1/models` | TC-E2E-002 |",
+    "| `/v1/models` | TC-E2E-002 |\n| `/v1/undeclared` | TC-UI-999 |",
+    1,
+)
+
 # TestPlan.md where Section 9.2 is missing an interface from Section 4
 TESTPLAN_INTERFACE_COVERAGE_MISSING_9_2 = f"""---
 feature: Test Feature

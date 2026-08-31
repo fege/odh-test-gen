@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Build the citation gate's inputs, shared by test-plan-review and test-plan-score: derive
-ac_count/nfr_categories from a resolved strategy file and run the three deterministic validators
-(ac-citations, ac-coverage, interface-coverage) against TestPlan.md.
+"""Build the quality gate's inputs, shared by test-plan-review and test-plan-score: derive
+ac_count/nfr_categories from a resolved strategy file and run deterministic citation, coverage,
+scope-evidence, and actionability validators against TestPlan.md.
 
 Usage:
     uv run python scripts/build_citation_inputs.py <feature_dir> --strategy-file <path>
@@ -19,6 +19,7 @@ from pathlib import Path
 
 from scripts.utils.snapshot_io import read_file_nofollow, require_feature_snapshot
 from scripts.utils.strat_utils import gate_inputs
+from scripts.validate_quality_evidence import validate_actionability, validate_scope_coverage
 from scripts.validate import validate_ac_citations, validate_ac_coverage, validate_interface_coverage
 
 
@@ -27,7 +28,8 @@ def build_citation_inputs(feature_dir: str, strategy_file: str) -> dict:
     interface_coverage_result = validate_interface_coverage(testplan_path)
 
     safe_path = require_feature_snapshot(feature_dir, strategy_file)
-    inputs = gate_inputs(read_file_nofollow(safe_path))
+    strategy_content = read_file_nofollow(safe_path)
+    inputs = gate_inputs(strategy_content)
     ac_count = inputs["ac_count"]
     nfr_categories = inputs["nfr_categories"]
 
@@ -36,6 +38,8 @@ def build_citation_inputs(feature_dir: str, strategy_file: str) -> dict:
         "interface_coverage_result": interface_coverage_result,
         "ac_citations_result": validate_ac_citations(testplan_path, ac_count=ac_count, nfr_categories=nfr_categories),
         "ac_coverage_result": validate_ac_coverage(testplan_path, ac_count=ac_count),
+        "scope_coverage_result": validate_scope_coverage(testplan_path, strategy_content),
+        "actionability_result": validate_actionability(testplan_path),
     }
 
 

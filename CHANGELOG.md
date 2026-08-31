@@ -7,7 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-08-31
+
+### Breaking Changes
+
+- **Generation and evidence contracts**: Test plans and test cases are now focused on E2E/UI
+  execution, with machine-checkable AC/NFR traceability and deterministic quality gates for
+  scope, coverage, and actionability.
+- **Review and scoring**: A plan is Ready only when it meets the actionability requirement;
+  invalid evidence can deterministically cap review scores.
+
+### Added
+
+- **Deterministic workflow support**: Strategy snapshots, shared citation gates, scope/boilerplate
+  validation, calibration loading, and self-contained feature-directory discovery.
+- **Safer test implementation flow**: Test-case implementation defaults to the downstream QE
+  repository while retaining an explicit target override.
+
 ### Changed
+
+- **Pipeline validation**: The refocused workflow was validated against three real STRATs,
+  including E2E-or-UI interface coverage and explicit disclosure of unresolved analysis gaps.
+
 - **Jira integration**: Replaced MCP calls with direct Python scripts for improved cost efficiency and reliability ([#18](https://github.com/opendatahub-io/odh-test-gen/issues/18))
   - Added `scripts/jira_utils.py` - Jira REST API client with retry logic, proper 204 No Content handling, and deterministic label ordering
   - Added `scripts/fetch_issue.py` - CLI tool for fetching issues and converting to markdown

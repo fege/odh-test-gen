@@ -70,7 +70,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
    `strategy_path` is the persistent, local-only snapshot — it is never deleted.
 
-4. Compute AC/NFR citation validity and coverage deterministically (mirrors `test-plan.review` Step 1.5) via [`scripts/build_citation_inputs.py`](scripts/build_citation_inputs.py), which derives `ac_count`/`nfr_categories` from `strategy_path` and calls the three validators directly:
+4. Compute AC/NFR citation validity, coverage, bidirectional scope coverage, and actionability evidence deterministically (mirrors `test-plan.review` Step 1.5) via [`scripts/build_citation_inputs.py`](scripts/build_citation_inputs.py), which derives `ac_count`/`nfr_categories` from `strategy_path` and calls the validators directly:
 
    ```bash
    gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> --strategy-file "$strategy_path") || {
@@ -82,9 +82,11 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    interface_coverage_result=$(echo "$gate_result" | jq -c '.interface_coverage_result')
    ac_citations_result=$(echo "$gate_result" | jq -c '.ac_citations_result')
    ac_coverage_result=$(echo "$gate_result" | jq -c '.ac_coverage_result')
+   scope_coverage_result=$(echo "$gate_result" | jq -c '.scope_coverage_result')
+   actionability_result=$(echo "$gate_result" | jq -c '.actionability_result')
    ```
 
-   A nonzero exit means gate-input construction itself failed (unreadable strategy file, a parsing bug) — that's an execution failure, not data about the test plan, so stop rather than silently falling back to degraded mode.
+   A nonzero exit means gate-input construction itself failed (unreadable strategy file, a parsing bug) — that's an execution failure, not data about the test plan, so stop rather than silently falling back to degraded mode. The interface coverage result distinguishes missing/blank Section 6.2 rows in `missing_in_6_2` from declared interfaces with a populated row that contains neither a `TC-E2E-*` nor a `TC-UI-*` reference in `missing_e2e_or_ui_in_6_2`; each populated Section 6.2 row must contain at least one `TC-E2E-*` or `TC-UI-*` reference. Use both fields in the consistency assessment. Empty pre-create-cases Section 6.2 remains valid and is skipped by the validator.
 
 5. Resolve `additional_docs` from TestPlan.md frontmatter:
 
@@ -150,13 +152,15 @@ Launch a **forked** score agent with substitutions:
 - `{INTERFACE_COVERAGE_RESULT}` = JSON from Step 1 (`interface_coverage_result`)
 - `{AC_CITATIONS_RESULT}` = JSON from Step 1 (`ac_citations_result`)
 - `{AC_COVERAGE_RESULT}` = JSON from Step 1 (`ac_coverage_result`)
+- `{SCOPE_COVERAGE_RESULT}` = JSON from Step 1 (`scope_coverage_result`)
+- `{ACTIONABILITY_RESULT}` = JSON from Step 1 (`actionability_result`)
 - `{ADDITIONAL_DOCS_CONTENT}` = JSON from Step 1 (`additional_docs_result`)
 - `{SCOPE_CHECK_RESULT}` = JSON from Step 1 (`scope_check_result`)
 - `{BOILERPLATE_RESULT}` = JSON from Step 1 (`boilerplate_result`)
 
 ### Step 2.5: Enforce Score Caps
 
-The score agent is instructed to cap Scope Fidelity/Specificity per the precomputed results above — but LLM compliance isn't guaranteed, and this skill writes no `TestPlanReview.md` for a gate to correct after the fact (unlike `test-plan.review`, which re-applies the rule via `enforce_citation_gate.py` once the file exists). Re-apply it directly against the agent's self-reported scores (each 0-2, from the Score Table in Step 2), before presenting anything.
+The score agent is instructed to cap Scope Fidelity/Specificity/Actionability per the precomputed results above — but LLM compliance isn't guaranteed, and this skill writes no `TestPlanReview.md` for a gate to correct after the fact (unlike `test-plan.review`, which re-applies the rule via `enforce_citation_gate.py` once the file exists). Re-apply it directly against the agent's self-reported scores (each 0-2, from the Score Table in Step 2), before presenting anything.
 
 Write the five rubric scores from the Score Table as a JSON object (use `scope_fidelity` with an underscore, matching the rubric key):
 
@@ -172,7 +176,8 @@ scores_json='{"specificity": N, "grounding": N, "scope_fidelity": N, "actionabil
 cap_result=$(cd "$repo_root" && uv run python scripts/cap_scope_fidelity.py \
     --scores-json "$scores_json" \
     --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result" \
-    --scope-check-result "$scope_check_result" --boilerplate-result "$boilerplate_result") || {
+    --scope-check-result "$scope_check_result" --boilerplate-result "$boilerplate_result" \
+    --scope-coverage-result "$scope_coverage_result" --actionability-result "$actionability_result") || {
     echo "ERROR: scripts/cap_scope_fidelity.py failed — stopping." >&2
     echo "$cap_result" >&2
     exit 1
@@ -185,7 +190,7 @@ if [ "$cap_status" = "error" ]; then
 fi
 ```
 
-The Python helper validates that `scores_json` contains exactly five integer scores (0-2 each) before processing — malformed or out-of-range values produce a structured error, not a shell failure. If `cap_status` is `overridden`, Step 3 below presents `cap_result`'s `scores`/`score`/`verdict`/`pass` — not the agent's own numbers — and flags whichever of Scope Fidelity/Specificity was automatically corrected.
+The Python helper validates that `scores_json` contains exactly five integer scores (0-2 each) before processing — malformed or out-of-range values produce a structured error, not a shell failure. If `cap_status` is `overridden`, Step 3 below presents `cap_result`'s `scores`/`score`/`verdict`/`pass` — not the agent's own numbers. The presentation must explicitly report every corrected criterion, including an **Actionability cap to 1/2** when `cap_result.actionability_capped` is `true`. For that cap, replace the score agent's original Evidence and Notes with a deterministic rationale built from `actionability_result.bare_tbd` and `actionability_result.missing_details`; do not show any scorer-supplied rationale beside the corrected score.
 
 ### Step 3: Present Results
 
@@ -201,7 +206,7 @@ Parse the score agent's output and present the results to the user, substituting
 | Specificity | {n}/2 | {brief rationale, or "Automatically corrected — boilerplate check failed" if Step 2.5 overrode it} |
 | Grounding | {n}/2 | {brief rationale} |
 | Scope Fidelity | {n}/2 | {brief rationale, or "Automatically corrected — citation/coverage/scope checks failed" if Step 2.5 overrode it} |
-| Actionability | {n}/2 | {brief rationale} |
+| Actionability | {n}/2 | {brief rationale when not capped; otherwise "Automatically corrected to 1/2 — deterministic actionability evidence failed: {bare_tbd and/or missing_details}"} |
 | Consistency | {n}/2 | {brief rationale} |
 
 **Total: {sum}/10**

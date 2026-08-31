@@ -208,8 +208,9 @@ nothing about the feature. Could they provision the test environment?
 If they'd come back with questions, it's not actionable.
 
 What to check:
-- Are OpenShift and RHOAI versions specified (or marked TBD with
-  rationale)?
+- Are OpenShift and RHOAI versions specified? For `actionability == 2`, an unknown is acceptable
+  only as `TBD — Resolution: {concrete action} from/with/by/before/after/using {named source or timing}`.
+  A recorded gap without that explicit resolution path cannot support a 2/2 score.
 - Does test data include format and examples, not just "sample data"?
 - Are test users defined with specific roles and permissions?
 - Are infrastructure requirements concrete enough to act on?
@@ -225,8 +226,14 @@ Run these six cross-checks:
    result)
 5. Section 7 NFR categories are consistent with feature scope (e.g.,
    a feature that pulls images should not mark Disconnected as N/A)
-6. Section 6.2 E2E Coverage Matrix includes all interfaces (checked
-   deterministically; expected unpopulated until create-cases runs)
+6. Once populated, the Section 6.2 E2E Coverage Matrix must include every
+   non-pending interface from Section 4, and each populated Section 6.2 row
+   must contain at least one `TC-E2E-*` or `TC-UI-*` reference. The deterministic
+   `interface-coverage` result reports `missing_in_6_2` when no filled row exists
+   for a declared interface, and `missing_e2e_or_ui_in_6_2` when a declared
+   interface has a row without either reference, including a deficient duplicate
+   row when another duplicate satisfies coverage. An empty or placeholder matrix
+   remains expected before create-cases runs.
 
 ### 4. Review test cases
 
@@ -251,8 +258,8 @@ them for:
 - Do P0 flows in Section 6.1 have adequate test case coverage (not
   just P2 test cases)?
 - Is there a mix of positive, negative, and boundary test cases?
-- Do E2E test cases (TC-E2E-*) cover the user journeys described in
-  the strategy?
+- Do E2E test cases (TC-E2E-*) and, where applicable, UI test cases
+  (TC-UI-*) cover the user journeys described in the strategy?
 
 #### Priority alignment
 
@@ -351,7 +358,7 @@ Focus on:
 | NFR marked N/A incorrectly | Section 7 | PR comment explaining why the category applies |
 | TBDs that you can resolve | TestPlanGaps.md | PR comment with the answer, or provide the source doc |
 | Inconsistent cross-references | Section 9.2 vs Section 4 | PR comment (often auto-fixed by the pipeline) |
-| Missing E2E coverage for interfaces | Section 6.2 | PR comment requesting E2E test cases |
+| Missing E2E/UI coverage for interfaces | Section 6.2 | PR comment requesting an E2E or UI test case reference |
 
 ## Key Rules
 
