@@ -356,6 +356,7 @@ def validate_category_prefixes(testplan_path: str) -> dict:
 INTERFACE_TABLE_COLUMNS = ["Interface", "Type", "Purpose"]
 ALLOWED_INTERFACE_TYPES = frozenset({"REST", "gRPC", "UI", "CLI", "CRD"})
 MARKDOWN_SEPARATOR_CELL_RE = re.compile(r"^:?-+:?$")
+E2E_OR_UI_REFERENCE_RE = re.compile(r"(?<![\w-])TC-(?:E2E|UI)-[A-Za-z0-9]+(?![\w-])")
 
 
 def _is_markdown_separator_row(columns: list[str]) -> bool:
@@ -415,7 +416,7 @@ def validate_interface_types(testplan_path: str) -> dict:
 
 
 def validate_interface_coverage(testplan_path: str) -> dict:
-    """Check Section 9.2 and Section 6.2 tables list every interface from Section 4."""
+    """Check Section 9.2 and Section 6.2 cover Section 4 interfaces and E2E/UI references."""
     path = Path(testplan_path)
     if not path.exists():
         return {"valid": False, "error": f"File not found: {testplan_path}"}
@@ -438,6 +439,7 @@ def validate_interface_coverage(testplan_path: str) -> dict:
             "pending": [],
             "missing_in_9_2": [],
             "missing_in_6_2": [],
+            "missing_e2e_or_ui_in_6_2": [],
             "section_9_2_populated": False,
             "section_6_2_populated": False,
         }
@@ -457,18 +459,42 @@ def validate_interface_coverage(testplan_path: str) -> dict:
     section62_lines, _ = extract_section(content, TEMPLATE_HEADINGS["6.2"])
     rows_62 = parse_table_rows(section62_lines)
     populated_62 = any(row and row[0] for row in rows_62)
-    covered_62 = {
-        normalize_interface(row[0]) for row in rows_62 if row and row[0] and len(row) > 1 and is_filled_cell(row[1])
-    }
+    populated_rows_62 = [row for row in rows_62 if row and row[0] and len(row) > 1 and is_filled_cell(row[1])]
+    covered_62 = {normalize_interface(row[0]) for row in populated_rows_62}
     skip_62 = covered_62 | pending_set
     missing_in_6_2 = [i for i in interfaces if normalize_interface(i) not in skip_62] if populated_62 else []
+    declared_interfaces = {normalize_interface(i) for i in interfaces}
+    declared_rows_62 = [row for row in rows_62 if row and row[0] and normalize_interface(row[0]) in declared_interfaces]
+    missing_e2e_or_ui_interfaces = set()
+    # Check every declared row independently, including blank/placeholder cells: a duplicate row
+    # with a valid reference must not mask another duplicate row for the same interface that has
+    # neither reference. Keep lone blank/placeholder rows under missing_in_6_2 only.
+    for row in declared_rows_62:
+        interface = normalize_interface(row[0])
+        reference_cell = row[1] if len(row) > 1 else ""
+        if (
+            interface in declared_interfaces
+            and interface not in pending_set
+            and not E2E_OR_UI_REFERENCE_RE.search(reference_cell)
+        ):
+            missing_e2e_or_ui_interfaces.add(interface)
+    missing_e2e_or_ui_in_6_2 = (
+        [
+            i
+            for i in interfaces
+            if normalize_interface(i) in covered_62 and normalize_interface(i) in missing_e2e_or_ui_interfaces
+        ]
+        if populated_62
+        else []
+    )
 
     return {
-        "valid": not missing_in_9_2 and not missing_in_6_2,
+        "valid": not missing_in_9_2 and not missing_in_6_2 and not missing_e2e_or_ui_in_6_2,
         "interfaces": interfaces,
         "pending": pending,
         "missing_in_9_2": missing_in_9_2,
         "missing_in_6_2": missing_in_6_2,
+        "missing_e2e_or_ui_in_6_2": missing_e2e_or_ui_in_6_2,
         "section_9_2_populated": populated_92,
         "section_6_2_populated": populated_62,
     }

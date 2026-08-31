@@ -100,13 +100,23 @@ _MAX = 1024  # upper bound on field-width quantifiers — prevents ReDoS backtra
 # with whitespace on both sides is the separator -- an unspaced hyphen is part of the category
 # text, not a terminator. The AC branch has no free-text category, so this ambiguity doesn't
 # apply there; its dash stays whitespace-tolerant on both sides as before.
+#
+# Real STRAT documents define sibling NFR categories that differ only by a parenthetical
+# qualifier, e.g. "Security", "Security (workspace isolation)", "Security (transport)" as three
+# distinct category strings. The category text must therefore tolerate one balanced (...) group.
+# Each "atom" below is either a single non-')' character or a whole balanced parenthetical chunk;
+# the two alternatives are distinguished by whether the next character is '(', so matching stays
+# effectively linear despite the alternation (no catastrophic backtracking).
+_PAREN_CHUNK = r"\([^()]{0,%d}\)" % _MAX
+_NFR_CATEGORY_FIRST = r"(?:[^\s\-\u2013\u2014()]|%s)" % _PAREN_CHUNK
+_NFR_CATEGORY_REST = r"(?:[^()]|%s)" % _PAREN_CHUNK
+_NFR_CATEGORY = r"%s%s{0,%d}?" % (_NFR_CATEGORY_FIRST, _NFR_CATEGORY_REST, _MAX)
+
 _AC_BRANCH = r"AC:\s*(?:#\d{1,%d})?\s*" % _MAX + _DASH + r"\s*"
-_NFR_BRANCH = r"NFR:\s*[^\s\-\u2013\u2014)][^)]{0,%d}?\s+" % _MAX + _DASH + r"\s+"
+_NFR_BRANCH = r"NFR:\s*" + _NFR_CATEGORY + r"\s+" + _DASH + r"\s+"
 CITATION_RE = re.compile(r"\((?:" + _AC_BRANCH + "|" + _NFR_BRANCH + r")[^\s)][^)]{0,%d}\)" % _MAX)
 _AC_CITATION_RE = re.compile(r"\(AC:\s*(?:#(\d{1,%d}))?\s*" % _MAX + _DASH + r"\s*[^\s)][^)]{0,%d}\)" % _MAX)
-_NFR_CITATION_RE = re.compile(
-    r"\(NFR:\s*([^\s\-\u2013\u2014)][^)]{0,%d}?)\s+" % _MAX + _DASH + r"\s+[^\s)][^)]{0,%d}\)" % _MAX
-)
+_NFR_CITATION_RE = re.compile(r"\(NFR:\s*(" + _NFR_CATEGORY + r")\s+" + _DASH + r"\s+[^\s)][^)]{0,%d}\)" % _MAX)
 
 
 def has_citation(text: str) -> bool:

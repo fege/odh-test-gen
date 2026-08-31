@@ -23,10 +23,15 @@ from tests.consts.validation_constants import (
     BOILERPLATE_THREE_VIOLATIONS,
     INVALID_CITATIONS,
     INVALID_COVERAGE,
+    INVALID_ACTIONABILITY,
+    INVALID_SCOPE_COVERAGE,
+    INVALID_SCOPE_COVERAGE_REVERSE,
     INVALID_SCOPE_CHECK,
+    VALID_ACTIONABILITY,
     VALID_BOILERPLATE,
     VALID_CITATIONS,
     VALID_COVERAGE,
+    VALID_SCOPE_COVERAGE,
     VALID_SCOPE_CHECK,
 )
 from tests.helpers import build_review_payload
@@ -48,6 +53,61 @@ def _write_review(
     )
 
 
+def _cap_scope_fidelity(scores, ac_citations_result, ac_coverage_result, scope_check_result):
+    """Call the public cap with valid required scope-coverage evidence."""
+    return cap_scope_fidelity(
+        scores,
+        ac_citations_result,
+        ac_coverage_result,
+        scope_check_result,
+        scope_coverage_result=VALID_SCOPE_COVERAGE,
+    )
+
+
+def _apply_score_caps(
+    scores,
+    ac_citations_result,
+    ac_coverage_result,
+    scope_check_result,
+    boilerplate_result,
+    *,
+    scope_coverage_result=VALID_SCOPE_COVERAGE,
+    actionability_result=VALID_ACTIONABILITY,
+):
+    """Call the public cap orchestrator with explicit quality evidence defaults."""
+    return apply_score_caps(
+        scores,
+        ac_citations_result,
+        ac_coverage_result,
+        scope_check_result,
+        boilerplate_result,
+        scope_coverage_result=scope_coverage_result,
+        actionability_result=actionability_result,
+    )
+
+
+def _enforce_citation_gate(
+    feature_dir,
+    ac_citations_result,
+    ac_coverage_result,
+    scope_check_result,
+    boilerplate_result,
+    *,
+    scope_coverage_result=VALID_SCOPE_COVERAGE,
+    actionability_result=VALID_ACTIONABILITY,
+):
+    """Call the persisted gate with valid required quality evidence by default."""
+    return enforce_citation_gate(
+        feature_dir,
+        ac_citations_result,
+        ac_coverage_result,
+        scope_check_result,
+        boilerplate_result,
+        scope_coverage_result=scope_coverage_result,
+        actionability_result=actionability_result,
+    )
+
+
 class TestCapScopeFidelity:
     """Pure-function tests for cap_scope_fidelity — no file I/O, shared by enforce_citation_gate
     (which persists the result to TestPlanReview.md) and test-plan-score (which has no review
@@ -55,12 +115,114 @@ class TestCapScopeFidelity:
     """
 
     def test_no_override_when_all_checks_valid(self):
-        result = cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK)
+        result = _cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK)
 
         assert result == {"overridden": False, "scores": ALL_TWOS}
 
+    def test_omitting_required_scope_coverage_evidence_raises(self):
+        with pytest.raises(TypeError, match="scope_coverage_result"):
+            cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK)
+
+    def test_scope_coverage_failure_caps_scope_fidelity(self):
+        result = _apply_score_caps(
+            ALL_TWOS,
+            VALID_CITATIONS,
+            VALID_COVERAGE,
+            VALID_SCOPE_CHECK,
+            VALID_BOILERPLATE,
+            scope_coverage_result=INVALID_SCOPE_COVERAGE,
+            actionability_result=VALID_ACTIONABILITY,
+        )
+
+        assert result["overridden"] is True
+        assert result["scores"]["scope_fidelity"] == 1
+        assert result["scores"]["actionability"] == 2
+
+    def test_actionability_evidence_failure_caps_actionability_and_recomputes_verdict(self):
+        result = _apply_score_caps(
+            ALL_TWOS,
+            VALID_CITATIONS,
+            VALID_COVERAGE,
+            VALID_SCOPE_CHECK,
+            VALID_BOILERPLATE,
+            scope_coverage_result=VALID_SCOPE_COVERAGE,
+            actionability_result=INVALID_ACTIONABILITY,
+        )
+
+        assert result["overridden"] is True
+        assert result["scores"]["scope_fidelity"] == 2
+        assert result["scores"]["actionability"] == 1
+        assert result["score"] == 9
+        assert result["verdict"] == "Revise"
+        assert result["pass"] is True
+
+    def test_reverse_scope_coverage_failure_caps_scope_fidelity(self):
+        result = _apply_score_caps(
+            ALL_TWOS,
+            VALID_CITATIONS,
+            VALID_COVERAGE,
+            VALID_SCOPE_CHECK,
+            VALID_BOILERPLATE,
+            scope_coverage_result=INVALID_SCOPE_COVERAGE_REVERSE,
+            actionability_result=VALID_ACTIONABILITY,
+        )
+
+        assert result["overridden"] is True
+        assert result["scores"]["scope_fidelity"] == 1
+
+    @pytest.mark.parametrize(
+        "scope_coverage_result, actionability_result, expected_error",
+        [
+            pytest.param(
+                {"missing": [], "unmapped_objectives": []},
+                VALID_ACTIONABILITY,
+                "scope_coverage_result",
+                id="scope-coverage-missing-valid",
+            ),
+            pytest.param(
+                VALID_SCOPE_COVERAGE,
+                {"valid": False, "bare_tbd": "OpenShift version", "missing_details": []},
+                "actionability_result",
+                id="actionability-bare-tbd-not-list",
+            ),
+        ],
+    )
+    def test_quality_evidence_is_validated_before_scoring(
+        self, scope_coverage_result, actionability_result, expected_error
+    ):
+        with pytest.raises(ValueError, match=expected_error):
+            _apply_score_caps(
+                ALL_TWOS,
+                VALID_CITATIONS,
+                VALID_COVERAGE,
+                VALID_SCOPE_CHECK,
+                VALID_BOILERPLATE,
+                scope_coverage_result=scope_coverage_result,
+                actionability_result=actionability_result,
+            )
+
+    @pytest.mark.parametrize(
+        "scope_coverage_result",
+        [
+            pytest.param(None, id="missing-required-scope-coverage"),
+            pytest.param(
+                {"valid": False, "missing": "not-a-list", "unmapped_objectives": []},
+                id="scope-coverage-missing-not-list",
+            ),
+        ],
+    )
+    def test_scope_coverage_evidence_fails_closed_when_missing_or_malformed(self, scope_coverage_result):
+        with pytest.raises(ValueError, match="scope_coverage_result"):
+            cap_scope_fidelity(
+                ALL_TWOS,
+                VALID_CITATIONS,
+                VALID_COVERAGE,
+                VALID_SCOPE_CHECK,
+                scope_coverage_result=scope_coverage_result,
+            )
+
     def test_override_when_citations_invalid(self):
-        result = cap_scope_fidelity(ALL_TWOS, INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK)
+        result = _cap_scope_fidelity(ALL_TWOS, INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK)
 
         assert result["overridden"] is True
         assert result["scores"]["scope_fidelity"] == 1
@@ -69,13 +231,13 @@ class TestCapScopeFidelity:
         assert result["pass"] is True
 
     def test_override_when_coverage_invalid(self):
-        result = cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, INVALID_COVERAGE, VALID_SCOPE_CHECK)
+        result = _cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, INVALID_COVERAGE, VALID_SCOPE_CHECK)
 
         assert result["overridden"] is True
         assert result["scores"]["scope_fidelity"] == 1
 
     def test_override_when_scope_check_invalid(self):
-        result = cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, INVALID_SCOPE_CHECK)
+        result = _cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, INVALID_SCOPE_CHECK)
 
         assert result["overridden"] is True
         assert result["scores"]["scope_fidelity"] == 1
@@ -83,7 +245,7 @@ class TestCapScopeFidelity:
     def test_already_capped_scope_fidelity_is_left_alone(self):
         scores = {**ALL_TWOS, "scope_fidelity": 1}
 
-        result = cap_scope_fidelity(scores, INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK)
+        result = _cap_scope_fidelity(scores, INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK)
 
         assert result == {"overridden": False, "scores": scores}
 
@@ -91,7 +253,7 @@ class TestCapScopeFidelity:
         scores = dict(ALL_TWOS)
         original = dict(scores)
 
-        cap_scope_fidelity(scores, INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK)
+        _cap_scope_fidelity(scores, INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK)
 
         assert scores == original
 
@@ -121,19 +283,19 @@ class TestCapScopeFidelity:
     )
     def test_malformed_result_raises(self, citations_result, coverage_result):
         with pytest.raises(ValueError):
-            cap_scope_fidelity(ALL_TWOS, citations_result, coverage_result, VALID_SCOPE_CHECK)
+            _cap_scope_fidelity(ALL_TWOS, citations_result, coverage_result, VALID_SCOPE_CHECK)
 
     def test_malformed_scope_check_raises(self):
         with pytest.raises(ValueError):
-            cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, {"violations": []})
+            _cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, {"violations": []})
 
     def test_successful_scope_result_requires_violations_list(self):
         with pytest.raises(ValueError, match="violations"):
-            cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, {"valid": True})
+            _cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, {"valid": True})
 
     def test_scope_script_error_surfaces_payload_error(self):
         with pytest.raises(ValueError, match="Core checks directory not found"):
-            cap_scope_fidelity(
+            _cap_scope_fidelity(
                 ALL_TWOS,
                 VALID_CITATIONS,
                 VALID_COVERAGE,
@@ -141,7 +303,7 @@ class TestCapScopeFidelity:
             )
 
     def test_empty_violations_list_is_accepted_for_capping(self):
-        result = cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, {"valid": True, "violations": []})
+        result = _cap_scope_fidelity(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, {"valid": True, "violations": []})
 
         assert result == {"overridden": False, "scores": ALL_TWOS}
 
@@ -180,7 +342,7 @@ class TestCapScopeFidelity:
     )
     def test_invalid_scores_raises(self, invalid_scores):
         with pytest.raises(ValueError):
-            cap_scope_fidelity(invalid_scores, VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK)
+            _cap_scope_fidelity(invalid_scores, VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK)
 
 
 class TestCapSpecificity:
@@ -243,12 +405,29 @@ class TestApplyScoreCaps:
     """Tests for the orchestrator combining both caps — the composition, not each cap alone."""
 
     def test_no_override_when_everything_valid(self):
-        result = apply_score_caps(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
+        result = _apply_score_caps(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
+
+        assert result == {"overridden": False, "scores": ALL_TWOS}
+
+    def test_omitting_required_quality_evidence_raises(self):
+        with pytest.raises(TypeError, match="scope_coverage_result"):
+            apply_score_caps(ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
+
+    def test_valid_scope_coverage_and_actionability_do_not_override(self):
+        result = _apply_score_caps(
+            ALL_TWOS,
+            VALID_CITATIONS,
+            VALID_COVERAGE,
+            VALID_SCOPE_CHECK,
+            VALID_BOILERPLATE,
+            scope_coverage_result=VALID_SCOPE_COVERAGE,
+            actionability_result=VALID_ACTIONABILITY,
+        )
 
         assert result == {"overridden": False, "scores": ALL_TWOS}
 
     def test_only_scope_fidelity_capped(self):
-        result = apply_score_caps(ALL_TWOS, INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
+        result = _apply_score_caps(ALL_TWOS, INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
 
         assert result["overridden"] is True
         assert result["scope_fidelity_capped"] is True
@@ -257,7 +436,7 @@ class TestApplyScoreCaps:
         assert result["scores"]["specificity"] == 2
 
     def test_only_specificity_capped(self):
-        result = apply_score_caps(
+        result = _apply_score_caps(
             ALL_TWOS, VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, BOILERPLATE_FIVE_VIOLATIONS
         )
 
@@ -268,7 +447,7 @@ class TestApplyScoreCaps:
         assert result["scores"]["scope_fidelity"] == 2
 
     def test_both_capped_score_reflects_both_corrections(self):
-        result = apply_score_caps(
+        result = _apply_score_caps(
             ALL_TWOS, INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, BOILERPLATE_FIVE_VIOLATIONS
         )
 
@@ -288,10 +467,14 @@ class TestApplyScoreCaps:
 
 
 class TestEnforceCitationGate:
+    def test_omitting_required_quality_evidence_raises(self, tmp_path):
+        with pytest.raises(TypeError, match="scope_coverage_result"):
+            enforce_citation_gate(str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
+
     def test_valid_citations_no_override(self, tmp_path):
         review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
 
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE
         )
 
@@ -303,7 +486,7 @@ class TestEnforceCitationGate:
     def test_invalid_citations_caps_scope_fidelity_and_recomputes_score(self, tmp_path):
         review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10, verdict="Ready", passed=True)
 
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE
         )
 
@@ -320,7 +503,7 @@ class TestEnforceCitationGate:
     def test_invalid_scope_check_caps_scope_fidelity(self, tmp_path):
         review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
 
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, INVALID_SCOPE_CHECK, VALID_BOILERPLATE
         )
 
@@ -332,7 +515,7 @@ class TestEnforceCitationGate:
     def test_boilerplate_caps_specificity(self, tmp_path):
         review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
 
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, BOILERPLATE_FIVE_VIOLATIONS
         )
 
@@ -345,7 +528,7 @@ class TestEnforceCitationGate:
     def test_override_injects_feedback_note_with_citation_specifics(self, tmp_path):
         review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
 
-        enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, INVALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
+        _enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, INVALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
 
         body = Path(review).read_text()
         assert "## Section-by-Section Feedback" in body
@@ -357,7 +540,7 @@ class TestEnforceCitationGate:
     def test_override_injects_feedback_note_with_scope_check_specifics(self, tmp_path):
         review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
 
-        enforce_citation_gate(str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, INVALID_SCOPE_CHECK, VALID_BOILERPLATE)
+        _enforce_citation_gate(str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, INVALID_SCOPE_CHECK, VALID_BOILERPLATE)
 
         body = Path(review).read_text()
         assert "Unit Testing" in body
@@ -366,7 +549,7 @@ class TestEnforceCitationGate:
     def test_override_injects_feedback_note_with_boilerplate_specifics(self, tmp_path):
         review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
 
-        enforce_citation_gate(
+        _enforce_citation_gate(
             str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, BOILERPLATE_FIVE_VIOLATIONS
         )
 
@@ -377,7 +560,7 @@ class TestEnforceCitationGate:
     def test_both_corrections_produce_both_feedback_sections(self, tmp_path):
         review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
 
-        enforce_citation_gate(
+        _enforce_citation_gate(
             str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, BOILERPLATE_FIVE_VIOLATIONS
         )
 
@@ -395,7 +578,7 @@ class TestEnforceCitationGate:
 
         with patch("scripts.enforce_citation_gate._build_feedback_note", side_effect=RuntimeError("boom")):
             with pytest.raises(RuntimeError):
-                enforce_citation_gate(
+                _enforce_citation_gate(
                     str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE
                 )
 
@@ -407,19 +590,80 @@ class TestEnforceCitationGate:
         review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
         original_body = Path(review).read_text()
 
-        enforce_citation_gate(str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
+        _enforce_citation_gate(str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
 
         assert Path(review).read_text() == original_body
 
     def test_invalid_ac_coverage_alone_also_triggers_override(self, tmp_path):
         _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
 
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), VALID_CITATIONS, INVALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE
         )
 
         assert result["overridden"] is True
         assert result["scores"]["scope_fidelity"] == 1
+
+    def test_scope_coverage_failure_persists_correction_and_missing_item_feedback(self, tmp_path):
+        review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
+
+        result = _enforce_citation_gate(
+            str(tmp_path),
+            VALID_CITATIONS,
+            VALID_COVERAGE,
+            VALID_SCOPE_CHECK,
+            VALID_BOILERPLATE,
+            scope_coverage_result=INVALID_SCOPE_COVERAGE,
+            actionability_result=VALID_ACTIONABILITY,
+        )
+
+        assert result["overridden"] is True
+        assert result["scores"]["scope_fidelity"] == 1
+        data, _ = read_frontmatter(review)
+        assert data["scores"]["scope_fidelity"] == 1
+        body = Path(review).read_text()
+        assert "Optional description and tags" in body
+
+    def test_reverse_scope_coverage_failure_persists_orphan_objective_feedback(self, tmp_path):
+        review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
+
+        result = _enforce_citation_gate(
+            str(tmp_path),
+            VALID_CITATIONS,
+            VALID_COVERAGE,
+            VALID_SCOPE_CHECK,
+            VALID_BOILERPLATE,
+            scope_coverage_result=INVALID_SCOPE_COVERAGE_REVERSE,
+            actionability_result=VALID_ACTIONABILITY,
+        )
+
+        assert result["overridden"] is True
+        assert result["scores"]["scope_fidelity"] == 1
+        body = Path(review).read_text()
+        assert "Verify an invented deliverable" in body
+
+    def test_actionability_failure_persists_correction_and_missing_detail_feedback(self, tmp_path):
+        review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
+
+        result = _enforce_citation_gate(
+            str(tmp_path),
+            VALID_CITATIONS,
+            VALID_COVERAGE,
+            VALID_SCOPE_CHECK,
+            VALID_BOILERPLATE,
+            scope_coverage_result=VALID_SCOPE_COVERAGE,
+            actionability_result=INVALID_ACTIONABILITY,
+        )
+
+        assert result["overridden"] is True
+        assert result["scores"]["actionability"] == 1
+        assert result["score"] == 9
+        assert result["verdict"] == "Revise"
+        data, _ = read_frontmatter(review)
+        assert data["scores"]["actionability"] == 1
+        body = Path(review).read_text()
+        assert "OpenShift version" in body
+        assert "RBAC roles and permissions" in body
 
     def test_override_recomputes_score_but_verdict_stays_revise(self, tmp_path):
         # specificity=2, grounding=2, scope_fidelity=2, actionability=1, consistency=1 -> tot 8, but
@@ -427,7 +671,7 @@ class TestEnforceCitationGate:
         scores = {"specificity": 2, "grounding": 2, "scope_fidelity": 2, "actionability": 1, "consistency": 1}
         _write_review(tmp_path / "TestPlanReview.md", scores, score=8, verdict="Revise", passed=True)
 
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE
         )
 
@@ -445,7 +689,7 @@ class TestEnforceCitationGate:
         scores = {"specificity": 1, "grounding": 1, "scope_fidelity": 2, "actionability": 2, "consistency": 2}
         _write_review(tmp_path / "TestPlanReview.md", scores, score=8, verdict="Ready", passed=True)
 
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE
         )
 
@@ -459,7 +703,7 @@ class TestEnforceCitationGate:
         scores = {"specificity": 1, "grounding": 1, "scope_fidelity": 2, "actionability": 2, "consistency": 1}
         _write_review(tmp_path / "TestPlanReview.md", scores, score=7, verdict="Revise", passed=True)
 
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE
         )
 
@@ -472,7 +716,7 @@ class TestEnforceCitationGate:
         scores = {**ALL_TWOS, "scope_fidelity": 1}
         review = _write_review(tmp_path / "TestPlanReview.md", scores, score=9, verdict="Ready", passed=True)
 
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE
         )
 
@@ -481,7 +725,7 @@ class TestEnforceCitationGate:
         assert data["score"] == 9  # untouched
 
     def test_missing_review_file_returns_none(self, tmp_path):
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE
         )
 
@@ -492,7 +736,7 @@ class TestEnforceCitationGate:
             tmp_path / "TestPlanReview.md", ALL_TWOS, score=10, before_score=10, before_scores=dict(ALL_TWOS)
         )
 
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE
         )
 
@@ -506,7 +750,7 @@ class TestEnforceCitationGate:
             tmp_path / "TestPlanReview.md", ALL_TWOS, score=10, before_score=10, before_scores=dict(ALL_TWOS)
         )
 
-        enforce_citation_gate(
+        _enforce_citation_gate(
             str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, BOILERPLATE_FIVE_VIOLATIONS
         )
 
@@ -524,7 +768,7 @@ class TestEnforceCitationGate:
             before_scores={"specificity": 1, "grounding": 1, "scope_fidelity": 2, "actionability": 2, "consistency": 1},
         )
 
-        enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
+        _enforce_citation_gate(str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE)
 
         data, _ = read_frontmatter(review)
         assert data["before_score"] == 7
@@ -535,7 +779,7 @@ class TestEnforceCitationGate:
         # (the part that actually drives filter_for_revision) must still apply.
         review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10, body="## Rubric Scores\n")
 
-        result = enforce_citation_gate(
+        result = _enforce_citation_gate(
             str(tmp_path), INVALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, VALID_BOILERPLATE
         )
 
@@ -582,19 +826,58 @@ class TestEnforceCitationGateFailsClosedOnMalformedResults:
         original_data, _ = read_frontmatter(review)
 
         with pytest.raises(ValueError):
-            enforce_citation_gate(
+            _enforce_citation_gate(
                 str(tmp_path), citations_result, coverage_result, VALID_SCOPE_CHECK, VALID_BOILERPLATE
             )
 
         data, _ = read_frontmatter(review)
         assert data == original_data  # rejected before touching the review
 
+    @pytest.mark.parametrize(
+        "scope_coverage_result, actionability_result, expected_error",
+        [
+            pytest.param(
+                {"valid": True, "missing": [], "unmapped_objectives": []},
+                {"valid": False, "bare_tbd": "OpenShift version", "missing_details": []},
+                "actionability_result",
+                id="actionability-bare-tbd-not-list",
+            ),
+            pytest.param(
+                {"valid": False, "missing": [], "unmapped_objectives": "not-a-list"},
+                VALID_ACTIONABILITY,
+                "scope_coverage_result",
+                id="scope-coverage-unmapped-objectives-not-list",
+            ),
+        ],
+    )
+    def test_malformed_quality_evidence_raises_and_does_not_touch_review(
+        self, tmp_path, scope_coverage_result, actionability_result, expected_error
+    ):
+        review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
+        original_data, _ = read_frontmatter(review)
+
+        with pytest.raises(ValueError, match=expected_error):
+            _enforce_citation_gate(
+                str(tmp_path),
+                VALID_CITATIONS,
+                VALID_COVERAGE,
+                VALID_SCOPE_CHECK,
+                VALID_BOILERPLATE,
+                scope_coverage_result=scope_coverage_result,
+                actionability_result=actionability_result,
+            )
+
+        data, _ = read_frontmatter(review)
+        assert data == original_data
+
     def test_malformed_scope_check_raises_and_does_not_touch_review(self, tmp_path):
         review = _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
         original_data, _ = read_frontmatter(review)
 
         with pytest.raises(ValueError):
-            enforce_citation_gate(str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, {"violations": []}, VALID_BOILERPLATE)
+            _enforce_citation_gate(
+                str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, {"violations": []}, VALID_BOILERPLATE
+            )
 
         data, _ = read_frontmatter(review)
         assert data == original_data
@@ -604,7 +887,7 @@ class TestEnforceCitationGateFailsClosedOnMalformedResults:
         original_data, _ = read_frontmatter(review)
 
         with pytest.raises(ValueError, match="Core checks directory not found"):
-            enforce_citation_gate(
+            _enforce_citation_gate(
                 str(tmp_path),
                 VALID_CITATIONS,
                 VALID_COVERAGE,
@@ -632,7 +915,9 @@ class TestEnforceCitationGateFailsClosedOnMalformedResults:
         original_data, _ = read_frontmatter(review)
 
         with pytest.raises(ValueError):
-            enforce_citation_gate(str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, boilerplate_result)
+            _enforce_citation_gate(
+                str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, VALID_SCOPE_CHECK, boilerplate_result
+            )
 
         data, _ = read_frontmatter(review)
         assert data == original_data
@@ -642,7 +927,7 @@ class TestEnforceCitationGateFailsClosedOnMalformedResults:
         original_data, _ = read_frontmatter(review)
 
         with pytest.raises(ValueError, match="violations"):
-            enforce_citation_gate(str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, {"valid": True}, VALID_BOILERPLATE)
+            _enforce_citation_gate(str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, {"valid": True}, VALID_BOILERPLATE)
 
         data, _ = read_frontmatter(review)
         assert data == original_data
@@ -681,7 +966,7 @@ class TestEnforceCitationGateFailsClosedOnMalformedResults:
         original_data, _ = read_frontmatter(review)
 
         with pytest.raises(ValueError, match=expected_match):
-            enforce_citation_gate(
+            _enforce_citation_gate(
                 str(tmp_path), VALID_CITATIONS, VALID_COVERAGE, scope_check_result, boilerplate_result
             )
 
@@ -698,6 +983,8 @@ class TestEnforceCitationGateCLI:
             "--ac-coverage-result": json.dumps(VALID_COVERAGE),
             "--scope-check-result": json.dumps(VALID_SCOPE_CHECK),
             "--boilerplate-result": json.dumps(VALID_BOILERPLATE),
+            "--scope-coverage-result": json.dumps(VALID_SCOPE_COVERAGE),
+            "--actionability-result": json.dumps(VALID_ACTIONABILITY),
         }
         payloads.update(overrides)
         argv = ["enforce_citation_gate.py", str(feature_dir)]
@@ -751,6 +1038,20 @@ class TestEnforceCitationGateCLI:
         assert "malformed --boilerplate-result JSON" in captured.err
         output = json.loads(captured.out)
         assert output["status"] == "error"
+
+    @pytest.mark.parametrize("missing_flag", ("--scope-coverage-result", "--actionability-result"))
+    def test_missing_quality_evidence_result_is_a_structured_error(self, tmp_path, capsys, missing_flag):
+        argv = self._argv(tmp_path)
+        flag_index = argv.index(missing_flag)
+        del argv[flag_index : flag_index + 2]
+
+        self._run_main(argv)
+
+        captured = capsys.readouterr()
+        output = json.loads(captured.out)
+        assert output["status"] == "error"
+        assert missing_flag in output["error"]
+        assert missing_flag in captured.err
 
     @pytest.mark.parametrize(
         "citations_payload,coverage_payload,bad_flag",
@@ -872,6 +1173,18 @@ class TestEnforceCitationGateCLI:
                 "Core checks directory not found: /tmp/nonexistent_checks/core",
                 id="scope_error_shaped",
             ),
+            pytest.param(
+                "--scope-coverage-result",
+                {"valid": False, "missing": [], "unmapped_objectives": "not-a-list"},
+                "--scope-coverage-result.unmapped_objectives must be a list",
+                id="scope-coverage-unmapped-objectives-not-list",
+            ),
+            pytest.param(
+                "--actionability-result",
+                {"valid": False, "bare_tbd": "OpenShift version", "missing_details": []},
+                "--actionability-result.bare_tbd must be a list of non-empty strings",
+                id="actionability-bare-tbd-not-list",
+            ),
         ],
     )
     def test_check_tool_payload_errors_are_not_blamed_on_review_file(self, tmp_path, capsys, flag, payload, error_clue):
@@ -887,6 +1200,7 @@ class TestEnforceCitationGateCLI:
         output = json.loads(captured.out)
         assert output["status"] == "error"
         assert "invalid TestPlanReview.md" not in output["error"]
+        assert "invalid TestPlanReview.md" not in captured.err
         assert error_clue in output["error"]
         assert Path(review).read_text() == original_text
 
@@ -898,3 +1212,20 @@ class TestEnforceCitationGateCLI:
         output = json.loads(capsys.readouterr().out)
         assert output["status"] == "overridden"
         assert output["scores"]["specificity"] == 0
+
+    def test_actionability_failure_can_be_enforced_from_review_cli_payload(self, tmp_path, capsys):
+        _write_review(tmp_path / "TestPlanReview.md", ALL_TWOS, score=10)
+
+        self._run_main(
+            self._argv(
+                tmp_path,
+                **{
+                    "--scope-coverage-result": json.dumps(VALID_SCOPE_COVERAGE),
+                    "--actionability-result": json.dumps(INVALID_ACTIONABILITY),
+                },
+            )
+        )
+
+        output = json.loads(capsys.readouterr().out)
+        assert output["status"] == "overridden"
+        assert output["scores"]["actionability"] == 1

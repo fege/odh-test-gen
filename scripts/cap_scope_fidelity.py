@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministically cap Scope Fidelity/Specificity when the citation/scope/boilerplate checks
+"""Deterministically cap Scope Fidelity/Specificity/Actionability when the citation/scope/quality/boilerplate checks
 say they should be, for callers with no TestPlanReview.md to persist to. test-plan-score presents
 a rubric assessment directly without writing a review file, so unlike test-plan-review it has no
 deterministic backstop against a score agent that doesn't comply with its cap instructions. Wraps
@@ -12,7 +12,9 @@ Usage:
         --ac-citations-result '<json from validate.py ac-citations>' \
         --ac-coverage-result '<json from validate.py ac-coverage>' \
         --scope-check-result '<json from validate_test_scope.py>' \
-        --boilerplate-result '<json from detect_boilerplate.py>'
+        --boilerplate-result '<json from detect_boilerplate.py>' \
+        --scope-coverage-result '<json from validate_quality_evidence.py>' \
+        --actionability-result '<json from validate_quality_evidence.py>'
 
 Exit code 0 with a JSON object to stdout: `status` is "overridden", "ok", or "error" (with an
 `error` message field). Exit code 2 from argparse on missing args.
@@ -32,6 +34,7 @@ def _fail(message: str) -> None:
 
 
 def _load_json(raw: str, flag: str) -> dict:
+    """Load a required result payload."""
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
@@ -45,6 +48,8 @@ def main():
     parser.add_argument("--ac-coverage-result", required=True, help="JSON from validate.py ac-coverage")
     parser.add_argument("--scope-check-result", required=True, help="JSON from validate_test_scope.py")
     parser.add_argument("--boilerplate-result", required=True, help="JSON from detect_boilerplate.py")
+    parser.add_argument("--scope-coverage-result", required=True, help="JSON from validate_quality_evidence.py")
+    parser.add_argument("--actionability-result", required=True, help="JSON from validate_quality_evidence.py")
     args = parser.parse_args()
 
     scores = _load_json(args.scores_json, "--scores-json")
@@ -55,9 +60,19 @@ def main():
     ac_coverage = _load_json(args.ac_coverage_result, "--ac-coverage-result")
     scope_check = _load_json(args.scope_check_result, "--scope-check-result")
     boilerplate = _load_json(args.boilerplate_result, "--boilerplate-result")
+    scope_coverage = _load_json(args.scope_coverage_result, "--scope-coverage-result")
+    actionability = _load_json(args.actionability_result, "--actionability-result")
 
     try:
-        result = apply_score_caps(scores, ac_citations, ac_coverage, scope_check, boilerplate)
+        result = apply_score_caps(
+            scores,
+            ac_citations,
+            ac_coverage,
+            scope_check,
+            boilerplate,
+            scope_coverage_result=scope_coverage,
+            actionability_result=actionability,
+        )
     except ValueError as exc:
         _fail(str(exc))
 

@@ -16,7 +16,9 @@ Usage:
         --ac-citations-result '<json from validate.py ac-citations>' \
         --ac-coverage-result '<json from validate.py ac-coverage>' \
         --scope-check-result '<json from validate_test_scope.py>' \
-        --boilerplate-result '<json from detect_boilerplate.py>'
+        --boilerplate-result '<json from detect_boilerplate.py>' \
+        --scope-coverage-result '<json from validate_quality_evidence.py>' \
+        --actionability-result '<json from validate_quality_evidence.py>'
 
 Exit code 0 always; prints a JSON object to stdout with `status` one of "overridden", "ok",
 "skip", or "error" (with an `error` message field).
@@ -94,6 +96,9 @@ def _build_feedback_note(
     scope_check_result: dict,
     boilerplate_result: dict,
     scope_fidelity_capped: bool,
+    scope_coverage_result: dict | None,
+    actionability_result: dict | None,
+    actionability_capped: bool,
     specificity_capped: bool,
 ) -> str:
     lines: list[str] = []
@@ -118,10 +123,41 @@ def _build_feedback_note(
         if violations:
             lines.append("\nSection 2.1 test level issues:")
             lines.extend(f"- Line {v['line']}: {v['matched_pattern']} ({v['context']})" for v in violations)
+        if scope_coverage_result is not None:
+            missing = scope_coverage_result.get("missing") or []
+            unmapped = scope_coverage_result.get("unmapped_objectives") or []
+            if missing:
+                lines.append("\nScope requirements without a Section 1.3 objective:")
+                lines.extend(f"- Section {item['section']}: {item['text']} ({item['reason']})" for item in missing)
+            if unmapped:
+                lines.append("\nObjectives without a grounded strategy requirement:")
+                lines.extend(f"- Section {item['section']}: {item['text']} ({item['reason']})" for item in unmapped)
         lines.append(
             "\nFix: add a machine-checkable `(AC: #N — short description)` or "
             "`(NFR: category — text)` citation to each listed objective, and/or remove the "
-            "disallowed test levels/patterns from Section 2.1."
+            "disallowed test levels/patterns from Section 2.1. For listed scope entries, add an "
+            "explicit `(Objective: #N)` marker that points at an existing Section 1.3 objective."
+        )
+
+    if actionability_capped:
+        if lines:
+            lines.append("\n---")
+        lines.append(
+            "**Automated correction (deterministic actionability gate)**: Actionability was "
+            "capped to 1/2 — the recorded score did not reflect the plan's operational gaps."
+        )
+        if actionability_result is not None:
+            bare_tbd = actionability_result.get("bare_tbd") or []
+            missing_details = actionability_result.get("missing_details") or []
+            if bare_tbd:
+                lines.append("\nBare TBDs without a resolution path:")
+                lines.extend(f"- {item}" for item in bare_tbd)
+            if missing_details:
+                lines.append("\nMissing actionable details:")
+                lines.extend(f"- {item}" for item in missing_details)
+        lines.append(
+            "\nFix: specify concrete environment, test-data, and test-user permissions, or retain TBD "
+            "with an explicit resolution path."
         )
 
     if specificity_capped:
@@ -198,6 +234,54 @@ def _validate_scope_for_capping(result: dict, name: str) -> None:
         raise ValueError(f"{name}.violations must be a list")
 
 
+def _validate_gap_evidence(result: dict, name: str, keys: tuple[str, str], validate_entries) -> None:
+    """Shared skeleton for {valid, <gap-list>, <gap-list>} evidence: object/valid-field checks,
+    per-key entry validation (caller-supplied, since entry shape differs per validator), and the
+    valid-vs-has-gaps consistency check.
+    """
+    if not isinstance(result, dict):
+        raise ValueError(f"{name} must be a JSON object")
+    if not isinstance(result.get("valid"), bool):
+        raise ValueError(f"{name} must have a boolean 'valid' field")
+    for key in keys:
+        validate_entries(result.get(key), name, key)
+    has_gaps = bool(result[keys[0]] or result[keys[1]])
+    if result["valid"] == has_gaps:
+        raise ValueError(f"{name}.valid does not agree with its evidence")
+
+
+def _validate_scope_coverage_entries(entries, name: str, key: str) -> None:
+    if not isinstance(entries, list):
+        raise ValueError(f"{name}.{key} must be a list")
+    for entry in entries:
+        if not isinstance(entry, dict) or not all(
+            isinstance(entry.get(field), str) and entry[field] for field in ("section", "text", "reason")
+        ):
+            raise ValueError(f"{name}.{key} entries must have section, text, and reason strings")
+
+
+def _validate_scope_coverage_for_capping(result: dict, name: str) -> None:
+    """Validate required bidirectional scope evidence before any score or review update."""
+    _validate_gap_evidence(result, name, ("missing", "unmapped_objectives"), _validate_scope_coverage_entries)
+
+
+def _validate_actionability_entries(entries, name: str, key: str) -> None:
+    if not isinstance(entries, list) or any(not isinstance(entry, str) or not entry for entry in entries):
+        raise ValueError(f"{name}.{key} must be a list of non-empty strings")
+
+
+def _validate_actionability_for_capping(result: dict, name: str) -> None:
+    """Validate required actionability evidence before any score or review update."""
+    _validate_gap_evidence(result, name, ("bare_tbd", "missing_details"), _validate_actionability_entries)
+
+
+def _validate_required_quality_result(result: dict | None, name: str, validator) -> None:
+    """Fail closed when a public score-gate caller omits required quality evidence."""
+    if result is None:
+        raise ValueError(f"{name} is required")
+    validator(result, name)
+
+
 def _validate_boilerplate_for_capping(result: dict, name: str) -> None:
     """Require integer total_violations on boilerplate_result used for score capping."""
     _raise_if_script_error(result)
@@ -207,7 +291,11 @@ def _validate_boilerplate_for_capping(result: dict, name: str) -> None:
 
 
 def cap_scope_fidelity(
-    scores: dict, ac_citations_result: dict, ac_coverage_result: dict, scope_check_result: dict
+    scores: dict,
+    ac_citations_result: dict,
+    ac_coverage_result: dict,
+    scope_check_result: dict,
+    scope_coverage_result: dict,
 ) -> dict:
     """Cap Scope Fidelity to 1 if the deterministic citation/coverage/scope checks say it
     should be, but `scores` says 2. Pure — no file I/O — shared by enforce_citation_gate() (which
@@ -219,13 +307,35 @@ def cap_scope_fidelity(
     _require_valid_field(ac_coverage_result, "ac_coverage_result")
     _require_valid_field(scope_check_result, "scope_check_result")
     _validate_scope_for_capping(scope_check_result, "scope_check_result")
+    _validate_required_quality_result(
+        scope_coverage_result, "scope_coverage_result", _validate_scope_coverage_for_capping
+    )
 
-    scope_ok = ac_citations_result["valid"] and ac_coverage_result["valid"] and scope_check_result["valid"]
+    scope_ok = (
+        ac_citations_result["valid"]
+        and ac_coverage_result["valid"]
+        and scope_check_result["valid"]
+        and scope_coverage_result["valid"]
+    )
     scores = dict(scores)
     if scope_ok or scores.get("scope_fidelity", 0) <= 1:
         return {"overridden": False, "scores": scores}
 
     scores["scope_fidelity"] = 1
+    verdict, score, passed = compute_verdict_and_pass(scores)
+    return {"overridden": True, "scores": scores, "score": score, "pass": passed, "verdict": verdict}
+
+
+def cap_actionability(scores: dict, actionability_result: dict) -> dict:
+    """Cap Actionability to 1 when its deterministic evidence contains a gap."""
+    _validate_scores(scores)
+    _validate_required_quality_result(actionability_result, "actionability_result", _validate_actionability_for_capping)
+
+    scores = dict(scores)
+    if actionability_result["valid"] or scores["actionability"] <= 1:
+        return {"overridden": False, "scores": scores}
+
+    scores["actionability"] = 1
     verdict, score, passed = compute_verdict_and_pass(scores)
     return {"overridden": True, "scores": scores, "score": score, "pass": passed, "verdict": verdict}
 
@@ -256,6 +366,8 @@ def apply_score_caps(
     ac_coverage_result: dict,
     scope_check_result: dict,
     boilerplate_result: dict,
+    scope_coverage_result: dict,
+    actionability_result: dict,
 ) -> dict:
     """Apply the Scope Fidelity and Specificity caps together and return one combined result.
 
@@ -263,15 +375,31 @@ def apply_score_caps(
     if both criteria need correcting, the final score/verdict/pass reflect both — not just
     whichever cap ran last with its own isolated view of `scores`.
     """
-    scope_result = cap_scope_fidelity(scores, ac_citations_result, ac_coverage_result, scope_check_result)
-    specificity_result = cap_specificity(scope_result["scores"], boilerplate_result)
+    _validate_required_quality_result(
+        scope_coverage_result, "scope_coverage_result", _validate_scope_coverage_for_capping
+    )
+    _validate_required_quality_result(actionability_result, "actionability_result", _validate_actionability_for_capping)
+    scope_result = cap_scope_fidelity(
+        scores,
+        ac_citations_result,
+        ac_coverage_result,
+        scope_check_result,
+        scope_coverage_result=scope_coverage_result,
+    )
+    actionability_cap_result = cap_actionability(scope_result["scores"], actionability_result)
+    specificity_result = cap_specificity(actionability_cap_result["scores"], boilerplate_result)
 
     scope_fidelity_capped = scope_result["overridden"]
+    actionability_capped = actionability_cap_result["overridden"]
     specificity_capped = specificity_result["overridden"]
-    if not scope_fidelity_capped and not specificity_capped:
+    if not scope_fidelity_capped and not actionability_capped and not specificity_capped:
         return {"overridden": False, "scores": specificity_result["scores"]}
 
-    final = specificity_result if specificity_capped else scope_result
+    final = (
+        specificity_result
+        if specificity_capped
+        else (actionability_cap_result if actionability_capped else scope_result)
+    )
     return {
         "overridden": True,
         "scores": final["scores"],
@@ -279,6 +407,7 @@ def apply_score_caps(
         "pass": final["pass"],
         "verdict": final["verdict"],
         "scope_fidelity_capped": scope_fidelity_capped,
+        "actionability_capped": actionability_capped,
         "specificity_capped": specificity_capped,
     }
 
@@ -289,6 +418,8 @@ def enforce_citation_gate(
     ac_coverage_result: dict,
     scope_check_result: dict,
     boilerplate_result: dict,
+    scope_coverage_result: dict,
+    actionability_result: dict,
 ) -> dict | None:
     """Cap Scope Fidelity/Specificity if the deterministic checks say they should be, but the
     persisted review scores disagree. Returns None if TestPlanReview.md doesn't exist.
@@ -297,6 +428,10 @@ def enforce_citation_gate(
     _require_valid_field(ac_coverage_result, "ac_coverage_result")
     _require_valid_field(scope_check_result, "scope_check_result")
     _require_valid_field(boilerplate_result, "boilerplate_result")
+    _validate_required_quality_result(
+        scope_coverage_result, "scope_coverage_result", _validate_scope_coverage_for_capping
+    )
+    _validate_required_quality_result(actionability_result, "actionability_result", _validate_actionability_for_capping)
 
     review_path = os.path.join(feature_dir, "TestPlanReview.md")
     if not os.path.exists(review_path):
@@ -306,13 +441,21 @@ def enforce_citation_gate(
     old_score = data.get("score")
 
     result = apply_score_caps(
-        data.get("scores", {}), ac_citations_result, ac_coverage_result, scope_check_result, boilerplate_result
+        data.get("scores", {}),
+        ac_citations_result,
+        ac_coverage_result,
+        scope_check_result,
+        boilerplate_result,
+        scope_coverage_result=scope_coverage_result,
+        actionability_result=actionability_result,
     )
     if not result["overridden"]:
         return {"overridden": False}
 
     scores, score, passed, verdict = result["scores"], result["score"], result["pass"], result["verdict"]
-    scope_fidelity_capped, specificity_capped = result["scope_fidelity_capped"], result["specificity_capped"]
+    scope_fidelity_capped = result["scope_fidelity_capped"]
+    actionability_capped = result["actionability_capped"]
+    specificity_capped = result["specificity_capped"]
     updates = {"scores": scores, "score": score, "pass": passed, "verdict": verdict}
 
     # Built before update_frontmatter runs, deliberately: if this raises on a malformed result
@@ -325,6 +468,9 @@ def enforce_citation_gate(
         scope_check_result,
         boilerplate_result,
         scope_fidelity_capped,
+        scope_coverage_result,
+        actionability_result,
+        actionability_capped,
         specificity_capped,
     )
 
@@ -336,6 +482,8 @@ def enforce_citation_gate(
         if before_scores:
             if scope_fidelity_capped:
                 before_scores["scope_fidelity"] = scores["scope_fidelity"]
+            if actionability_capped:
+                before_scores["actionability"] = scores["actionability"]
             if specificity_capped:
                 before_scores["specificity"] = scores["specificity"]
             updates["before_scores"] = before_scores
@@ -367,6 +515,20 @@ def _load_and_validate(raw: str, flag: str) -> dict:
     return value
 
 
+def _load_optional_quality_result(raw: str | None, flag: str, validator) -> dict | None:
+    if raw is None:
+        return None
+    try:
+        value = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        _fail(f"malformed {flag} JSON: {exc}")
+    try:
+        validator(value, flag)
+    except ValueError as exc:
+        _fail(str(exc))
+    return value
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("feature_dir")
@@ -374,6 +536,8 @@ def main():
     parser.add_argument("--ac-coverage-result", required=True, help="JSON from validate.py ac-coverage")
     parser.add_argument("--scope-check-result", required=True, help="JSON from validate_test_scope.py")
     parser.add_argument("--boilerplate-result", required=True, help="JSON from detect_boilerplate.py")
+    parser.add_argument("--scope-coverage-result", help="JSON from validate_quality_evidence.py")
+    parser.add_argument("--actionability-result", help="JSON from validate_quality_evidence.py")
     try:
         args = parser.parse_args()
     except SystemExit as exc:
@@ -385,9 +549,27 @@ def main():
     ac_coverage = _load_and_validate(args.ac_coverage_result, "--ac-coverage-result")
     scope_check = _load_and_validate(args.scope_check_result, "--scope-check-result")
     boilerplate = _load_and_validate(args.boilerplate_result, "--boilerplate-result")
+    if args.scope_coverage_result is None:
+        _fail("--scope-coverage-result is required")
+    if args.actionability_result is None:
+        _fail("--actionability-result is required")
+    scope_coverage = _load_optional_quality_result(
+        args.scope_coverage_result, "--scope-coverage-result", _validate_scope_coverage_for_capping
+    )
+    actionability = _load_optional_quality_result(
+        args.actionability_result, "--actionability-result", _validate_actionability_for_capping
+    )
 
     try:
-        result = enforce_citation_gate(args.feature_dir, ac_citations, ac_coverage, scope_check, boilerplate)
+        result = enforce_citation_gate(
+            args.feature_dir,
+            ac_citations,
+            ac_coverage,
+            scope_check,
+            boilerplate,
+            scope_coverage_result=scope_coverage,
+            actionability_result=actionability,
+        )
     except ValueError as exc:
         _fail(str(exc))
     except (ValidationError, OSError, yaml.YAMLError) as exc:

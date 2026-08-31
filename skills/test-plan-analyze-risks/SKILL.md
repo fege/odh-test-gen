@@ -39,7 +39,7 @@ Determine which test types apply:
 - **Negative Testing** — invalid inputs, error conditions, unauthorized access, edge cases
 
 #### Priority Definitions
-Define what P0/P1/P2 mean specifically for this feature, based on the strategy's acceptance criteria and business impact.
+Define what P0/P1/P2 mean specifically for this feature, based on the strategy's acceptance criteria and business impact. For every meaningful priority, NFR consideration, and risk, cite its grounding: the AC's `num` field from `ac_json` (e.g., "AC #3") when grounded in an acceptance criterion, or the NFR category when grounded in a non-functional requirement — copy the `num` verbatim, never invent, count, or guess it. This lets the orchestrator deterministically resolve `(Objective: #N)`.
 
 ### 2. Non-Functional Requirements (for Section 7)
 
@@ -93,32 +93,42 @@ component levels.}
 {bulleted list with bold type name and dash description}
 
 ### Priority Definitions
-- **P0 (Critical)** — {description specific to this feature}
-- **P1 (High)** — {description specific to this feature}
-- **P2 (Medium)** — {description specific to this feature}
+- **P0 (Critical)** — {description specific to this feature; cite the grounding AC # from `ac_json` or NFR category}
+- **P1 (High)** — {description specific to this feature; cite the grounding AC # from `ac_json` or NFR category}
+- **P2 (Medium)** — {description specific to this feature; cite the grounding AC # from `ac_json` or NFR category}
 
 ## Non-Functional Requirements
 
 ### Disconnected/Air-Gapped
-{testing considerations, or "**Not Applicable** — {justification}"}
+{testing considerations, citing the grounding AC # from `ac_json` or NFR category, or "**Not
+Applicable** — {justification}" with no citation when the category has no concrete AC/NFR
+grounding}
 
 ### Upgrade/Migration
-{testing considerations, or "**Not Applicable** — {justification}"}
+{testing considerations, citing the grounding AC # from `ac_json` or NFR category, or "**Not
+Applicable** — {justification}" with no citation when the category has no concrete AC/NFR
+grounding}
 
 ### Performance/Scalability
-{testing considerations, or "**Not Applicable** — {justification}"}
+{testing considerations, citing the grounding AC # from `ac_json` or NFR category, or "**Not
+Applicable** — {justification}" with no citation when the category has no concrete AC/NFR
+grounding}
 
 ### RBAC/Authorization
-{testing considerations, or "**Not Applicable** — {justification}"}
+{testing considerations, citing the grounding AC # from `ac_json` or NFR category, or "**Not
+Applicable** — {justification}" with no citation when the category has no concrete AC/NFR
+grounding}
 
 ### Security
-{testing considerations, or "**Not Applicable** — {justification}"}
+{testing considerations, citing the grounding AC # from `ac_json` or NFR category, or "**Not
+Applicable** — {justification}" with no citation when the category has no concrete AC/NFR
+grounding}
 
 ## Risks and Mitigations
 
 | Risk | Impact | Probability | Mitigation |
 |------|--------|-------------|------------|
-| {risk} | {High/Medium/Low} | {High/Medium/Low} | {mitigation} |
+| {risk} | {High/Medium/Low} | {High/Medium/Low} | {mitigation; cite the grounding AC # from `ac_json` or NFR category} |
 
 ## Gaps
 
