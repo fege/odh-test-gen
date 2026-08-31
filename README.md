@@ -1,6 +1,9 @@
 # Test Plan
 
-End-to-end test planning workflow for RHOAI: generate test plans from strategies, create test cases, implement executable automation code, verify UI tests against live clusters via Playwright, publish to GitHub with PR creation, resolve review feedback, and score quality with automated rubrics using parallel sub-agent analysis.
+End-to-end test planning workflow for RHOAI: generate E2E/UI-focused test plans from Jira strategies,
+create traceable test cases, implement executable automation code, verify UI tests against live clusters
+via Playwright, publish to GitHub, resolve review feedback, and score plans with deterministic evidence
+gates and automated rubrics.
 
 ## Skills
 
@@ -53,7 +56,7 @@ uv sync --extra dev
 
 Use skills:
 ```bash
-# Will prompt for artifact location (default: ~/Code/opendatahub-test-plans)
+# Will prompt for artifact location (default: ~/Code/opendatahub-test-plans/plans/)
 /test-plan-create RHAISTRAT-400
 
 # Auto-uses location from /test-plan-create
@@ -78,7 +81,7 @@ Skills are available from `skills/` directory.
 
 **Note**: Skills use symlinks for shared utilities (`_common/scripts → ../../scripts`). Both installation methods clone the full repository, so symlinks resolve correctly.
 
-Each skill includes an `argument-hint` field in its frontmatter for autocomplete guidance when typing slash commands.
+User-invocable skills define frontmatter used for slash-command discovery and invocation.
 
 ## Artifact Location
 
@@ -131,12 +134,12 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 
 ## Architecture
 
-### v1.0.0 Design Principles
+### Design Principles
 
 **Deterministic Scripts** - Procedural logic extracted to Python scripts (no LLM calls):
-- Feature validation, component detection, TC filtering, file mapping
-- AST-based function extraction, score parsing, frontmatter updates
-- 22 tested Python scripts
+- Feature validation, citation and scope evidence, component detection, test-case filtering, and file mapping
+- AST-based function extraction, score parsing, frontmatter/version updates, Jira operations, and gap consolidation
+- Deterministic operations are covered by unit and integration tests
 
 **LLMs Only Where Necessary** - Semantic understanding and code generation:
 - Writing test code, quality scoring, semantic function matching
@@ -147,7 +150,8 @@ Contributors testing skills can use `--output-dir` to force creation in the curr
 - **In-parent (1 without fork)**: review — writes persistent files in parent context
 - All invoked via Skill tool, deterministic return values
 
-**No Shell Parsing** - Scripts output JSON, Claude extracts values directly (no jq commands needed)
+**CLI Orchestration** - Scripts own deterministic parsing and validation, return structured JSON where
+consumed by skills, and use standard command-line JSON tooling to pass values between workflow steps.
 
 ### Quality Evidence Gate
 
@@ -157,6 +161,16 @@ The persisted review gate (`enforce_citation_gate.py`) can cap Scope Fidelity/Sp
 when deterministic evidence contradicts a 2/2 rubric score. The stateless scorer gate
 (`cap_scope_fidelity.py`) applies the same Scope Fidelity/Specificity/Actionability caps before
 `test-plan-score` presents its result, so scorer compliance is not trusted.
+
+The shared `build_citation_inputs.py` gate also checks AC citations, AC coverage, interface coverage,
+scope markers, and actionability before review or scoring. Once Section 6.2 is populated, each declared
+non-pending interface row must contain at least one `TC-E2E-*` or `TC-UI-*` reference. Empty
+pre-create-cases matrices remain pending/valid, and duplicate rows are checked independently. The
+`missing_e2e_or_ui_in_6_2` diagnostic identifies declared interfaces with a row lacking both references.
+
+During scope analysis, the endpoint analyzer records in `## Gaps` any in-scope Section 1.2 item omitted
+from Section 1.3 because it has no backing acceptance criterion. The gap consolidator carries that
+disclosure into `TestPlanGaps.md`; it does not invent a test objective or infer additional exclusions.
 
 ## Usage
 
@@ -317,7 +331,7 @@ Skills support non-interactive mode for CI environments:
 
 ```
 .claude-plugin/
-└── plugin.json             # Plugin metadata (v1.0.0)
+└── plugin.json             # Plugin metadata
 
 skills/
 ├── test-plan-create/
@@ -441,7 +455,7 @@ uv run pytest tests/ -v
 
 Run a specific test file:
 ```bash
-uv run pytest tests/test_schema_validation.py -v
+uv run pytest tests/unit/test_schema_validation.py -v
 ```
 
 Run tests with coverage:
@@ -451,7 +465,7 @@ uv run pytest tests/ -v --cov=scripts --cov-report=term-missing
 
 Run a specific test:
 ```bash
-uv run pytest tests/test_schema_validation.py::TestPlanSchemaValidation::test_field_validation -v
+uv run pytest tests/unit/test_schema_validation.py::TestPlanSchemaValidation::test_field_validation -v
 ```
 
 ### Test Structure
