@@ -1,4 +1,4 @@
-# SCORER CALIBRATION: LOW QUALITY test (should score 3-4/10)
+# SCORER CALIBRATION: LOW QUALITY test (should score 2/10 - Rework)
 #
 # Issues demonstrated (compare with good-pytest-test.py for correct version):
 # ❌ Coverage: 1/2 - Missing some expected results, has TODOs for specified requirements,

@@ -3,7 +3,7 @@
 ## Purpose
 
 These files train the **test-plan.score.test-function** scorer agent to distinguish
-high-quality tests (9-10/10) from low-quality tests (3-4/10).
+high-quality tests (9-10/10) from low-quality tests (2/10).
 
 **Key distinction:**
 
@@ -59,7 +59,7 @@ For Cypress (in `ui/`) and for Go/TypeScript (via team dirs when added), calibra
 files:
 
 - Reference Tiger Team rules for patterns (avoid duplication)
-- Focus on demonstrating QUALITY LEVEL (9/10 vs 3/10)
+- Focus on demonstrating QUALITY LEVEL (9/10 vs 2/10)
 - Show complete examples with explicit rubric scoring
 
 ### Frameworks WITHOUT Tiger Team Rules
@@ -97,10 +97,10 @@ Each file has a header with:
 
 ### Coverage (0-2 points)
 
-- **2**: All TC requirements implemented (preconditions, steps, assertions)
+- **2**: All TC requirements implemented (preconditions, steps, assertions). Mandatory
+  active-feature preconditions gated with `pytest.fail`, not `skip`
 - **1**: Missing 1-2 items, or has TODOs for specified requirements
-- **0**: Missing major sections, or mostly TODOs, or `skip`s a precondition the active
-  feature-under-test must provide (where `fail` is warranted)
+- **0**: Missing major sections, or mostly TODOs
 
 ### Assertions (0-2 points)
 

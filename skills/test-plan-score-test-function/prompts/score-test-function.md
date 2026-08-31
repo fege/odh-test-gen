@@ -27,7 +27,7 @@ Calibration examples file: {CALIBRATION_FILE}
 
 | Score | Definition |
 |-------|------------|
-| **2** | All preconditions, test steps, and expected results implemented in code. No excessive TODOs for specified requirements. |
+| **2** | All preconditions, test steps, and expected results implemented in code. No excessive TODOs for specified requirements. Mandatory active-feature preconditions gated with `pytest.fail`, not `skip`. |
 | **1** | Missing 1-2 items from TC, OR has TODOs for things that should be implemented from TC. |
 | **0** | Missing major sections (preconditions, steps, or assertions), OR mostly TODOs instead of implementation. |
 
