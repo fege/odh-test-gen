@@ -18,37 +18,71 @@ uv run pytest tests/unit/test_schema_validation.py::TestPlanSchemaValidation::te
 uv run pytest tests/ -v --cov=scripts --cov-report=term-missing  # With coverage
 make lint                    # Run skillsaw linter
 make skillsaw-fix            # Auto-fix skillsaw issues
+pre-commit run --all-files   # Run all pre-commit hooks (ruff, flake8, pymarkdown, etc.)
 ```
 
-CI enforces `--cov-fail-under=65` for test coverage.
+CI enforces `--cov-fail-under=70` for test coverage (in `.github/workflows/test.yml`).
 
 ## Architecture
 
-**Plugin structure**: [`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) defines the plugin. Each skill lives in `skills/<skill-name>/SKILL.md`. Skills share Python utilities via `skills/_common/scripts` which is a symlink to the top-level `scripts/` directory.
+### Plugin structure
 
-**Design principle**: Procedural logic is extracted to deterministic Python scripts in `scripts/` (no LLM calls). Scripts that return structured data output JSON, not text. Single-value CLI utilities consumed via bash `$()` (e.g., `get_framework.py`, `get_component_test_dir.py`) output bare strings. LLMs are only used for semantic work (analyzing requirements, writing test code, quality scoring).
+[`.claude-plugin/plugin.json`](.claude-plugin/plugin.json) defines the plugin metadata. Each skill lives in `skills/<skill-name>/SKILL.md`. Skills share Python utilities through a symlink chain: `skills/<name>/scripts → skills/_common/scripts → ../../scripts`. The only exception is `test-plan-ui-verify`, which has its own scripts directory with Playwright-based browser automation code.
 
-**Sub-agent orchestration**: 7 internal skills use `context: fork` for clean isolation and parallel execution. 1 skill (review) runs in-parent context to write persistent files. All are invoked via the Skill tool.
+### Design principle: scripts do logic, LLMs do semantics
 
-**Key directories**:
-- `scripts/` — Python modules for deterministic operations (validation, parsing, AST extraction, Jira API)
-- `scripts/utils/` — Shared utilities (schemas, frontmatter, repo discovery, component mapping)
-- `skills/` — SKILL.md files defining each skill's behavior
-- `tests/unit/` — Fast isolated unit tests
-- `tests/integration/` — Tests involving subprocess calls and file I/O
+Procedural logic is extracted to deterministic Python scripts in `scripts/` — no LLM calls are allowed there. Scripts are invoked as CLIs (argparse `main()` functions); most output JSON to stdout, while single-value utilities consumed via bash `$()` (e.g., `get_framework.py`, `get_component_test_dir.py`) output bare strings. LLMs are only used in SKILL.md instructions for semantic work (analyzing requirements, writing test code, quality scoring).
+
+### Sub-agent orchestration
+
+8 user-invocable skills and 8 internal sub-agent skills. 7 internal skills use `context: fork` for clean isolation and parallel execution. The one exception is `test-plan-review`, which runs in-parent context to write persistent files.
+
+### Key modules in scripts/
+
+- `validate.py` — unified validation CLI with 15+ subcommands for test plan artifacts (feature-dir, gap-counts, test-cases, scope-check, ac-citations, structure, etc.)
+- `frontmatter.py` — YAML frontmatter read/write CLI for test plan and test case markdown files
+- `parse_strat.py` — parses Jira wiki markup from RHAISTRAT tickets into structured JSON (acceptance criteria, NFRs, out-of-scope)
+- `repo.py` — git operations CLI for the test plan output repository (init, stage, commit, publish as PR)
+- `fetch_issue.py` — fetches Jira issues and resolves strategy hierarchies
+- `utils/schemas.py` — schema definitions and validation for all artifact types (test-plan, test-case, test-gaps, test-plan-review), plus `TEMPLATE_HEADINGS` dict mapping section numbers to canonical heading text
+
+### Test infrastructure
+
+Tests call script `main()` functions directly using the `run_cli` fixture (in `conftest.py`), which captures stdout JSON. The `git_repo` fixture provides a temporary git repository. Shared test data constants live in `tests/constants.py`; helper factories for building valid artifacts are in `tests/helpers.py`. Static fixture files live in `tests/fixtures/`. CI runs on Python 3.14.
+
+## Skill Pipeline
+
+The user-invocable skills form an ordered pipeline; understanding the ordering requires
+reading across several SKILL.md files, so it is captured here:
+
+1. `test-plan-create` — fetch a strategy (RHAISTRAT/RHOAIENG), fan out to the three parallel
+   `test-plan-analyze-*` fork skills, merge into `TestPlan.md`, then invoke `test-plan-review`
+   (rubric scoring + up to 2 auto-revision cycles) and write `TestPlanGaps.md`/`TestPlanReview.md`.
+2. `test-plan-create-cases` — generate individual `TC-*.md` test case files and fill Sections 6/10.
+3. `test-plan-case-implement` — generate executable pytest automation from the test cases.
+4. `test-plan-publish` — commit artifacts to the separate output repo and open a PR.
+
+Supporting user skills: `test-plan-score` (standalone rubric scoring, no revision),
+`test-plan-resolve-feedback` (apply PR review comments), `test-plan-ui-verify` (Playwright checks
+against a live cluster), and `test-plan-update`.
+
+Internal fork skills (never invoked directly by users): `test-plan-analyze-endpoints`,
+`test-plan-analyze-infra`, `test-plan-analyze-risks`, `test-plan-generate-test-file`,
+`test-plan-resolve-gaps`, `test-plan-score-test-function`, `test-plan-merge`. `test-plan-review` is
+the sole non-fork internal skill — it runs in-parent so it can write persistent files.
+
+After a plan passes the rubric, a human reviewer signs off; the label taxonomy and review workflow
+(`test-plan-auto-created`, `test-plan-rubric-pass`/`-revise`/`-fail`, `test-plan-auto-revised`,
+`test-plan-human-reviewed`) are documented in `docs/human-review-guide.md`.
 
 ## Linting
 
-Pre-commit hooks enforce code quality (run `pre-commit run --all-files` or let git hooks trigger automatically):
-- **ruff** — linting and formatting (config in `pyproject.toml`, 120-char line length)
-- **flake8** — with RedHatQE plugins UUC (unused-unique-constants) and UFN (unique-function-names); config in `.flake8`
-- **Standard hooks** — check-merge-conflict, debug-statements, trailing-whitespace, end-of-file-fixer, check-ast, check-builtin-literals, check-toml
+Pre-commit hooks enforce code quality:
+- **ruff** — linting and formatting (120-char line length, config in `pyproject.toml`)
+- **flake8** — with RedHatQE plugins: UUC (unused-unique-constants) and UFN (unique-function-names); config in `.flake8`
+- **pymarkdown** — markdown linting on `skills/` files only; config in `.markdownlint.yaml`
 
-CI runs pre-commit and skillsaw on every PR via [`.github/workflows/lint.yml`](.github/workflows/lint.yml).
-
-Skillsaw lints skill files for context budget (warn at 6000 tokens, error at 8000), content positioning, and placeholder text. Config is in `.skillsaw.yaml` with strict mode enabled.
-
-Markdown linting uses pymarkdownlnt with config in `.markdownlint.yaml` (100-char line length, some rules disabled).
+CI runs pre-commit and skillsaw on every PR via [`.github/workflows/lint.yml`](.github/workflows/lint.yml). Skillsaw lints skill SKILL.md files for context budget (warn at 6000 tokens, error at 8000), content positioning, and placeholder text. Config is in `.skillsaw.yaml` with strict mode enabled.
 
 ## Environment Variables
 
@@ -58,3 +92,11 @@ Markdown linting uses pymarkdownlnt with config in `.markdownlint.yaml` (100-cha
 ## Artifact Separation
 
 Test plan artifacts (TestPlan.md, TC-*.md files) are written to a separate directory (default `~/Code/opendatahub-test-plans/plans/`), never into this skill repository. The `--output-dir .` flag overrides this for contributor testing.
+
+## Code Review Invariants
+
+These rules from `.coderabbit.yaml` apply to all contributions:
+- Scripts in `scripts/` must be fully deterministic — no LLM or AI API calls
+- Jira credentials must come from environment variables, GitHub auth through the `gh` CLI — never hardcoded
+- CLI entry points must return structured JSON errors (`{"status": "failed", "error": "..."}`)
+- SKILL.md files must not embed procedural logic — delegate to Python scripts
