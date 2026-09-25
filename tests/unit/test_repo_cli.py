@@ -9,6 +9,8 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from scripts import repo
 from tests.constants import TEST_SKILL_DIR
 
@@ -193,6 +195,109 @@ def test_validate_local_path_blocks_skill_repo():
         sys.stderr = old_stderr
         os.environ.clear()
         os.environ |= old_env
+
+
+@pytest.mark.parametrize(
+    "fullsend_task",
+    [
+        pytest.param("Run /test-plan-create-cases for the selected issue", id="command-string"),
+        pytest.param('{"fixture": "scoped-task"}', id="json-object"),
+        pytest.param("{}", id="empty-json-object"),
+        pytest.param("not-json", id="non-json"),
+        pytest.param(None, id="unset"),
+    ],
+)
+def test_validate_local_path_allows_fullsend_artifact_descendant_when_runtime_root_matches_package(
+    tmp_path, monkeypatch, fullsend_task
+):
+    """A matching Fullsend target root permits artifacts, regardless of task encoding."""
+    workspace_root = tmp_path / "disposable-fullsend-workspace"
+    skill_dir = workspace_root / "skills" / "test-plan-create-cases"
+    skill_dir.mkdir(parents=True)
+    feature_dir = workspace_root / "artifacts" / "test-plans" / "fixture-key" / "fixture_feature"
+    feature_dir.mkdir(parents=True)
+    runtime_root_alias = workspace_root / "skills" / ".."
+
+    assert not (workspace_root / ".git").exists()
+    assert list(feature_dir.iterdir()) == []
+    assert runtime_root_alias.resolve() == workspace_root.resolve()
+    monkeypatch.setenv("CLAUDE_SKILL_DIR", str(skill_dir))
+    monkeypatch.setenv("FULLSEND_TARGET_REPO_DIR", str(runtime_root_alias))
+    if fullsend_task is None:
+        monkeypatch.delenv("FULLSEND_TASK", raising=False)
+    else:
+        monkeypatch.setenv("FULLSEND_TASK", fullsend_task)
+    monkeypatch.setattr(sys, "argv", ["repo.py", "validate-local-path", str(feature_dir)])
+
+    assert repo.main() == 0
+
+
+@pytest.mark.parametrize("runtime_root_mode", ["unset", "different"], ids=["unset", "different-root"])
+def test_validate_local_path_blocks_fullsend_artifact_descendant_without_matching_runtime_root(
+    tmp_path, monkeypatch, runtime_root_mode
+):
+    """A task payload alone does not permit writes into package artifacts."""
+    workspace_root = tmp_path / "disposable-fullsend-workspace"
+    skill_dir = workspace_root / "skills" / "test-plan-create-cases"
+    skill_dir.mkdir(parents=True)
+    feature_dir = workspace_root / "artifacts" / "test-plans" / "fixture-key" / "fixture_feature"
+    feature_dir.mkdir(parents=True)
+
+    assert not (workspace_root / ".git").exists()
+    monkeypatch.setenv("CLAUDE_SKILL_DIR", str(skill_dir))
+    monkeypatch.setenv("FULLSEND_TASK", json.dumps({"fixture": "scoped-task"}))
+    if runtime_root_mode == "unset":
+        monkeypatch.delenv("FULLSEND_TARGET_REPO_DIR", raising=False)
+    else:
+        other_runtime_root = tmp_path / "different-fullsend-workspace"
+        other_runtime_root.mkdir()
+        monkeypatch.setenv("FULLSEND_TARGET_REPO_DIR", str(other_runtime_root))
+    monkeypatch.setattr(sys, "argv", ["repo.py", "validate-local-path", str(feature_dir)])
+
+    assert repo.main() == 1
+
+
+@pytest.mark.parametrize(
+    "protected_path",
+    ["", "scripts/repo.py", "artifacts"],
+    ids=["package-root", "package-source", "artifacts-root"],
+)
+def test_validate_local_path_still_blocks_package_source_and_artifacts_root(tmp_path, monkeypatch, protected_path):
+    """A matching Fullsend root only allows descendants beneath the artifacts root."""
+    workspace_root = tmp_path / "disposable-fullsend-workspace"
+    skill_dir = workspace_root / "skills" / "test-plan-create-cases"
+    skill_dir.mkdir(parents=True)
+    (workspace_root / "scripts").mkdir()
+    (workspace_root / "scripts" / "repo.py").touch()
+    artifacts_root = workspace_root / "artifacts"
+    artifacts_root.mkdir()
+    path = workspace_root / protected_path if protected_path else workspace_root
+
+    assert not (workspace_root / ".git").exists()
+    monkeypatch.setenv("CLAUDE_SKILL_DIR", str(skill_dir))
+    monkeypatch.setenv("FULLSEND_TARGET_REPO_DIR", str(workspace_root))
+    monkeypatch.setenv("FULLSEND_TASK", "Run /test-plan-create-cases for the selected issue")
+    monkeypatch.setattr(sys, "argv", ["repo.py", "validate-local-path", str(path)])
+
+    assert repo.main() == 1
+
+
+def test_validate_local_path_blocks_artifacts_in_gitless_plugin_without_fullsend_target(tmp_path, monkeypatch):
+    """A gitless installed plugin rejects artifacts without a Fullsend target root."""
+    plugin_root = tmp_path / "installed-plugin"
+    skill_dir = plugin_root / "skills" / "test-plan-create-cases"
+    skill_dir.mkdir(parents=True)
+    feature_dir = plugin_root / "artifacts" / "test-plans" / "fixture-key" / "fixture_feature"
+    feature_dir.mkdir(parents=True)
+
+    assert not (plugin_root / ".git").exists()
+    assert list(feature_dir.iterdir()) == []
+    monkeypatch.setenv("CLAUDE_SKILL_DIR", str(skill_dir))
+    monkeypatch.delenv("FULLSEND_TASK", raising=False)
+    monkeypatch.delenv("FULLSEND_TARGET_REPO_DIR", raising=False)
+    monkeypatch.setattr(sys, "argv", ["repo.py", "validate-local-path", str(feature_dir)])
+
+    assert repo.main() == 1
 
 
 def test_validate_remote_allows_external():

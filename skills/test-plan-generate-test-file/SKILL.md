@@ -76,7 +76,7 @@ Get full file path: `<target_repo_path>/<file_path>`
 
 If file exists, list existing functions:
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/list_test_functions.py "$full_file_path")
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/list_test_functions.py "$full_file_path")
 ```
 
 Returns JSON: `{"functions": [{"name": "...", "line": 42, "docstring": "..."}]}`
@@ -215,7 +215,7 @@ it via a temp file. Fail closed on nonzero exit. Adding a pair is dropping a fil
 `skills/test-plan-score-test-function/calibration/core/`, `calibration/ui/`, or a team dir.
 
 ```bash
-repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
 team_list=$(cd "$repo_root" && uv run python scripts/get_component_test_dir.py \
     --teams-only "$feature_dir") || {
     echo "ERROR: scripts/get_component_test_dir.py --teams-only failed — stopping." >&2
@@ -278,7 +278,7 @@ cat > /tmp/file_metadata_${file_index}.json << EOF
 EOF
 
 # Format and write complete result (reads /tmp/test_file_${file_index}.py, embeds content)
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/format_file_result.py /tmp/file_metadata_${file_index}.json) > /tmp/test_plan_results/file_${file_index}.json
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/format_file_result.py /tmp/file_metadata_${file_index}.json) > /tmp/test_plan_results/file_${file_index}.json
 
 # Output tiny confirmation (NOT full JSON - keeps context clean)
 echo '{"status": "complete", "file_index": '${file_index}', "result_file": "/tmp/test_plan_results/file_'${file_index}'.json"}'

@@ -36,6 +36,17 @@ JIRA_KEY_RE = re.compile(SCHEMAS["test-plan"]["source_key"]["pattern"])
 OUTPUT_DIR_MARKER = ".test-plan-output-dir.json"
 
 
+def _package_root() -> str | None:
+    """Use the selected plugin tree even when its delivery omits Git metadata."""
+    script_root = Path(__file__).resolve().parent.parent
+    skill_dir = os.environ.get("CLAUDE_SKILL_DIR")
+    if skill_dir:
+        selected_root = Path(skill_dir).resolve().parent.parent
+        if selected_root == script_root and (selected_root / "pyproject.toml").is_file():
+            return str(selected_root)
+    return get_git_root(str(Path(__file__).resolve().parent))
+
+
 def _permitted_strat_path(raw_path: str) -> Path:
     """Resolve raw_path and confirm it sits inside a permitted location, shared by every
     subcommand that touches a strategy file on disk.
@@ -49,7 +60,7 @@ def _permitted_strat_path(raw_path: str) -> Path:
     read or move arbitrary files.
     """
     resolved = Path(raw_path).resolve()
-    repo_root = get_git_root(str(Path(__file__).resolve().parent))
+    repo_root = _package_root()
     if not repo_root:
         raise ValueError("strategy_file_not_permitted")
 
@@ -105,7 +116,7 @@ def save_snapshot(strategy_file: str, feature_dir: str) -> dict:
     skills fall back to, so it is left in place.
     """
     resolved = _permitted_strat_path(strategy_file)
-    repo_root = get_git_root(str(Path(__file__).resolve().parent))
+    repo_root = _package_root()
     tmp_root = (Path(repo_root) / "artifacts" / "strat-tasks" / ".tmp").resolve()
 
     feature_path = Path(feature_dir)
@@ -170,7 +181,7 @@ def cmd_resolve_local(args):
     if not JIRA_KEY_RE.match(args.jira_key):
         exit_error_with_json({"found": False, "error": "malformed_jira_key"})
 
-    repo_root = get_git_root(str(Path(__file__).resolve().parent))
+    repo_root = _package_root()
     if not repo_root:
         exit_error_with_json({"found": False, "error": "repo_root_not_found"})
 
@@ -198,7 +209,7 @@ def cmd_new_strat_tmp(args):
     Opening the parent with O_NOFOLLOW and operating on its descriptor for every subsequent step
     means a symlink at ".tmp" is rejected outright rather than silently followed.
     """
-    repo_root = get_git_root(str(Path(__file__).resolve().parent))
+    repo_root = _package_root()
     if not repo_root:
         exit_error_with_json({"created": False, "error": "repo_root_not_found"})
 

@@ -60,7 +60,7 @@ Then ask:
 
 Install the test-plan package (makes all scripts importable):
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv sync --extra dev)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv sync --extra dev)
 ```
 
 If installation fails, inform the user and do NOT proceed. Once installed, all Python scripts will work from any directory.
@@ -69,7 +69,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 1. **Use the shared locate-feature-dir utility**:
    ```bash
-   result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py locate-feature-dir "<source>")
+   result=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/repo.py locate-feature-dir "<source>")
    if [ $? -ne 0 ]; then
        echo "$result"
        exit 1
@@ -85,7 +85,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    if [ "$source_type" = "local" ]; then
        # Validate against skill repository (no force flag for updates)
        export CLAUDE_SKILL_DIR
-       (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-local-path "$feature_dir") || exit 1
+       (cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/repo.py validate-local-path "$feature_dir") || exit 1
    fi
    ```
 
@@ -246,7 +246,7 @@ unresolved_count=<from_statistics>
 new_count=<from_statistics>
 
 # Validate arithmetic (original - resolved + new = unresolved)
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/validate.py gap-counts \
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/validate.py gap-counts \
     "$feature_dir" $resolved_count $unresolved_count $new_count)
 
 if [ $? -ne 0 ]; then
@@ -268,7 +268,7 @@ fi
    # Update status: Open if gaps remain, Resolved if all resolved
    new_status=$([ $new_gap_count -eq 0 ] && echo "Resolved" || echo "Open")
 
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlanGaps.md \
+   (cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/frontmatter.py set <feature_dir>/TestPlanGaps.md \
        gap_count=$new_gap_count \
        status=$new_status)
    ```
@@ -329,14 +329,14 @@ Update the README with:
 
 1. **Bump version** (minor; if test cases were regenerated, bump twice):
    ```bash
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/version.py bump <feature_dir>/TestPlan.md minor)
+   (cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/version.py bump <feature_dir>/TestPlan.md minor)
    ```
    If test cases were regenerated, run a second minor bump.
    The script outputs JSON with `old_version` and `new_version`.
 
 2. **Update TestPlan.md frontmatter** (additional_docs and other fields):
    ```bash
-   (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py set <feature_dir>/TestPlan.md \
+   (cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/frontmatter.py set <feature_dir>/TestPlan.md \
        additional_docs="<updated_comma_separated_list>")
    ```
 

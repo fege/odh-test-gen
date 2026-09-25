@@ -30,7 +30,7 @@ If `$ARGUMENTS` is empty, set `FORCE_OUTPUT_DIR=false` and go to **Interactive f
 If `$ARGUMENTS` is non-empty, parse **after** Step 0.1. Consume `--output-dir` before the positional feature source:
 
 ```bash
-OUTPUT_DIR=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+OUTPUT_DIR=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && \
   uv run python scripts/parse_skill_args.py --output-dir "$ARGUMENTS")
 FORCE_OUTPUT_DIR=false
 if [ -n "$OUTPUT_DIR" ]; then
@@ -74,7 +74,7 @@ If `$ARGUMENTS` is empty, or no positional feature source remains after flags, i
 
 Install the test-plan package (makes all scripts importable):
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv sync --extra dev)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv sync --extra dev)
 ```
 
 If installation fails, inform the user and do NOT proceed. Once installed, all Python scripts will work from any directory.
@@ -83,7 +83,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 1. **Use the shared locate-feature-dir utility** to resolve `FEATURE_SOURCE` (local path or GitHub branch/PR) into a local directory:
    ```bash
-   result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py locate-feature-dir "$FEATURE_SOURCE")
+   result=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/repo.py locate-feature-dir "$FEATURE_SOURCE")
    if [ $? -ne 0 ]; then
        echo "$result"
        exit 1
@@ -98,7 +98,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    `/test-plan-create`, which always writes `<feature_dir>/.test-plan-output-dir.json`):
    ```bash
    if [ "$source_type" = "local" ]; then
-       marker_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/discover_feature_dir.py "$feature_dir")
+       marker_result=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/discover_feature_dir.py "$feature_dir")
        if [ $? -ne 0 ]; then
            echo "$marker_result"
            exit 1
@@ -110,7 +110,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    ```bash
    if [ "$FORCE_OUTPUT_DIR" != "true" ] && [ "$source_type" = "local" ]; then
        export CLAUDE_SKILL_DIR
-       (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-local-path "$feature_dir") || exit 1
+       (cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/repo.py validate-local-path "$feature_dir") || exit 1
    fi
    ```
 
@@ -147,7 +147,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 1. **Check for existing test cases**:
    ```bash
-   regen_check=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/tc_regeneration.py check <feature_dir>)
+   regen_check=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/tc_regeneration.py check <feature_dir>)
    mode=$(echo "$regen_check" | jq -r '.mode')
    existing_count=$(echo "$regen_check" | jq -r '.existing_count')
    ```
@@ -339,7 +339,7 @@ After generating all test case files and updating the test plan, validate covera
 After all test case files are written, validate frontmatter, TC counts, category scope, and objective traceability:
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && \
  uv run python scripts/validate.py test-cases <feature_dir> && \
  uv run python scripts/validate.py tc-counts <feature_dir> && \
  uv run python scripts/validate.py tc-scope <feature_dir> && \

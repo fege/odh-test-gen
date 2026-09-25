@@ -36,7 +36,7 @@ If no arguments provided and `test-plan.create` just generated a test plan in th
 
 Install the test-plan package (makes all scripts importable):
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv sync --extra dev)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv sync --extra dev)
 ```
 
 If installation fails, inform the user and do NOT proceed. Once installed, all Python scripts will work from any directory.
@@ -46,7 +46,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 1. Read `<feature_dir>/TestPlan.md`
 2. Read frontmatter to extract `source_key`:
    ```bash
-   source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+   source_key=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && \
                 uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md source_key)
    ```
 3. Resolve the source strategy via the shared resolver — snapshot-primary: reads
@@ -54,7 +54,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    from Jira and saves it there for next time. No degraded mode: if neither is available, this is
    a hard failure.
    ```bash
-   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+   repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
    resolve_result=$(cd "$repo_root" && uv run python scripts/resolve_strategy.py <feature_dir> "$source_key")
    resolve_exit=$?
 
@@ -223,7 +223,7 @@ exits 0 and reports outcome as JSON. Blocking Actionability evidence caps a reco
 is true only when that blocking cap changes the score.
 
 ```bash
-repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
 gate_result=$(cd "$repo_root" && uv run python scripts/enforce_citation_gate.py <feature_dir> \
     --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result" \
     --scope-check-result "$scope_check_result" --boilerplate-result "$boilerplate_result" \
@@ -247,7 +247,7 @@ If `overridden`, Step 4 evaluates the corrected scores/feedback note, not the re
 After the review agent completes, read the review frontmatter:
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <feature_dir>/TestPlanReview.md)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/frontmatter.py read <feature_dir>/TestPlanReview.md)
 ```
 
 If all five criteria in `scores.*` are `2`, proceed to Step 5 (done). This can be a Ready result
@@ -265,7 +265,7 @@ Initialize cycle counter: `reassess_cycle=0`
 **4a. Filter for revision:**
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/filter_for_revision.py <feature_dir>)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/filter_for_revision.py <feature_dir>)
 ```
 
 If output is `SKIP`, stop the loop and proceed to Step 5.
@@ -284,7 +284,7 @@ The revise agent edits TestPlan.md (only sections mapped to failing criteria) an
 **4c. Check if reassessment is needed:**
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <feature_dir>/TestPlanReview.md)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/frontmatter.py read <feature_dir>/TestPlanReview.md)
 ```
 
 If `auto_revised` is `false`, the revise agent found nothing to change — stop the loop.
@@ -294,7 +294,7 @@ Increment `reassess_cycle`. If `reassess_cycle >= 2`, stop — max cycles reache
 **4d. Save cumulative state:**
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/preserve_review_state.py save <feature_dir>)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/preserve_review_state.py save <feature_dir>)
 ```
 
 **4e. Re-score:**
@@ -307,7 +307,7 @@ rm <feature_dir>/TestPlanReview.md
 Recompute validation results against the revised `TestPlan.md` — the revise agent (4b) may have edited Section 4, 6.2, 9.2, or citations, so all four must be refreshed before re-scoring:
 
 ```bash
-repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
 gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> --strategy-file "$strategy_file_path") || {
     echo "ERROR: scripts/build_citation_inputs.py failed — stopping review." >&2
     echo "$gate_result" >&2
@@ -358,7 +358,7 @@ Repeat Step 3 (review agent) with `{FIRST_PASS}=false`, then repeat Step 3.5 (En
 **4g. Restore before_scores and revision history:**
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/preserve_review_state.py restore <feature_dir>)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/preserve_review_state.py restore <feature_dir>)
 ```
 
 **4h. Check criteria again:**

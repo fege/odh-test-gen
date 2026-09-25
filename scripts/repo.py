@@ -639,7 +639,7 @@ def _find_testplan_in_repo(repo_path, branch_hint=None):
 
 
 def cmd_validate_local_path(args):
-    """Validate that a local path is NOT inside the skill repository."""
+    """Validate a local path against protected package source and Fullsend artifacts."""
     path = args.path
     force = args.force
 
@@ -653,23 +653,22 @@ def cmd_validate_local_path(args):
         print("WARNING: CLAUDE_SKILL_DIR not set, skipping validation", file=sys.stderr)
         return 0
 
-    # Navigate up from skill dir to repo root
-    skill_parent = Path(skill_dir).parent.parent
-    skill_root = get_git_root(str(skill_parent))
-
-    if not skill_root:
-        # Can't detect skill repo, allow
-        return 0
+    # The selected skill lives at <package>/skills/<skill>; Git metadata is optional.
+    skill_root_path = Path(skill_dir).resolve().parent.parent
 
     # Get absolute path of target directory
     path_abs = Path(os.path.expanduser(path)).resolve()
-    skill_root_path = Path(skill_root).resolve()
 
     # Check if path is inside skill repo (using Path.is_relative_to for clarity)
     try:
         path_abs.relative_to(skill_root_path)
         # If we get here, path is inside skill repo
-        print(f"❌ ERROR: Cannot create artifacts in skill repository ({skill_root})", file=sys.stderr)
+        runtime_root = os.environ.get("FULLSEND_TARGET_REPO_DIR")
+        if runtime_root and Path(runtime_root).resolve() == skill_root_path:
+            artifacts_root = skill_root_path / "artifacts"
+            if path_abs.is_relative_to(artifacts_root) and path_abs != artifacts_root:
+                return 0
+        print(f"❌ ERROR: Cannot create artifacts in skill repository ({skill_root_path})", file=sys.stderr)
         print("Please specify a different directory.", file=sys.stderr)
         print(file=sys.stderr)
         print("Tip: Use --output-dir flag to force creation in current directory if needed.", file=sys.stderr)
