@@ -18,14 +18,12 @@ def extract_jira_section(content: str, heading_prefix: str) -> str | None:
     lines = content.splitlines()
     start = None
     for i, line in enumerate(lines):
-        if line.startswith(heading_prefix):
+        if start is None and line.startswith(heading_prefix):
             start = i + 1
             continue
-        if start is not None and re.match(r"^h[23]\.\s", line):
+        if start is not None and re.match(r"^h[23]\.\s", line, re.IGNORECASE):
             return "\n".join(lines[start:i]).strip()
-    if start is not None:
-        return "\n".join(lines[start:]).strip()
-    return None
+    return "\n".join(lines[start:]).strip() if start is not None else None
 
 
 def _extract_bulleted_texts(section: str) -> list[str]:

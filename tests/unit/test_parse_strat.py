@@ -16,6 +16,8 @@ from scripts.utils.strat_utils import (
 )
 from tests.helpers import strat_with_testability_heading
 from tests.constants import (
+    STRAT_AC_H2_PREFIX_COLLISION,
+    STRAT_AC_H3_PREFIX_COLLISION,
     STRAT_AC_NUMBERED_LIST,
     STRAT_AC_NUMBERED_MULTI_PARAGRAPH,
     STRAT_AC_NUMBERED_NO_BLANK_LINES,
@@ -325,6 +327,24 @@ class TestWorkflowInputs:
         assert result["oos_json"]["found"] is True
         assert result["ac_count"] == 10
         assert "Performance" in result["nfr_categories"]
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            pytest.param(STRAT_AC_H2_PREFIX_COLLISION, id="h2"),
+            pytest.param(STRAT_AC_H3_PREFIX_COLLISION, id="canonical-h3"),
+        ],
+    )
+    def test_prefix_collision_preserves_first_criterion_in_workflow_inputs(self, content):
+        result = workflow_inputs(content)
+
+        assert result["status"] == "ok"
+        assert result["ac_count"] == 1
+        assert result["ac_json"] == {
+            "found": True,
+            "count": 1,
+            "acceptance_criteria": [{"num": 1, "text": "First selected criterion"}],
+        }
 
     def test_no_acceptance_criteria_status_when_section_absent(self):
         content = "h3. Requirements\n\nSome text.\n\nh3. Risks\n\nSome risks.\n"

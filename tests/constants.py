@@ -199,6 +199,24 @@ automation_status: Not Started
 
 # STRAT parser test data — Jira wiki markup variations
 
+STRAT_AC_H2_PREFIX_COLLISION = (
+    "h2. Acceptance criteria\n\n"
+    "* First selected criterion\n\n"
+    "h2. Acceptance criteria discussion\n\n"
+    "* Discussion-only item\n\n"
+    "h2. Risks\n\n"
+    "* Risk details\n"
+)
+
+STRAT_AC_H3_PREFIX_COLLISION = (
+    "h3. Acceptance Criteria\n\n"
+    "* First selected criterion\n\n"
+    "h3. Acceptance Criteria discussion\n\n"
+    "* Discussion-only item\n\n"
+    "h3. Effort Estimate\n\n"
+    "* Estimate details\n"
+)
+
 STRAT_AC_NUMBERED_LIST = (
     "h3. Acceptance Criteria (Proposed — requires PM/Engineering validation)\n\n"
     "# Given a user opens a session,\n"
