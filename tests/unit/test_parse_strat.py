@@ -16,6 +16,8 @@ from scripts.utils.strat_utils import (
 )
 from tests.helpers import strat_with_testability_heading
 from tests.constants import (
+    STRAT_AC_H2_PREFIX_COLLISION,
+    STRAT_AC_H3_PREFIX_COLLISION,
     STRAT_AC_NUMBERED_LIST,
     STRAT_AC_NUMBERED_MULTI_PARAGRAPH,
     STRAT_AC_NUMBERED_NO_BLANK_LINES,
@@ -61,6 +63,75 @@ class TestParseAcceptanceCriteria:
 
         assert result["found"] is True
         assert result["count"] == 0
+
+    @pytest.mark.parametrize(
+        ("heading", "bullet", "next_heading"),
+        [
+            ("h3. Acceptance criteria", "*", "h3. Other information"),
+            ("h2. Acceptance criteria", "#", "h2. Risks"),
+            ("h2. Acceptance Criteria", "*", "h2. Risks"),
+        ],
+    )
+    def test_jira_acceptance_heading_variants(self, heading, bullet, next_heading):
+        content = (
+            f"{heading}\n\n"
+            f"{bullet} First criterion\n"
+            f"{bullet} Second criterion\n\n"
+            f"{next_heading}\n\n"
+            "This is outside the acceptance criteria.\n"
+        )
+
+        result = workflow_inputs(content)
+
+        assert result["status"] == "ok"
+        assert result["ac_count"] == 2
+        assert [item["text"] for item in result["ac_json"]["acceptance_criteria"]] == [
+            "First criterion",
+            "Second criterion",
+        ]
+
+    @pytest.mark.parametrize(
+        ("content", "expected_texts"),
+        [
+            pytest.param(
+                "h3. Acceptance Criteria (Proposed — requires PM/Engineering validation)\n\n"
+                "# Given repeated image content, then cache affinity routes to the pod with the cached blocks\n\n"
+                "h3. Effort Estimate\n\nSome effort.\n",
+                ["Given repeated image content, then cache affinity routes to the pod with the cached blocks"],
+                id="qualified-heading",
+            ),
+            pytest.param(
+                "h3. Acceptance Criteria - Draft\n\n* An existing criterion\n",
+                ["An existing criterion"],
+                id="prefixed-qualifier",
+            ),
+            pytest.param(
+                "h2. Acceptance criteria discussion\n\n* An open question\n",
+                [],
+                id="unrelated-h2-heading",
+            ),
+            pytest.param(
+                "h3. Acceptance criteria discussion\n\n* An open question\n",
+                [],
+                id="unrelated-h3-heading",
+            ),
+            pytest.param(
+                "h3. Feature\n\n"
+                "*Done - Acceptance Criteria*\n\n"
+                "* A criterion written under a bold label\n\n"
+                "*Out of Scope*\n\n"
+                "* An excluded item\n",
+                [],
+                id="bold-done-label",
+            ),
+        ],
+    )
+    def test_qualified_and_unsupported_headings(self, content, expected_texts):
+        result = workflow_inputs(content)
+
+        assert result["status"] == ("ok" if expected_texts else "no_acceptance_criteria")
+        assert result["ac_json"]["count"] == len(expected_texts)
+        assert [item["text"] for item in result["ac_json"]["acceptance_criteria"]] == expected_texts
 
     def test_multiline_ac_parsed_as_single_item(self):
         content = (FIXTURES_DIR / "strat-1737.md").read_text()
@@ -256,6 +327,24 @@ class TestWorkflowInputs:
         assert result["oos_json"]["found"] is True
         assert result["ac_count"] == 10
         assert "Performance" in result["nfr_categories"]
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            pytest.param(STRAT_AC_H2_PREFIX_COLLISION, id="h2"),
+            pytest.param(STRAT_AC_H3_PREFIX_COLLISION, id="canonical-h3"),
+        ],
+    )
+    def test_prefix_collision_preserves_first_criterion_in_workflow_inputs(self, content):
+        result = workflow_inputs(content)
+
+        assert result["status"] == "ok"
+        assert result["ac_count"] == 1
+        assert result["ac_json"] == {
+            "found": True,
+            "count": 1,
+            "acceptance_criteria": [{"num": 1, "text": "First selected criterion"}],
+        }
 
     def test_no_acceptance_criteria_status_when_section_absent(self):
         content = "h3. Requirements\n\nSome text.\n\nh3. Risks\n\nSome risks.\n"

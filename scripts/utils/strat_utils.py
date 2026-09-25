@@ -7,6 +7,7 @@ Jira wiki markup (h2., h3., *bold*, {{code}}) inside the Description section.
 import re
 
 _TESTABILITY_HEADING_RE = re.compile(r"^h3\.\s+Testability(:.*)?\s*$")
+_ADDITIONAL_AC_HEADING_RE = re.compile(r"^h[23]\.\s+Acceptance Criteria(?:\s*\([^)]*\))?\s*$", re.IGNORECASE)
 
 
 def extract_jira_section(content: str, heading_prefix: str) -> str | None:
@@ -17,14 +18,12 @@ def extract_jira_section(content: str, heading_prefix: str) -> str | None:
     lines = content.splitlines()
     start = None
     for i, line in enumerate(lines):
-        if line.startswith(heading_prefix):
+        if start is None and line.startswith(heading_prefix):
             start = i + 1
             continue
-        if start is not None and re.match(r"^h[23]\.\s", line):
+        if start is not None and re.match(r"^h[23]\.\s", line, re.IGNORECASE):
             return "\n".join(lines[start:i]).strip()
-    if start is not None:
-        return "\n".join(lines[start:]).strip()
-    return None
+    return "\n".join(lines[start:]).strip() if start is not None else None
 
 
 def _extract_bulleted_texts(section: str) -> list[str]:
@@ -66,6 +65,9 @@ def parse_acceptance_criteria(content: str) -> dict:
     skipped; semantic near-duplicates are not detected.
     """
     section = extract_jira_section(content, "h3. Acceptance Criteria")
+    if section is None:
+        heading = next((line for line in content.splitlines() if _ADDITIONAL_AC_HEADING_RE.match(line)), None)
+        section = extract_jira_section(content, heading) if heading is not None else None
     if section is None:
         return {"found": False, "count": 0, "acceptance_criteria": []}
 
