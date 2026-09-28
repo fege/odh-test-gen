@@ -137,28 +137,16 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 ### Step 1.6: Read Design Spec / Additional Docs (if available)
 
-1. Resolve companion docs deterministically:
-   ```bash
-   additional_docs_raw=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
-     uv run python scripts/resolve_additional_docs.py <feature_dir>) || {
-       echo "WARNING: resolve_additional_docs.py failed; continuing without companion docs." >&2
-       additional_docs_raw='{"status":"ok","docs":[]}'
-   }
-   ```
-2. Also check for `<feature_dir>/.source-design-spec.md` (snapshotted by `/test-plan-create`). If it
-   exists, Read it even when not listed in frontmatter.
-3. When a design spec is present, use it as the preferred source for **TC-UI-*** (and UI-capable
-   TC-E2E) generation:
-   - **Journeys (`J-*`)**: One UI/E2E case (or tightly related set) per journey; steps follow the
-     numbered journey steps and named Screen IDs
-   - **Screens (`SCR-*` HTML)**: Preconditions start on the named screen; steps name only controls
-     present in the HTML; expected results assert observable text/state from HTML or journey Outcome
-   - **Roles / Sample data**: Prefer `TU-*` / `DATA-*` for preconditions and test data when present
-   - **Traceability**: Keep `objectives` frontmatter tied to Section 1.3 / STRAT ACs cited on the
-     journey or screen (`STRAT AC: #N`)
-   - **Anti-hallucination**: Do NOT invent buttons, fields, routes, or messages absent from the
-     design-spec HTML and STRAT AC / test plan
-4. When no design spec is present, keep the existing TestPlan-only behavior
+```bash
+additional_docs_raw=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+  uv run python scripts/resolve_additional_docs.py <feature_dir>) || \
+  additional_docs_raw='{"status":"ok","docs":[]}'
+```
+
+Also Read `<feature_dir>/.source-design-spec.md` if present. When a design spec exists, prefer it
+for **TC-UI-*** / UI E2E: one case per `J-*` journey, steps/expected from `SCR-*` HTML, roles/data
+from `TU-*`/`DATA-*`, keep Section 1.3 / STRAT AC `objectives`. Do not invent UI absent from the
+spec or STRAT. Without a design spec, keep TestPlan-only behavior.
 
 ### Step 2: Read the Test Case Template
 
@@ -214,9 +202,8 @@ Process **one category at a time** from Section 5.2. For each category:
    - Stay strictly within the scope defined in Section 1.2 — do NOT create test cases for out-of-scope items
    - Map each TC to the Section 1.3 objective(s) it validates — record as `objectives` in frontmatter (Step 3.1)
    - Before generating each TC, check all previously generated TCs across ALL categories. If another TC already verifies the same behavior (same preconditions, same verification target), do not create a duplicate — add the missing assertions to the existing TC instead
-   - **For TC-UI-* when a design spec was read in Step 1.6**: Prefer one case per design-spec journey
-     (or per critical screen state for validation/error screens). Ground steps and expected results in
-     `SCR-*` HTML and journey Outcomes; cite the same STRAT ACs / objectives as the journey headers.
+   - **For TC-UI-* with a design spec (Step 1.6)**: Prefer one case per `J-*`; ground steps/results
+     in `SCR-*` HTML and journey Outcomes; keep the same STRAT AC / objectives citations.
 
 2. **Write or Edit** the `TC-<CATEGORY>-<NUMBER>.md` files for that category immediately before moving to the next:
 
