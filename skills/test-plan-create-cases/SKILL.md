@@ -208,15 +208,15 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 Process **one category at a time** from Section 5.2. For each category:
 
 1. **Design** all test cases for that category:
- - Cover every interface from Section 4 relevant to this category
- - Include positive, negative, and boundary scenarios (per Section 2.2)
- - Assign priorities (P0/P1/P2) following the criteria in Section 2.3
- - Stay strictly within the scope defined in Section 1.2 — do NOT create test cases for out-of-scope items
- - Map each TC to the Section 1.3 objective(s) it validates — record as `objectives` in frontmatter (Step 3.1)
- - Before generating each TC, check all previously generated TCs across ALL categories. If another TC already verifies the same behavior (same preconditions, same verification target), do not create a duplicate — add the missing assertions to the existing TC instead
- - **For TC-UI-* when a design spec was read in Step 1.6**: Prefer one case per design-spec journey
-   (or per critical screen state for validation/error screens). Ground steps and expected results in
-   `SCR-*` HTML and journey Outcomes; cite the same STRAT ACs / objectives as the journey headers.
+   - Cover every interface from Section 4 relevant to this category
+   - Include positive, negative, and boundary scenarios (per Section 2.2)
+   - Assign priorities (P0/P1/P2) following the criteria in Section 2.3
+   - Stay strictly within the scope defined in Section 1.2 — do NOT create test cases for out-of-scope items
+   - Map each TC to the Section 1.3 objective(s) it validates — record as `objectives` in frontmatter (Step 3.1)
+   - Before generating each TC, check all previously generated TCs across ALL categories. If another TC already verifies the same behavior (same preconditions, same verification target), do not create a duplicate — add the missing assertions to the existing TC instead
+   - **For TC-UI-* when a design spec was read in Step 1.6**: Prefer one case per design-spec journey
+     (or per critical screen state for validation/error screens). Ground steps and expected results in
+     `SCR-*` HTML and journey Outcomes; cite the same STRAT ACs / objectives as the journey headers.
 
 2. **Write or Edit** the `TC-<CATEGORY>-<NUMBER>.md` files for that category immediately before moving to the next:
 

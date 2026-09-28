@@ -57,7 +57,8 @@ _GENERIC_RESOLUTION_TARGET_RE = re.compile(
 _NAMED_SOURCE_OR_OWNER_RE = re.compile(
     r"\b[A-Z][A-Z0-9]+-\d+\b"
     r"|\b(?:[\w/-]+\s+)+(?:team|engineering|owner|manager|administrator|lead|maintainer|operator)\b"
-    r"|\b(?:ADR|API spec(?:ification)?|feature refinement|design doc(?:ument)?|design[- ]?spec(?:ification)?|Jira (?:issue|ticket))\b"
+    r"|\b(?:ADR|API spec(?:ification)?|feature refinement|design doc(?:ument)?|"
+    r"design[- ]?spec(?:ification)?|Jira (?:issue|ticket))\b"
     r"|\b(?:[\w/-]+\s+)+(?:matrix|runbook|guide|roadmap|document|specification|release notes)\b"
     r"|\boverlay(?:\s+\d+|\s+(?:requirements?|documentation|docs?))\b",
     re.IGNORECASE,

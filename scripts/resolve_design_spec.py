@@ -40,6 +40,14 @@ _ADR_HEADING_RE = re.compile(r"^#\s+Architecture Decision Record\b", re.IGNORECA
 
 AttachmentDownloader = Callable[[str], str]
 
+_LOCAL_PATH_OS_ERRORS = frozenset({"local_path_is_symlink", "local_path_unreadable"})
+
+
+def _local_path_os_error_code(exc: OSError) -> str:
+    """Map an OSError from local-path reads to a stable CLI error code."""
+    code = str(exc)
+    return code if code in _LOCAL_PATH_OS_ERRORS else "local_path_unreadable"
+
 
 def looks_like_design_spec(path: str | Path, content: str | None = None) -> bool:
     """Return True when *path* or *content* indicates a design-spec document."""
@@ -198,8 +206,7 @@ def main() -> None:
         except FileNotFoundError:
             exit_error_with_json({"status": "error", "error": "local_path_not_found"})
         except OSError as exc:
-            code = str(exc) if str(exc) in {"local_path_is_symlink", "local_path_unreadable"} else "local_path_unreadable"
-            exit_error_with_json({"status": "error", "error": code})
+            exit_error_with_json({"status": "error", "error": _local_path_os_error_code(exc)})
         print(
             json.dumps(
                 {
@@ -241,8 +248,7 @@ def main() -> None:
     except FileNotFoundError:
         exit_error_with_json({"status": "error", "error": "local_path_not_found"})
     except OSError as exc:
-        code = str(exc) if str(exc) in {"local_path_is_symlink", "local_path_unreadable"} else "local_path_unreadable"
-        exit_error_with_json({"status": "error", "error": code})
+        exit_error_with_json({"status": "error", "error": _local_path_os_error_code(exc)})
     except AttachmentFetchError:
         exit_error_with_json({"status": "error", "error": "attachment_fetch_failed"})
     except Exception:
