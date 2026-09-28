@@ -57,6 +57,12 @@ class TestClassifyCompanionDoc:
     def test_adr_by_name(self):
         assert classify_companion_doc("my-adr.pdf") == "adr"
 
+    def test_adr_by_heading(self, tmp_path):
+        doc = tmp_path / "notes.md"
+        doc.write_text("# Architecture Decision Record\n\nContext\n", encoding="utf-8")
+        content = doc.read_text(encoding="utf-8")
+        assert classify_companion_doc(doc, content) == "adr"
+
     def test_other(self):
         assert classify_companion_doc("api-openapi.yaml") == "other"
 
@@ -118,6 +124,14 @@ class TestResolveDesignSpec:
     def test_local_path_missing(self, tmp_path):
         with pytest.raises(FileNotFoundError):
             resolve_design_spec(local_path=str(tmp_path / "missing.md"), fetch_issue=False)
+
+    def test_local_path_symlink_rejected(self, tmp_path):
+        target = tmp_path / "secret.md"
+        target.write_text("secret", encoding="utf-8")
+        link = tmp_path / "design-spec.md"
+        link.symlink_to(target)
+        with pytest.raises(OSError, match="local_path_is_symlink"):
+            resolve_design_spec(local_path=str(link), fetch_issue=False)
 
     def test_attachment_download(self):
         attachments = [_attachment(f"{ISSUE_KEY}-design-spec.md", content="https://jira.example/ds")]
@@ -205,3 +219,48 @@ class TestResolveDesignSpecCli:
         out = json.loads(capsys.readouterr().out)
         assert out["source"] == "attachment"
         assert out["has_content"] is True
+
+    def test_cli_attachments_json_invalid_shape(self, tmp_path, capsys):
+        attachments_file = tmp_path / "attachments.json"
+        attachments_file.write_text(json.dumps("invalid"), encoding="utf-8")
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "resolve_design_spec.py",
+                "--issue-key",
+                ISSUE_KEY,
+                "--attachments-json",
+                str(attachments_file),
+            ],
+        ):
+            with pytest.raises(SystemExit) as exc:
+                main()
+        assert exc.value.code == 1
+        out = json.loads(capsys.readouterr().out)
+        assert out["error"] == "attachments_json_invalid_shape"
+
+    def test_cli_classify(self, tmp_path, capsys):
+        doc = tmp_path / "design-spec.md"
+        doc.write_text("# Design Spec: Demo\n", encoding="utf-8")
+
+        with patch.object(sys, "argv", ["resolve_design_spec.py", "--classify", str(doc)]):
+            with pytest.raises(SystemExit) as exc:
+                main()
+        assert exc.value.code == 0
+        out = json.loads(capsys.readouterr().out)
+        assert out["kind"] == "design_spec"
+
+    def test_cli_classify_symlink_rejected(self, tmp_path, capsys):
+        target = tmp_path / "secret.md"
+        target.write_text("secret", encoding="utf-8")
+        link = tmp_path / "design-spec.md"
+        link.symlink_to(target)
+
+        with patch.object(sys, "argv", ["resolve_design_spec.py", "--classify", str(link)]):
+            with pytest.raises(SystemExit) as exc:
+                main()
+        assert exc.value.code == 1
+        out = json.loads(capsys.readouterr().out)
+        assert out["error"] == "local_path_is_symlink"

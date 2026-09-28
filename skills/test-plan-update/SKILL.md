@@ -39,8 +39,9 @@ Parse `$ARGUMENTS` to extract:
    - GitHub branch: `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`
    - GitHub PR: `https://github.com/org/repo/pull/5`
 2. **Remaining arguments** (at least one required): Paths to new documentation files (ADR, API
-   spec, design spec, design doc, etc.). Classify design specs the same way as `/test-plan-create`
-   (filename contains `design-spec` / `design_spec`, or heading `# Design Spec`).
+   spec, design spec, design doc, etc.). Classify each path with the deterministic CLI
+   (`uv run python scripts/resolve_design_spec.py --classify <path>`); use `kind` to decide
+   labeling and whether to snapshot as a design spec.
 
 When a new design-spec path is provided:
 1. Snapshot it into `<feature_dir>/.source-design-spec.md` via
@@ -139,13 +140,13 @@ fi
 ### Step 2: Read New Documents
 
 For each new document path:
-1. Read the document using Read tool
-2. Store content with label (e.g., "ADR", "API Spec", "Design Spec", "Design Doc" — infer from
-   filename/heading or ask user). Prefer label **Design Spec** when the file matches design-spec
-   naming or `# Design Spec` heading.
-3. If labeled Design Spec, snapshot into `<feature_dir>/.source-design-spec.md` with
-   `resolve_design_spec.py` so `/test-plan-create-cases` can re-read it.
-4. Add to `additional_docs` list in frontmatter (use `.source-design-spec.md` for snapshotted specs)
+1. Classify with `uv run python scripts/resolve_design_spec.py --classify "$doc_path"` and use
+   `kind` (`design_spec` | `adr` | `other`) for labeling — do not inspect content yourself.
+2. Read the document using Read tool
+3. Store content with label mapped from kind (`Design Spec`, `ADR`, or inferred other label)
+4. If `kind` is `design_spec`, snapshot into `<feature_dir>/.source-design-spec.md` with
+   `resolve_design_spec.py --local-path ... --feature-dir ... --snapshot`
+5. Add to `additional_docs` list in frontmatter (use `.source-design-spec.md` for snapshotted specs)
 
 ### Step 3: Re-analyze with New Material
 

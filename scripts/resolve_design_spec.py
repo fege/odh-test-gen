@@ -10,6 +10,7 @@ Attachment selection (newest wins, same ordering as strategy attachments):
 2. Fallback: any filename containing ``design-spec`` (case-insensitive), ending in ``.md``
 
 Usage:
+    uv run python scripts/resolve_design_spec.py --classify ./path/to/doc.md
     uv run python scripts/resolve_design_spec.py --issue-key RHAISTRAT-400
     uv run python scripts/resolve_design_spec.py --issue-key RHAISTRAT-400 \\
         --local-path ./design-spec.md --feature-dir /path/to/feature --snapshot
@@ -30,11 +31,12 @@ from typing import Any, Callable
 from scripts.jira_utils import AttachmentFetchError, download_attachment, get_issue
 from scripts.strategy_source import _attachment_sort_key
 from scripts.utils.error_utils import exit_error_with_json
-from scripts.utils.snapshot_io import write_snapshot_nofollow
+from scripts.utils.snapshot_io import read_file_nofollow, write_snapshot_nofollow
 
 DESIGN_SPEC_SNAPSHOT = ".source-design-spec.md"
 _DESIGN_SPEC_HEADING_RE = re.compile(r"^#\s+Design Spec\b", re.IGNORECASE | re.MULTILINE)
 _DESIGN_SPEC_FILENAME_RE = re.compile(r"design[-_]?spec", re.IGNORECASE)
+_ADR_HEADING_RE = re.compile(r"^#\s+Architecture Decision Record\b", re.IGNORECASE | re.MULTILINE)
 
 AttachmentDownloader = Callable[[str], str]
 
@@ -56,9 +58,21 @@ def classify_companion_doc(path: str | Path, content: str | None = None) -> str:
         return "design_spec"
     if "adr" in name or name.startswith("architecture"):
         return "adr"
-    if content and re.search(r"^#\s+Architecture Decision Record\b", content, re.IGNORECASE | re.MULTILINE):
+    if content and _ADR_HEADING_RE.search(content):
         return "adr"
     return "other"
+
+
+def _read_local_path(path: Path) -> str:
+    """Read a local companion path, rejecting symlinks (CWE-59)."""
+    if path.is_symlink():
+        raise OSError("local_path_is_symlink")
+    if not path.is_file():
+        raise FileNotFoundError("local_path_not_found")
+    try:
+        return read_file_nofollow(path)
+    except OSError as exc:
+        raise OSError("local_path_unreadable") from exc
 
 
 def select_design_spec_attachment(issue_key: str, attachments: list[dict[str, Any]]) -> dict[str, Any] | None:
@@ -111,14 +125,7 @@ def resolve_design_spec(
     """
     if local_path:
         path = Path(local_path)
-        if not path.is_file():
-            raise FileNotFoundError("local_path_not_found")
-        try:
-            # Explicit user-provided paths may be symlinks; containment is enforced
-            # when the content is later snapshotted into feature_dir.
-            content = path.read_text(encoding="utf-8")
-        except OSError as exc:
-            raise OSError("local_path_unreadable") from exc
+        content = _read_local_path(path)
 
         return {
             "status": "ok",
@@ -154,8 +161,22 @@ def resolve_design_spec(
     }
 
 
+def _parse_attachments_payload(payload: Any) -> list[dict[str, Any]]:
+    """Accept a list or ``{"attachment": [...]}`` object; reject other shapes."""
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict) and isinstance(payload.get("attachment"), list):
+        return payload["attachment"]
+    raise ValueError("attachments_json_invalid_shape")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Discover and optionally snapshot a design-spec document")
+    parser.add_argument(
+        "--classify",
+        metavar="PATH",
+        help="Classify a companion doc path as design_spec, adr, or other (deterministic; no snapshot)",
+    )
     parser.add_argument("--issue-key", help="Jira issue key (e.g., RHAISTRAT-400)")
     parser.add_argument("--local-path", help="Local design-spec markdown path (wins over attachment)")
     parser.add_argument("--feature-dir", help="Feature directory for --snapshot")
@@ -170,6 +191,27 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.classify:
+        path = Path(args.classify)
+        try:
+            content = _read_local_path(path)
+        except FileNotFoundError:
+            exit_error_with_json({"status": "error", "error": "local_path_not_found"})
+        except OSError as exc:
+            code = str(exc) if str(exc) in {"local_path_is_symlink", "local_path_unreadable"} else "local_path_unreadable"
+            exit_error_with_json({"status": "error", "error": code})
+        print(
+            json.dumps(
+                {
+                    "status": "ok",
+                    "path": str(path.resolve()),
+                    "kind": classify_companion_doc(path, content),
+                },
+                indent=2,
+            )
+        )
+        sys.exit(0)
+
     if not args.local_path and not args.issue_key:
         exit_error_with_json({"status": "error", "error": "missing_issue_or_local_path"})
 
@@ -183,7 +225,9 @@ def main() -> None:
         try:
             with open(args.attachments_json, encoding="utf-8") as f:
                 payload = json.load(f)
-            attachments = payload if isinstance(payload, list) else payload.get("attachment") or []
+            attachments = _parse_attachments_payload(payload)
+        except ValueError:
+            exit_error_with_json({"status": "error", "error": "attachments_json_invalid_shape"})
         except (OSError, json.JSONDecodeError):
             exit_error_with_json({"status": "error", "error": "attachments_json_unreadable"})
 
@@ -196,8 +240,9 @@ def main() -> None:
         )
     except FileNotFoundError:
         exit_error_with_json({"status": "error", "error": "local_path_not_found"})
-    except OSError:
-        exit_error_with_json({"status": "error", "error": "local_path_unreadable"})
+    except OSError as exc:
+        code = str(exc) if str(exc) in {"local_path_is_symlink", "local_path_unreadable"} else "local_path_unreadable"
+        exit_error_with_json({"status": "error", "error": code})
     except AttachmentFetchError:
         exit_error_with_json({"status": "error", "error": "attachment_fetch_failed"})
     except Exception:
@@ -211,8 +256,7 @@ def main() -> None:
         result["snapshot_path"] = snapshot_path
         result["additional_docs_entry"] = DESIGN_SPEC_SNAPSHOT
 
-    # Omit large content from default CLI output unless --include-content is needed;
-    # skills that need content use --snapshot and then Read the snapshot file.
+    # Omit large content from default CLI output; skills Read the snapshot file.
     output = {k: v for k, v in result.items() if k != "content"}
     output["has_content"] = bool(result.get("content"))
     print(json.dumps(output, indent=2))

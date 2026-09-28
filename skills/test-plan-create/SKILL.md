@@ -35,11 +35,17 @@ Examples:
 
 Parse `$ARGUMENTS` as:
 1. Required Jira key: a `RHAISTRAT-*` strategy or `RHOAIENG-*` issue.
-2. Optional local companion doc paths (Markdown, text, or PDF). Classify each path:
-   - **design spec** — filename contains `design-spec` / `design_spec`, or content starts with
-     `# Design Spec`
-   - **ADR** — filename contains `adr`, or content is clearly an Architecture Decision Record
-   - **other** — treat as a generic additional doc (API spec, design doc, etc.)
+2. Optional local companion doc paths (Markdown, text, or PDF). For each path, classify
+   deterministically (do **not** inspect content yourself):
+
+   ```bash
+   classify_result=$(cd "$repo_root" && uv run python scripts/resolve_design_spec.py --classify "$path") || exit 1
+   kind=$(echo "$classify_result" | jq -r '.kind')  # design_spec | adr | other
+   ```
+
+   - `design_spec` → set `LOCAL_DESIGN_SPEC_PATH`
+   - `adr` → set ADR path for analyzers
+   - `other` → treat as a generic additional doc
 
 With no arguments, use a strategy created in this session by `/strat.create` or `/strat.refine` and
 proceed to Step 1. If none is available, ask for the Jira key, optional companion paths (ADR and/or
@@ -53,9 +59,9 @@ A **design spec** is a STRAT-scoped companion document with screens (`SCR-*` + H
 `DATA-*`). Prefer it as the authoritative source for UI routes, controls, journeys, and test users
 when present. Ingest paths:
 
-1. **Local path** (highest precedence) — passed as a companion arg, same pattern as ADR
-2. **Jira attachment** — auto-discovered on the STRAT: prefer `{JIRA_KEY}-design-spec.md`, else the
-   newest `*design-spec*.md` attachment
+1. **Local path** (highest precedence) — companion arg classified as `design_spec`
+2. **Jira attachment** — auto-discovered once in Step 1.5: prefer `{JIRA_KEY}-design-spec.md`, else
+   newest `*design-spec*.md`
 
 Do not invent UI controls, screens, or journeys that are absent from the STRAT and design spec.
 
@@ -134,29 +140,10 @@ echo "✓ Creating test plan artifacts in: $target_dir"
    ```
 
    - `components` is extracted deterministically in Step 1.5 (`parse_strat.py save-snapshot`).
-2. **ADR** (if a companion path classified as ADR): Read the ADR file for additional technical detail
-   (API endpoints, data models, implementation specifics).
-3. **Design spec** (local companion and/or Jira attachment): Resolve with the deterministic script.
-   Local design-spec paths win over attachments. Always attempt attachment discovery when a Jira key
-   is available and no local design-spec was provided:
-
-   ```bash
-   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
-   # After feature_dir exists (Step 1.5), re-run with --feature-dir and --snapshot.
-   # Before feature_dir exists, resolve without snapshot to learn whether content is available:
-   design_spec_result=$(cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
-       --issue-key <JIRA_KEY> \
-       ${LOCAL_DESIGN_SPEC_PATH:+--local-path "$LOCAL_DESIGN_SPEC_PATH"}) || {
-       echo "$design_spec_result" >&2
-       # Non-blocking when source is none; STOP only on hard errors other than missing attachment
-       exit 1
-   }
-   design_spec_source=$(echo "$design_spec_result" | jq -r '.source')
-   ```
-
-   If `source` is `local` or `attachment`, the content will be snapshotted in Step 1.5 into
-   `<feature_dir>/.source-design-spec.md`. If `source` is `none`, proceed without a design spec
-   (UI details may remain pending / gap-flagged as `design spec`).
+2. **ADR** (if a companion path classified as `adr`): Read the ADR file for additional technical
+   detail (API endpoints, data models, implementation specifics).
+3. **Design spec**: Do **not** resolve or fetch yet. Note `LOCAL_DESIGN_SPEC_PATH` from Inputs if
+   classified; discovery + snapshot happens once in Step 1.5 after `feature_dir` exists.
 
 ### Step 1.5: Parse Strategy Sections and Snapshot the Strategy
 
@@ -197,7 +184,8 @@ strategy_file=$(echo "$snapshot_result" | jq -r '.strategy_file')
 components=$(echo "$snapshot_result" | jq -r '.components | join(",")')
 ```
 
-If a design spec was resolved in Step 1 (`source` is `local` or `attachment`), snapshot it now:
+Resolve and snapshot the design spec **once** (local path wins; else Jira attachment). If
+`source` is `none`, continue without a design spec — do not treat that as failure:
 
 ```bash
 design_spec_snap=$(cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
@@ -205,8 +193,10 @@ design_spec_snap=$(cd "$repo_root" && uv run python scripts/resolve_design_spec.
     ${LOCAL_DESIGN_SPEC_PATH:+--local-path "$LOCAL_DESIGN_SPEC_PATH"} \
     --feature-dir "$feature_dir" \
     --snapshot) || exit 1
+design_spec_source=$(echo "$design_spec_snap" | jq -r '.source')
 design_spec_file=$(echo "$design_spec_snap" | jq -r '.snapshot_path // empty')
-# When present, include ".source-design-spec.md" in additional_docs frontmatter (Step 3.1).
+# When source is local|attachment, include ".source-design-spec.md" in additional_docs (Step 3.1).
+# When source is none, leave design_spec_file empty and proceed (UI gaps may cite design spec).
 ```
 
 If `$gate_status` is `no_acceptance_criteria` (no ACs or count 0), **STOP**:
