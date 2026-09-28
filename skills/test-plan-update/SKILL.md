@@ -1,6 +1,6 @@
 ---
 name: test-plan-update
-description: Update an existing test plan with new documentation (ADR, API specs, design docs). Re-analyzes, updates artifacts, bumps version, and optionally regenerates test cases. Use when requirements evolve or new technical documentation becomes available after initial test plan creation.
+description: Update an existing test plan with new documentation (ADR, API specs, design specs, design docs). Re-analyzes, updates artifacts, bumps version, and optionally regenerates test cases. Use when requirements evolve or new technical documentation becomes available after initial test plan creation.
 argument-hint: <SOURCE> <NEW_DOC_PATH> [<NEW_DOC_PATH>...]
 user-invocable: true
 model: opus
@@ -15,7 +15,8 @@ allowedTools:
 
 # Test Plan Updater
 
-Update an existing test plan when new information becomes available (ADRs, API specs, design documents, requirement changes).
+Update an existing test plan when new information becomes available (ADRs, API specs, design specs,
+design documents, requirement changes).
 
 ## Usage
 
@@ -25,6 +26,7 @@ Update an existing test plan when new information becomes available (ADRs, API s
 
 Examples:
 - `/test-plan-update ~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog adr.pdf`
+- `/test-plan-update ~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog ./design-spec.md`
 - `/test-plan-update https://github.com/org/repo/pull/42 api-spec.md design.md`
 - `/test-plan-update https://github.com/org/repo/tree/test-plan/RHAISTRAT-400 requirements-v2.md`
 
@@ -36,7 +38,19 @@ Parse `$ARGUMENTS` to extract:
    - Local directory path: `mcp_catalog` or `/path/to/mcp_catalog`
    - GitHub branch: `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`
    - GitHub PR: `https://github.com/org/repo/pull/5`
-2. **Remaining arguments** (at least one required): Paths to new documentation files (ADR, API spec, design doc, etc.)
+2. **Remaining arguments** (at least one required): Paths to new documentation files (ADR, API
+   spec, design spec, design doc, etc.). Classify design specs the same way as `/test-plan-create`
+   (filename contains `design-spec` / `design_spec`, or heading `# Design Spec`).
+
+When a new design-spec path is provided:
+1. Snapshot it into `<feature_dir>/.source-design-spec.md` via
+   `scripts/resolve_design_spec.py --local-path ... --feature-dir ... --snapshot`
+2. Ensure `.source-design-spec.md` is listed in TestPlan frontmatter `additional_docs`
+3. Pass the snapshot path to analyzers / merge / resolve-gaps as a labeled **Design Spec** document
+
+Design specs attached later on the Jira STRAT can also be pulled by re-running discovery with the
+plan's `source_key` (no local path) so the newest `{source_key}-design-spec.md` attachment is
+snapshotted — same convention as create-time ingest.
 
 ### Interactive fallback
 If insufficient arguments are provided, ask the user via AskUserQuestion:
@@ -50,7 +64,7 @@ If insufficient arguments are provided, ask the user via AskUserQuestion:
 Then ask:
 > **What new documentation should be incorporated?**
 >
-> Provide one or more file paths (ADR, API spec, design doc, requirements doc, etc.):
+> Provide one or more file paths (ADR, API spec, design spec, design doc, requirements doc, etc.):
 
 ## Process
 
@@ -126,8 +140,12 @@ fi
 
 For each new document path:
 1. Read the document using Read tool
-2. Store content with label (e.g., "ADR", "API Spec", "Design Doc" - infer from filename or ask user)
-3. Add to `additional_docs` list in frontmatter
+2. Store content with label (e.g., "ADR", "API Spec", "Design Spec", "Design Doc" — infer from
+   filename/heading or ask user). Prefer label **Design Spec** when the file matches design-spec
+   naming or `# Design Spec` heading.
+3. If labeled Design Spec, snapshot into `<feature_dir>/.source-design-spec.md` with
+   `resolve_design_spec.py` so `/test-plan-create-cases` can re-read it.
+4. Add to `additional_docs` list in frontmatter (use `.source-design-spec.md` for snapshotted specs)
 
 ### Step 3: Re-analyze with New Material
 

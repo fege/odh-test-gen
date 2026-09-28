@@ -135,6 +135,31 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 2. If it exists, read it to understand known limitations — do NOT create test cases for areas marked as pending or missing details
 3. If it does not exist, proceed normally
 
+### Step 1.6: Read Design Spec / Additional Docs (if available)
+
+1. Resolve companion docs deterministically:
+   ```bash
+   additional_docs_raw=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+     uv run python scripts/resolve_additional_docs.py <feature_dir>) || {
+       echo "WARNING: resolve_additional_docs.py failed; continuing without companion docs." >&2
+       additional_docs_raw='{"status":"ok","docs":[]}'
+   }
+   ```
+2. Also check for `<feature_dir>/.source-design-spec.md` (snapshotted by `/test-plan-create`). If it
+   exists, Read it even when not listed in frontmatter.
+3. When a design spec is present, use it as the preferred source for **TC-UI-*** (and UI-capable
+   TC-E2E) generation:
+   - **Journeys (`J-*`)**: One UI/E2E case (or tightly related set) per journey; steps follow the
+     numbered journey steps and named Screen IDs
+   - **Screens (`SCR-*` HTML)**: Preconditions start on the named screen; steps name only controls
+     present in the HTML; expected results assert observable text/state from HTML or journey Outcome
+   - **Roles / Sample data**: Prefer `TU-*` / `DATA-*` for preconditions and test data when present
+   - **Traceability**: Keep `objectives` frontmatter tied to Section 1.3 / STRAT ACs cited on the
+     journey or screen (`STRAT AC: #N`)
+   - **Anti-hallucination**: Do NOT invent buttons, fields, routes, or messages absent from the
+     design-spec HTML and STRAT AC / test plan
+4. When no design spec is present, keep the existing TestPlan-only behavior
+
 ### Step 2: Read the Test Case Template
 
 1. Read the template from `${CLAUDE_SKILL_DIR}/test-case-template.md` using the Read tool
@@ -183,12 +208,15 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 Process **one category at a time** from Section 5.2. For each category:
 
 1. **Design** all test cases for that category:
-   - Cover every interface from Section 4 relevant to this category
-   - Include positive, negative, and boundary scenarios (per Section 2.2)
-   - Assign priorities (P0/P1/P2) following the criteria in Section 2.3
-   - Stay strictly within the scope defined in Section 1.2 — do NOT create test cases for out-of-scope items
-   - Map each TC to the Section 1.3 objective(s) it validates — record as `objectives` in frontmatter (Step 3.1)
-   - Before generating each TC, check all previously generated TCs across ALL categories. If another TC already verifies the same behavior (same preconditions, same verification target), do not create a duplicate — add the missing assertions to the existing TC instead
+ - Cover every interface from Section 4 relevant to this category
+ - Include positive, negative, and boundary scenarios (per Section 2.2)
+ - Assign priorities (P0/P1/P2) following the criteria in Section 2.3
+ - Stay strictly within the scope defined in Section 1.2 — do NOT create test cases for out-of-scope items
+ - Map each TC to the Section 1.3 objective(s) it validates — record as `objectives` in frontmatter (Step 3.1)
+ - Before generating each TC, check all previously generated TCs across ALL categories. If another TC already verifies the same behavior (same preconditions, same verification target), do not create a duplicate — add the missing assertions to the existing TC instead
+ - **For TC-UI-* when a design spec was read in Step 1.6**: Prefer one case per design-spec journey
+   (or per critical screen state for validation/error screens). Ground steps and expected results in
+   `SCR-*` HTML and journey Outcomes; cite the same STRAT ACs / objectives as the journey headers.
 
 2. **Write or Edit** the `TC-<CATEGORY>-<NUMBER>.md` files for that category immediately before moving to the next:
 
@@ -285,7 +313,8 @@ A test that FAILs for the wrong reason is worse than no test at all. When in dou
   should be tested in dedicated edge-case TCs.
 
 **Anti-hallucination rules:**
-- Do NOT invent requirements not present in the test plan
+- Do NOT invent requirements not present in the test plan (or design spec when provided)
+- Do NOT invent UI controls, labels, or routes absent from design-spec HTML / STRAT AC text
 - Do NOT create test cases for interfaces marked as "pending details" in Section 4
 - If the test plan is ambiguous about what to test, ask the user via AskUserQuestion
 

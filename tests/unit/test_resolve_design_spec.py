@@ -1,0 +1,207 @@
+"""Unit tests for scripts/resolve_design_spec.py."""
+
+import json
+import sys
+from pathlib import Path
+from unittest.mock import patch
+
+import pytest
+
+from scripts.resolve_design_spec import (
+    DESIGN_SPEC_SNAPSHOT,
+    classify_companion_doc,
+    looks_like_design_spec,
+    main,
+    resolve_design_spec,
+    select_design_spec_attachment,
+    snapshot_design_spec,
+)
+
+ISSUE_KEY = "RHAISTRAT-400"
+
+
+def _attachment(
+    filename,
+    *,
+    created="2026-09-01T12:00:00.000+0000",
+    attachment_id="1",
+    content="https://jira.example/1",
+):
+    return {
+        "filename": filename,
+        "created": created,
+        "id": attachment_id,
+        "content": content,
+    }
+
+
+class TestLooksLikeDesignSpec:
+    def test_filename_match(self):
+        assert looks_like_design_spec("RHAISTRAT-400-design-spec.md")
+        assert looks_like_design_spec("design_spec.md")
+        assert looks_like_design_spec("./docs/Design-Spec.md")
+
+    def test_heading_match(self):
+        assert looks_like_design_spec("notes.md", "# Design Spec: Create subscription\n")
+        assert not looks_like_design_spec("notes.md", "# Something else\n")
+
+    def test_non_match(self):
+        assert not looks_like_design_spec("adr.pdf")
+        assert not looks_like_design_spec("api-spec.md")
+
+
+class TestClassifyCompanionDoc:
+    def test_design_spec_by_name(self):
+        assert classify_companion_doc("design-spec.md") == "design_spec"
+
+    def test_adr_by_name(self):
+        assert classify_companion_doc("my-adr.pdf") == "adr"
+
+    def test_other(self):
+        assert classify_companion_doc("api-openapi.yaml") == "other"
+
+
+class TestSelectDesignSpecAttachment:
+    def test_exact_name_preferred(self):
+        attachments = [
+            _attachment("other-design-spec.md", content="https://jira.example/fallback"),
+            _attachment(f"{ISSUE_KEY}-design-spec.md", content="https://jira.example/exact"),
+        ]
+        selected = select_design_spec_attachment(ISSUE_KEY, attachments)
+        assert selected["content"] == "https://jira.example/exact"
+
+    def test_fallback_design_spec_filename(self):
+        attachments = [
+            _attachment("notes.md", content="https://jira.example/notes"),
+            _attachment("feature-design-spec.md", content="https://jira.example/fallback"),
+        ]
+        selected = select_design_spec_attachment(ISSUE_KEY, attachments)
+        assert selected["content"] == "https://jira.example/fallback"
+
+    def test_newest_wins(self):
+        attachments = [
+            _attachment(
+                f"{ISSUE_KEY}-design-spec.md",
+                created="2026-09-01T10:00:00.000+0000",
+                attachment_id="1",
+                content="https://jira.example/older",
+            ),
+            _attachment(
+                f"{ISSUE_KEY}-design-spec.md",
+                created="2026-09-02T10:00:00.000+0000",
+                attachment_id="2",
+                content="https://jira.example/newer",
+            ),
+        ]
+        selected = select_design_spec_attachment(ISSUE_KEY, attachments)
+        assert selected["content"] == "https://jira.example/newer"
+
+    def test_none_found(self):
+        attachments = [_attachment("RHAISTRAT-400-strategy.md")]
+        assert select_design_spec_attachment(ISSUE_KEY, attachments) is None
+
+
+class TestResolveDesignSpec:
+    def test_local_path_wins_over_attachments(self, tmp_path):
+        doc = tmp_path / "design-spec.md"
+        doc.write_text("# Design Spec: Demo\n", encoding="utf-8")
+        result = resolve_design_spec(
+            issue_key=ISSUE_KEY,
+            local_path=str(doc),
+            attachments=[_attachment(f"{ISSUE_KEY}-design-spec.md")],
+            fetch_issue=False,
+        )
+        assert result["source"] == "local"
+        assert result["kind"] == "design_spec"
+        assert "Design Spec: Demo" in result["content"]
+
+    def test_local_path_missing(self, tmp_path):
+        with pytest.raises(FileNotFoundError):
+            resolve_design_spec(local_path=str(tmp_path / "missing.md"), fetch_issue=False)
+
+    def test_attachment_download(self):
+        attachments = [_attachment(f"{ISSUE_KEY}-design-spec.md", content="https://jira.example/ds")]
+        result = resolve_design_spec(
+            issue_key=ISSUE_KEY,
+            attachments=attachments,
+            attachment_downloader=lambda url: f"body from {url}",
+            fetch_issue=False,
+        )
+        assert result["source"] == "attachment"
+        assert result["content"] == "body from https://jira.example/ds"
+        assert result["filename"] == f"{ISSUE_KEY}-design-spec.md"
+
+    def test_none_when_no_attachment(self):
+        result = resolve_design_spec(
+            issue_key=ISSUE_KEY,
+            attachments=[],
+            fetch_issue=False,
+        )
+        assert result == {"status": "ok", "source": "none", "content": None}
+
+
+class TestSnapshotDesignSpec:
+    def test_writes_snapshot(self, tmp_path):
+        path = snapshot_design_spec(str(tmp_path), "# Design Spec\n")
+        assert Path(path).name == DESIGN_SPEC_SNAPSHOT
+        assert Path(path).read_text(encoding="utf-8") == "# Design Spec\n"
+
+
+class TestResolveDesignSpecCli:
+    def test_cli_local_snapshot(self, tmp_path, capsys):
+        doc = tmp_path / "design-spec.md"
+        doc.write_text("# Design Spec: CLI\n", encoding="utf-8")
+        feature_dir = tmp_path / "feature"
+        feature_dir.mkdir()
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "resolve_design_spec.py",
+                "--issue-key",
+                ISSUE_KEY,
+                "--local-path",
+                str(doc),
+                "--feature-dir",
+                str(feature_dir),
+                "--snapshot",
+            ],
+        ):
+            with pytest.raises(SystemExit) as exc:
+                main()
+        assert exc.value.code == 0
+        out = json.loads(capsys.readouterr().out)
+        assert out["source"] == "local"
+        assert out["has_content"] is True
+        assert out["additional_docs_entry"] == DESIGN_SPEC_SNAPSHOT
+        assert (feature_dir / DESIGN_SPEC_SNAPSHOT).is_file()
+
+    def test_cli_attachments_json(self, tmp_path, capsys):
+        attachments_file = tmp_path / "attachments.json"
+        attachments_file.write_text(
+            json.dumps([_attachment(f"{ISSUE_KEY}-design-spec.md", content="https://jira.example/ds")]),
+            encoding="utf-8",
+        )
+
+        with patch(
+            "scripts.resolve_design_spec.download_attachment",
+            return_value="# Design Spec from attachment\n",
+        ):
+            with patch.object(
+                sys,
+                "argv",
+                [
+                    "resolve_design_spec.py",
+                    "--issue-key",
+                    ISSUE_KEY,
+                    "--attachments-json",
+                    str(attachments_file),
+                ],
+            ):
+                with pytest.raises(SystemExit) as exc:
+                    main()
+        assert exc.value.code == 0
+        out = json.loads(capsys.readouterr().out)
+        assert out["source"] == "attachment"
+        assert out["has_content"] is True
