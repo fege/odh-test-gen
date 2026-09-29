@@ -7,22 +7,38 @@ Jira wiki markup (h2., h3., *bold*, {{code}}) inside the Description section.
 import re
 
 _TESTABILITY_HEADING_RE = re.compile(r"^h3\.\s+Testability(:.*)?\s*$")
-_ADDITIONAL_AC_HEADING_RE = re.compile(r"^h[23]\.\s+Acceptance Criteria(?:\s*\([^)]*\))?\s*$", re.IGNORECASE)
+_ADDITIONAL_AC_HEADING_RE = re.compile(
+    r"^h[23]\.\s+(?:\*Acceptance Criteria\*|Acceptance Criteria)(?:\s*\([^)]*\))?\s*$", re.IGNORECASE
+)
+_STRATEGY_AC_HEADING_RE = re.compile(r"^h[23]\.\s+Strategy Acceptance Criteria\s*$", re.IGNORECASE)
+_BOLD_SECTION_HEADING_RE = re.compile(r"^\*[^*\s][^*]*\*\s*:?[\t ]*$")
+_COLOR_SECTION_HEADING_RE = re.compile(r"^\{color:[^}]+\}.+\{color\}\s*$", re.IGNORECASE)
 
 
 def extract_jira_section(content: str, heading_prefix: str) -> str | None:
-    """Extract text between a Jira wiki heading and the next h2./h3. heading.
+    """Extract text after a Jira heading up to its next section boundary.
 
-    Returns the section body text, or None if heading not found.
+    Jira h2./h3. headings end every section. Inline bold labels also stop at the next bold,
+    color-marked, panel, or h2./h3. section boundary.
     """
     lines = content.splitlines()
     start = None
+    inline_heading = heading_prefix.startswith("*")
     for i, line in enumerate(lines):
         if start is None and line.startswith(heading_prefix):
             start = i + 1
             continue
-        if start is not None and re.match(r"^h[23]\.\s", line, re.IGNORECASE):
-            return "\n".join(lines[start:i]).strip()
+        if start is not None:
+            stripped = line.strip()
+            if re.match(r"^h[23]\.\s", stripped, re.IGNORECASE) or (
+                inline_heading
+                and (
+                    _BOLD_SECTION_HEADING_RE.match(stripped)
+                    or _COLOR_SECTION_HEADING_RE.match(stripped)
+                    or stripped == "{panel}"
+                )
+            ):
+                return "\n".join(lines[start:i]).strip()
     return "\n".join(lines[start:]).strip() if start is not None else None
 
 
@@ -66,8 +82,12 @@ def parse_acceptance_criteria(content: str) -> dict:
     """
     section = extract_jira_section(content, "h3. Acceptance Criteria")
     if section is None:
-        heading = next((line for line in content.splitlines() if _ADDITIONAL_AC_HEADING_RE.match(line)), None)
+        heading = next((line for line in content.splitlines() if _STRATEGY_AC_HEADING_RE.match(line)), None)
+        if heading is None:
+            heading = next((line for line in content.splitlines() if _ADDITIONAL_AC_HEADING_RE.match(line)), None)
         section = extract_jira_section(content, heading) if heading is not None else None
+    if section is None:
+        section = extract_jira_section(content, "*Acceptance Criteria*")
     if section is None:
         return {"found": False, "count": 0, "acceptance_criteria": []}
 
