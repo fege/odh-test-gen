@@ -139,8 +139,11 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 ```bash
 additional_docs_raw=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
-  uv run python scripts/resolve_additional_docs.py <feature_dir>) || \
-  additional_docs_raw='{"status":"ok","docs":[]}'
+  uv run python scripts/resolve_additional_docs.py <feature_dir>) || {
+    echo "ERROR: resolve_additional_docs.py failed — stopping." >&2
+    echo "$additional_docs_raw" >&2
+    exit 1
+  }
 ```
 
 Also Read `<feature_dir>/.source-design-spec.md` if present. When a design spec exists, prefer it

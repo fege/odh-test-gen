@@ -40,13 +40,13 @@ _ADR_HEADING_RE = re.compile(r"^#\s+Architecture Decision Record\b", re.IGNORECA
 
 AttachmentDownloader = Callable[[str], str]
 
-_LOCAL_PATH_OS_ERRORS = frozenset({"local_path_is_symlink", "local_path_unreadable"})
+_LOCAL_PATH_OS_ERRORS = frozenset({"local_path_is_symlink", "local_path_unreadable", "feature_dir_is_symlink"})
 
 
-def _local_path_os_error_code(exc: OSError) -> str:
-    """Map an OSError from local-path reads to a stable CLI error code."""
+def _local_path_os_error_code(exc: OSError, *, default: str = "local_path_unreadable") -> str:
+    """Map an OSError from local-path reads/writes to a stable CLI error code."""
     code = str(exc)
-    return code if code in _LOCAL_PATH_OS_ERRORS else "local_path_unreadable"
+    return code if code in _LOCAL_PATH_OS_ERRORS else default
 
 
 def looks_like_design_spec(path: str | Path, content: str | None = None) -> bool:
@@ -71,6 +71,14 @@ def classify_companion_doc(path: str | Path, content: str | None = None) -> str:
     return "other"
 
 
+def _reject_symlink_ancestors(path: Path) -> Path:
+    """Return an absolute path after rejecting symlink components (CWE-59)."""
+    abs_path = path if path.is_absolute() else path.absolute()
+    if any(component.is_symlink() for component in (abs_path, *abs_path.parents)):
+        raise OSError("feature_dir_is_symlink")
+    return abs_path
+
+
 def _read_local_path(path: Path) -> str:
     """Read a local companion path, rejecting symlinks (CWE-59)."""
     if path.is_symlink():
@@ -79,7 +87,7 @@ def _read_local_path(path: Path) -> str:
         raise FileNotFoundError("local_path_not_found")
     try:
         return read_file_nofollow(path)
-    except OSError as exc:
+    except (OSError, UnicodeError) as exc:
         raise OSError("local_path_unreadable") from exc
 
 
@@ -109,8 +117,10 @@ def snapshot_design_spec(feature_dir: str, content: str) -> str:
 
     Returns the absolute path of the snapshot file.
     """
-    feature_path = Path(feature_dir)
+    feature_path = _reject_symlink_ancestors(Path(feature_dir))
     feature_path.mkdir(parents=True, exist_ok=True)
+    # Re-check after mkdir in case a parent was substituted for a symlink.
+    feature_path = _reject_symlink_ancestors(feature_path)
     snapshot_path = feature_path / DESIGN_SPEC_SNAPSHOT
     write_snapshot_nofollow(snapshot_path, content)
     return str(snapshot_path)
@@ -201,18 +211,26 @@ def main() -> None:
 
     if args.classify:
         path = Path(args.classify)
-        try:
-            content = _read_local_path(path)
-        except FileNotFoundError:
+        if path.is_symlink():
+            exit_error_with_json({"status": "error", "error": "local_path_is_symlink"})
+        if not path.is_file():
             exit_error_with_json({"status": "error", "error": "local_path_not_found"})
-        except OSError as exc:
-            exit_error_with_json({"status": "error", "error": _local_path_os_error_code(exc)})
+        # Filename-first so ADR PDFs classify without UTF-8 decoding.
+        kind = classify_companion_doc(path)
+        if kind == "other":
+            try:
+                content = _read_local_path(path)
+            except FileNotFoundError:
+                exit_error_with_json({"status": "error", "error": "local_path_not_found"})
+            except OSError as exc:
+                exit_error_with_json({"status": "error", "error": _local_path_os_error_code(exc)})
+            kind = classify_companion_doc(path, content)
         print(
             json.dumps(
                 {
                     "status": "ok",
                     "path": str(path.resolve()),
-                    "kind": classify_companion_doc(path, content),
+                    "kind": kind,
                 },
                 indent=2,
             )
@@ -233,10 +251,11 @@ def main() -> None:
             with open(args.attachments_json, encoding="utf-8") as f:
                 payload = json.load(f)
             attachments = _parse_attachments_payload(payload)
+        except (OSError, UnicodeError, json.JSONDecodeError):
+            # UnicodeDecodeError is a ValueError subclass — catch it before ValueError.
+            exit_error_with_json({"status": "error", "error": "attachments_json_unreadable"})
         except ValueError:
             exit_error_with_json({"status": "error", "error": "attachments_json_invalid_shape"})
-        except (OSError, json.JSONDecodeError):
-            exit_error_with_json({"status": "error", "error": "attachments_json_unreadable"})
 
     try:
         result = resolve_design_spec(
@@ -257,8 +276,10 @@ def main() -> None:
     if args.snapshot and result.get("content"):
         try:
             snapshot_path = snapshot_design_spec(args.feature_dir, result["content"])
-        except OSError:
-            exit_error_with_json({"status": "error", "error": "snapshot_write_failed"})
+        except OSError as exc:
+            exit_error_with_json(
+                {"status": "error", "error": _local_path_os_error_code(exc, default="snapshot_write_failed")}
+            )
         result["snapshot_path"] = snapshot_path
         result["additional_docs_entry"] = DESIGN_SPEC_SNAPSHOT
 

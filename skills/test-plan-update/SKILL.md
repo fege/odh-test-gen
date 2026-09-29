@@ -44,14 +44,14 @@ Parse `$ARGUMENTS` to extract:
    labeling and whether to snapshot as a design spec.
 
 When a new design-spec path is provided:
-1. Snapshot it into `<feature_dir>/.source-design-spec.md` via
-   `scripts/resolve_design_spec.py --local-path ... --feature-dir ... --snapshot`
-2. Ensure `.source-design-spec.md` is listed in TestPlan frontmatter `additional_docs`
-3. Pass the snapshot path to analyzers / merge / resolve-gaps as a labeled **Design Spec** document
+1. Classify/read it in Step 2, but **do not** snapshot or edit frontmatter yet
+2. After the user approves the merge in Step 4, snapshot to `.source-design-spec.md` and add it to
+   `additional_docs`
+3. Pass the staged design-spec content to analyzers / merge / resolve-gaps as **Design Spec**
 
 Design specs attached later on the Jira STRAT can also be pulled by re-running discovery with the
 plan's `source_key` (no local path) so the newest `{source_key}-design-spec.md` attachment is
-snapshotted — same convention as create-time ingest.
+snapshotted — same convention as create-time ingest — **only after** Step 4 approval.
 
 ### Interactive fallback
 If insufficient arguments are provided, ask the user via AskUserQuestion:
@@ -142,11 +142,10 @@ fi
 For each new document path:
 1. Classify with `uv run python scripts/resolve_design_spec.py --classify "$doc_path"` and use
    `kind` (`design_spec` | `adr` | `other`) for labeling — do not inspect content yourself.
-2. Read the document using Read tool
-3. Store content with label mapped from kind (`Design Spec`, `ADR`, or inferred other label)
-4. If `kind` is `design_spec`, snapshot into `<feature_dir>/.source-design-spec.md` with
-   `resolve_design_spec.py --local-path ... --feature-dir ... --snapshot`
-5. Add to `additional_docs` list in frontmatter (use `.source-design-spec.md` for snapshotted specs)
+2. Read the document using Read tool (for binary ADR PDFs, rely on classify + path metadata).
+3. Store content with label mapped from kind (`Design Spec`, `ADR`, or inferred other label).
+4. If `kind` is `design_spec`, **stage** the path for later snapshot — do **not** write
+   `.source-design-spec.md` or edit `additional_docs` yet (wait for Step 4 approval).
 
 ### Step 3: Re-analyze with New Material
 
@@ -219,8 +218,15 @@ The merge sub-agent returns:
    >
    > Proceed with these updates? [yes/no]
 
-3. If **no**: Stop without applying updates (TestPlan.md unchanged)
-4. If **yes**: Continue to apply updates
+3. If **no**: Stop without applying updates (TestPlan.md unchanged; discard staged design-spec
+   snapshot/frontmatter changes — nothing was written yet)
+4. If **yes**: Continue to apply updates. If a design spec was staged in Step 2, snapshot it now:
+   ```bash
+   uv run python scripts/resolve_design_spec.py \
+     --local-path "$STAGED_DESIGN_SPEC_PATH" \
+     --feature-dir "$feature_dir" --snapshot
+   ```
+   Then add `.source-design-spec.md` to `additional_docs` when bumping frontmatter in Step 9.
 
 **Rationale**: Provides manual validation that merge preserved user edits and made sensible decisions. User can review the change summary before committing to the updates.
 

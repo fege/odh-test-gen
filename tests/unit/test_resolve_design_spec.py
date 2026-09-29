@@ -160,6 +160,25 @@ class TestSnapshotDesignSpec:
         assert Path(path).name == DESIGN_SPEC_SNAPSHOT
         assert Path(path).read_text(encoding="utf-8") == "# Design Spec\n"
 
+    def test_rejects_symlinked_feature_dir(self, tmp_path):
+        real = tmp_path / "outside"
+        real.mkdir()
+        link = tmp_path / "feature"
+        link.symlink_to(real)
+        with pytest.raises(OSError, match="feature_dir_is_symlink"):
+            snapshot_design_spec(str(link), "# Design Spec\n")
+        assert not (real / DESIGN_SPEC_SNAPSHOT).exists()
+
+    def test_rejects_symlinked_feature_dir_parent(self, tmp_path):
+        real = tmp_path / "outside"
+        real.mkdir()
+        plans_link = tmp_path / "plans"
+        plans_link.symlink_to(real)
+        feature_dir = plans_link / "feature"
+        with pytest.raises(OSError, match="feature_dir_is_symlink"):
+            snapshot_design_spec(str(feature_dir), "# Design Spec\n")
+        assert not (real / "feature" / DESIGN_SPEC_SNAPSHOT).exists()
+
 
 class TestResolveDesignSpecCli:
     def test_cli_local_snapshot(self, tmp_path, capsys):
@@ -241,6 +260,27 @@ class TestResolveDesignSpecCli:
         out = json.loads(capsys.readouterr().out)
         assert out["error"] == "attachments_json_invalid_shape"
 
+    def test_cli_attachments_json_non_utf8(self, tmp_path, capsys):
+        attachments_file = tmp_path / "attachments.json"
+        attachments_file.write_bytes(b'[{"filename": "\xff-design-spec.md"}]')
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "resolve_design_spec.py",
+                "--issue-key",
+                ISSUE_KEY,
+                "--attachments-json",
+                str(attachments_file),
+            ],
+        ):
+            with pytest.raises(SystemExit) as exc:
+                main()
+        assert exc.value.code == 1
+        out = json.loads(capsys.readouterr().out)
+        assert out["error"] == "attachments_json_unreadable"
+
     def test_cli_classify(self, tmp_path, capsys):
         doc = tmp_path / "design-spec.md"
         doc.write_text("# Design Spec: Demo\n", encoding="utf-8")
@@ -251,6 +291,28 @@ class TestResolveDesignSpecCli:
         assert exc.value.code == 0
         out = json.loads(capsys.readouterr().out)
         assert out["kind"] == "design_spec"
+
+    def test_cli_classify_adr_pdf_without_reading(self, tmp_path, capsys):
+        pdf = tmp_path / "my-adr.pdf"
+        pdf.write_bytes(b"%PDF-1.4 binary \xff\xfe content")
+
+        with patch.object(sys, "argv", ["resolve_design_spec.py", "--classify", str(pdf)]):
+            with pytest.raises(SystemExit) as exc:
+                main()
+        assert exc.value.code == 0
+        out = json.loads(capsys.readouterr().out)
+        assert out["kind"] == "adr"
+
+    def test_cli_classify_binary_other_returns_json_error(self, tmp_path, capsys):
+        blob = tmp_path / "notes.bin"
+        blob.write_bytes(b"\xff\xfe binary without utf-8")
+
+        with patch.object(sys, "argv", ["resolve_design_spec.py", "--classify", str(blob)]):
+            with pytest.raises(SystemExit) as exc:
+                main()
+        assert exc.value.code == 1
+        out = json.loads(capsys.readouterr().out)
+        assert out["error"] == "local_path_unreadable"
 
     def test_cli_classify_symlink_rejected(self, tmp_path, capsys):
         target = tmp_path / "secret.md"
@@ -264,3 +326,32 @@ class TestResolveDesignSpecCli:
         assert exc.value.code == 1
         out = json.loads(capsys.readouterr().out)
         assert out["error"] == "local_path_is_symlink"
+
+    def test_cli_snapshot_symlinked_feature_dir_rejected(self, tmp_path, capsys):
+        doc = tmp_path / "design-spec.md"
+        doc.write_text("# Design Spec: CLI\n", encoding="utf-8")
+        real = tmp_path / "outside"
+        real.mkdir()
+        feature_dir = tmp_path / "feature"
+        feature_dir.symlink_to(real)
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "resolve_design_spec.py",
+                "--issue-key",
+                ISSUE_KEY,
+                "--local-path",
+                str(doc),
+                "--feature-dir",
+                str(feature_dir),
+                "--snapshot",
+            ],
+        ):
+            with pytest.raises(SystemExit) as exc:
+                main()
+        assert exc.value.code == 1
+        out = json.loads(capsys.readouterr().out)
+        assert out["error"] == "feature_dir_is_symlink"
+        assert not (real / DESIGN_SPEC_SNAPSHOT).exists()
