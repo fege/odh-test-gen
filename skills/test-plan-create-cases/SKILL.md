@@ -146,10 +146,10 @@ additional_docs_raw=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
   }
 ```
 
-Also Read `<feature_dir>/.source-design-spec.md` if present. When a design spec exists, prefer it
-for **TC-UI-*** / UI E2E: one case per `J-*` journey, steps/expected from `SCR-*` HTML, roles/data
-from `TU-*`/`DATA-*`, keep Section 1.3 / STRAT AC `objectives`. Do not invent UI absent from the
-spec or STRAT. Without a design spec, keep TestPlan-only behavior.
+Also Read `<feature_dir>/.source-design-spec.md` if present. With a design spec, prefer it for
+**TC-UI-***: one case per `J-*`, steps from `SCR-*` HTML, roles/data from `TU-*`/`DATA-*`, keep
+Section 1.3 / STRAT AC `objectives`. Do not invent UI absent from the spec or STRAT.
+Without a design spec, keep TestPlan-only behavior.
 
 ### Step 2: Read the Test Case Template
 
@@ -205,8 +205,8 @@ Process **one category at a time** from Section 5.2. For each category:
    - Stay strictly within the scope defined in Section 1.2 — do NOT create test cases for out-of-scope items
    - Map each TC to the Section 1.3 objective(s) it validates — record as `objectives` in frontmatter (Step 3.1)
    - Before generating each TC, check all previously generated TCs across ALL categories. If another TC already verifies the same behavior (same preconditions, same verification target), do not create a duplicate — add the missing assertions to the existing TC instead
-   - **For TC-UI-* with a design spec (Step 1.6)**: Prefer one case per `J-*`; ground steps/results
-     in `SCR-*` HTML and journey Outcomes; keep the same STRAT AC / objectives citations.
+   - **For TC-UI-* with a design spec (Step 1.6)**: Prefer one case per `J-*`; ground
+     steps/results in `SCR-*` HTML; keep STRAT AC / objectives citations.
 
 2. **Write or Edit** the `TC-<CATEGORY>-<NUMBER>.md` files for that category immediately before moving to the next:
 
@@ -303,8 +303,8 @@ A test that FAILs for the wrong reason is worse than no test at all. When in dou
   should be tested in dedicated edge-case TCs.
 
 **Anti-hallucination rules:**
-- Do NOT invent requirements not present in the test plan (or design spec when provided)
-- Do NOT invent UI controls, labels, or routes absent from design-spec HTML / STRAT AC text
+- Do NOT invent requirements, UI controls, labels, or routes absent from the test plan /
+  design-spec HTML / STRAT AC text
 - Do NOT create test cases for interfaces marked as "pending details" in Section 4
 - If the test plan is ambiguous about what to test, ask the user via AskUserQuestion
 
