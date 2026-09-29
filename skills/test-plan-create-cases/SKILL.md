@@ -1,6 +1,6 @@
 ---
 name: test-plan-create-cases
-description: Generate individual test case files from an existing test plan. Use after test plan approval to generate individual TC specifications with preconditions, steps, and expected results organized by category and priority.
+description: Generate individual test case files from an existing test plan. Use after plan approval to produce TC specs with preconditions, steps, and expected results by category and priority.
 argument-hint: "[FEATURE_SOURCE] [--output-dir PATH]"
 user-invocable: true
 model: opus
@@ -9,7 +9,7 @@ allowedTools: Read, Write, Edit, Bash, AskUserQuestion
 
 # Test Case Generator
 
-Generate individual test case specification files from an existing test plan.
+Generate individual test case files from an existing test plan.
 
 ## Usage
 
@@ -138,18 +138,22 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 ### Step 1.6: Read Design Spec / Additional Docs (if available)
 
 ```bash
-additional_docs_raw=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+additional_docs_raw=$(cd "$repo_root" && \
   uv run python scripts/resolve_additional_docs.py <feature_dir>) || {
     echo "ERROR: resolve_additional_docs.py failed — stopping." >&2
-    echo "$additional_docs_raw" >&2
-    exit 1
+    echo "$additional_docs_raw" >&2; exit 1
   }
+additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
+# Refetch when missing (mirrors resolve_strategy).
+if [ ! -f <feature_dir>/.source-design-spec.md ] && [ -n "$source_key" ]; then
+  (cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
+    --issue-key "$source_key" --feature-dir <feature_dir> --snapshot) || exit 1
+fi
 ```
 
-Also Read `<feature_dir>/.source-design-spec.md` if present. With a design spec, prefer it for
-**TC-UI-***: one case per `J-*`, steps from `SCR-*` HTML, roles/data from `TU-*`/`DATA-*`, keep
-Section 1.3 / STRAT AC `objectives`. Do not invent UI absent from the spec or STRAT.
-Without a design spec, keep TestPlan-only behavior.
+Use `additional_docs_result` when generating cases. Read `.source-design-spec.md` if present.
+Prefer it for **TC-UI-*** (one `J-*`, `SCR-*`/`TU-*`/`DATA-*`, keep objectives). No invented UI.
 
 ### Step 2: Read the Test Case Template
 
@@ -205,8 +209,7 @@ Process **one category at a time** from Section 5.2. For each category:
    - Stay strictly within the scope defined in Section 1.2 — do NOT create test cases for out-of-scope items
    - Map each TC to the Section 1.3 objective(s) it validates — record as `objectives` in frontmatter (Step 3.1)
    - Before generating each TC, check all previously generated TCs across ALL categories. If another TC already verifies the same behavior (same preconditions, same verification target), do not create a duplicate — add the missing assertions to the existing TC instead
-   - **For TC-UI-* with a design spec (Step 1.6)**: Prefer one case per `J-*`; ground
-     steps/results in `SCR-*` HTML; keep STRAT AC / objectives citations.
+   - For **TC-UI-*** with a design spec, follow Step 1.6
 
 2. **Write or Edit** the `TC-<CATEGORY>-<NUMBER>.md` files for that category immediately before moving to the next:
 
@@ -303,8 +306,7 @@ A test that FAILs for the wrong reason is worse than no test at all. When in dou
   should be tested in dedicated edge-case TCs.
 
 **Anti-hallucination rules:**
-- Do NOT invent requirements, UI controls, labels, or routes absent from the test plan /
-  design-spec HTML / STRAT AC text
+- Do NOT invent requirements or UI absent from the test plan / design-spec HTML / STRAT AC
 - Do NOT create test cases for interfaces marked as "pending details" in Section 4
 - If the test plan is ambiguous about what to test, ask the user via AskUserQuestion
 

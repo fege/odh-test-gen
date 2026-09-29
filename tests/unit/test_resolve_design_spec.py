@@ -56,6 +56,12 @@ class TestClassifyCompanionDoc:
 
     def test_adr_by_name(self):
         assert classify_companion_doc("my-adr.pdf") == "adr"
+        assert classify_companion_doc("adr.pdf") == "adr"
+        assert classify_companion_doc("foo_adr.md") == "adr"
+        assert classify_companion_doc("architecture-decision.pdf") == "adr"
+
+    def test_address_is_not_adr(self):
+        assert classify_companion_doc("address.md") == "other"
 
     def test_adr_by_heading(self, tmp_path):
         doc = tmp_path / "notes.md"

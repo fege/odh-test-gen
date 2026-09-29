@@ -37,6 +37,8 @@ DESIGN_SPEC_SNAPSHOT = ".source-design-spec.md"
 _DESIGN_SPEC_HEADING_RE = re.compile(r"^#\s+Design Spec\b", re.IGNORECASE | re.MULTILINE)
 _DESIGN_SPEC_FILENAME_RE = re.compile(r"design[-_]?spec", re.IGNORECASE)
 _ADR_HEADING_RE = re.compile(r"^#\s+Architecture Decision Record\b", re.IGNORECASE | re.MULTILINE)
+# Filename tokens only — avoid substring false positives like address.md.
+_ADR_FILENAME_RE = re.compile(r"(?:^adr(?:[._-]|$))|(?:[._-]adr(?:[._-]|$))|(?:^architecture)", re.IGNORECASE)
 
 AttachmentDownloader = Callable[[str], str]
 
@@ -64,7 +66,7 @@ def classify_companion_doc(path: str | Path, content: str | None = None) -> str:
     name = Path(path).name.lower()
     if looks_like_design_spec(path, content):
         return "design_spec"
-    if "adr" in name or name.startswith("architecture"):
+    if _ADR_FILENAME_RE.search(name):
         return "adr"
     if content and _ADR_HEADING_RE.search(content):
         return "adr"

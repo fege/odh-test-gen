@@ -1,7 +1,7 @@
 ---
 name: test-plan-update
 description: Update an existing test plan with new documentation (ADR, API specs, design specs, design docs). Re-analyzes, updates artifacts, bumps version, and optionally regenerates test cases. Use when requirements evolve or new technical documentation becomes available after initial test plan creation.
-argument-hint: <SOURCE> <NEW_DOC_PATH> [<NEW_DOC_PATH>...]
+argument-hint: "<SOURCE> [<NEW_DOC_PATH>...]"
 user-invocable: true
 model: opus
 allowedTools:
@@ -21,12 +21,14 @@ design documents, requirement changes).
 ## Usage
 
 ```
-/test-plan-update <SOURCE> <NEW_DOC_PATH> [<NEW_DOC_PATH>...]
+/test-plan-update <SOURCE> [<NEW_DOC_PATH>...]
 ```
 
 Examples:
 - `/test-plan-update ~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog adr.pdf`
 - `/test-plan-update ~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog ./design-spec.md`
+- `/test-plan-update ~/Code/opendatahub-test-plans/plans/ai-hub/mcp_catalog` (pull latest design-spec
+  attachment from Jira using TestPlan `source_key`)
 - `/test-plan-update https://github.com/org/repo/pull/42 api-spec.md design.md`
 - `/test-plan-update https://github.com/org/repo/tree/test-plan/RHAISTRAT-400 requirements-v2.md`
 
@@ -38,20 +40,25 @@ Parse `$ARGUMENTS` to extract:
    - Local directory path: `mcp_catalog` or `/path/to/mcp_catalog`
    - GitHub branch: `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`
    - GitHub PR: `https://github.com/org/repo/pull/5`
-2. **Remaining arguments** (at least one required): Paths to new documentation files (ADR, API
+2. **Remaining arguments** (optional): Paths to new documentation files (ADR, API
    spec, design spec, design doc, etc.). Classify each path with the deterministic CLI
    (`uv run python scripts/resolve_design_spec.py --classify <path>`); use `kind` to decide
-   labeling and whether to snapshot as a design spec.
+   labeling and whether to snapshot as a design spec. If no paths are given, set
+   `PULL_JIRA_DESIGN_SPEC=true` to discover the newest design-spec attachment via `source_key`
+   after Step 4 approval.
 
 When a new design-spec path is provided:
 1. Classify/read it in Step 2, but **do not** snapshot or edit frontmatter yet
-2. After the user approves the merge in Step 4, snapshot to `.source-design-spec.md` and add it to
+2. After the user approves the merge in Step 4, snapshot from `$repo_root` and add it to
    `additional_docs`
 3. Pass the staged design-spec content to analyzers / merge / resolve-gaps as **Design Spec**
 
-Design specs attached later on the Jira STRAT can also be pulled by re-running discovery with the
-plan's `source_key` (no local path) so the newest `{source_key}-design-spec.md` attachment is
-snapshotted — same convention as create-time ingest — **only after** Step 4 approval.
+When `PULL_JIRA_DESIGN_SPEC=true` (no local design-spec path), after Step 4 approval discover and
+snapshot from Jira (same as create):
+```bash
+(cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
+  --issue-key "$source_key" --feature-dir "$feature_dir" --snapshot)
+```
 
 ### Interactive fallback
 If insufficient arguments are provided, ask the user via AskUserQuestion:
@@ -65,7 +72,8 @@ If insufficient arguments are provided, ask the user via AskUserQuestion:
 Then ask:
 > **What new documentation should be incorporated?**
 >
-> Provide one or more file paths (ADR, API spec, design spec, design doc, requirements doc, etc.):
+> Provide file paths (ADR, API spec, design spec, etc.), or leave empty to pull the newest
+> design-spec attachment from Jira using the plan's `source_key`.
 
 ## Process
 
@@ -108,7 +116,10 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 #### 0.3 Verify new documents exist
 
-For each new document path provided:
+Set `repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)`.
+
+If no document paths were provided, set `PULL_JIRA_DESIGN_SPEC=true` (Jira attachment pull via
+`source_key` after Step 4). Otherwise, for each new document path:
 ```bash
 if [ ! -f "$doc_path" ]; then
     echo "❌ ERROR: Document not found: $doc_path"
@@ -220,13 +231,20 @@ The merge sub-agent returns:
 
 3. If **no**: Stop without applying updates (TestPlan.md unchanged; discard staged design-spec
    snapshot/frontmatter changes — nothing was written yet)
-4. If **yes**: Continue to apply updates. If a design spec was staged in Step 2, snapshot it now:
+4. If **yes**: Continue to apply updates. Snapshot a design spec from `$repo_root` when needed:
    ```bash
-   uv run python scripts/resolve_design_spec.py \
-     --local-path "$STAGED_DESIGN_SPEC_PATH" \
-     --feature-dir "$feature_dir" --snapshot
+   if [ -n "$STAGED_DESIGN_SPEC_PATH" ]; then
+     (cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
+       --local-path "$STAGED_DESIGN_SPEC_PATH" \
+       --feature-dir "$feature_dir" --snapshot) || exit 1
+   elif [ "$PULL_JIRA_DESIGN_SPEC" = "true" ]; then
+     (cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
+       --issue-key "$source_key" \
+       --feature-dir "$feature_dir" --snapshot) || exit 1
+   fi
    ```
-   Then add `.source-design-spec.md` to `additional_docs` when bumping frontmatter in Step 9.
+   Then add `.source-design-spec.md` to `additional_docs` when bumping frontmatter in Step 9
+   (skip if the resolve result has `source: none` / no snapshot).
 
 **Rationale**: Provides manual validation that merge preserved user edits and made sensible decisions. User can review the change summary before committing to the updates.
 

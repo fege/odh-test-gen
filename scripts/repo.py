@@ -180,7 +180,8 @@ def stage_artifacts(repo_path, feature_name):
     """Selectively stage test plan artifacts for commit.
 
     Stages required files (TestPlan.md, README.md) and optional files
-    (TestPlanGaps.md, TestPlanReview.md, test_cases/*.md) if they exist.
+    (TestPlanGaps.md, TestPlanReview.md, .source-design-spec.md, test_cases/*.md)
+    if they exist.
 
     Args:
         repo_path: Path to git repository root
@@ -201,7 +202,7 @@ def stage_artifacts(repo_path, feature_name):
         if not (feature_dir / name).is_file():
             return 1, {"error": f"{name} not found in {feature_name}/"}
 
-    optional = ["TestPlanGaps.md", "TestPlanReview.md"]
+    optional = ["TestPlanGaps.md", "TestPlanReview.md", ".source-design-spec.md"]
 
     for name in required + optional:
         rel = f"{feature_name}/{name}"
