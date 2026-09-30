@@ -140,15 +140,15 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 ```bash
 repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
 additional_docs_raw=$(cd "$repo_root" && \
-  uv run python scripts/resolve_additional_docs.py <feature_dir>) || {
+  uv run python scripts/resolve_additional_docs.py "$feature_dir") || {
     echo "ERROR: resolve_additional_docs.py failed — stopping." >&2
     echo "$additional_docs_raw" >&2; exit 1
   }
 additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
 # Refetch when missing (mirrors resolve_strategy).
-if [ ! -f <feature_dir>/.source-design-spec.md ] && [ -n "$source_key" ]; then
+if [ ! -f "$feature_dir/.source-design-spec.md" ] && [ -n "$source_key" ]; then
   (cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
-    --issue-key "$source_key" --feature-dir <feature_dir> --snapshot) || exit 1
+    --issue-key "$source_key" --feature-dir "$feature_dir" --snapshot) || exit 1
 fi
 ```
 

@@ -44,8 +44,8 @@ Parse `$ARGUMENTS` to extract:
    spec, design spec, design doc, etc.). Classify each path with the deterministic CLI
    (`uv run python scripts/resolve_design_spec.py --classify <path>`); use `kind` to decide
    labeling and whether to snapshot as a design spec. If no paths are given, set
-   `PULL_JIRA_DESIGN_SPEC=true` to discover the newest design-spec attachment via `source_key`
-   after Step 4 approval.
+   `PULL_JIRA_DESIGN_SPEC=true` to fetch the newest design-spec attachment via `source_key`
+   into a temp file in Step 2 (analyzers see it; feature-dir snapshot waits for Step 4).
 
 When a new design-spec path is provided:
 1. Classify/read it in Step 2, but **do not** snapshot or edit frontmatter yet
@@ -53,12 +53,9 @@ When a new design-spec path is provided:
    `additional_docs`
 3. Pass the staged design-spec content to analyzers / merge / resolve-gaps as **Design Spec**
 
-When `PULL_JIRA_DESIGN_SPEC=true` (no local design-spec path), after Step 4 approval discover and
-snapshot from Jira (same as create):
-```bash
-(cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
-  --issue-key "$source_key" --feature-dir "$feature_dir" --snapshot)
-```
+When `PULL_JIRA_DESIGN_SPEC=true`, fetch into a temp dir in Step 2 (not the feature dir), pass
+that path to analyzers/merge as **Design Spec**, then snapshot into `$feature_dir` only after
+Step 4 approval via `--local-path "$STAGED_DESIGN_SPEC_PATH"`.
 
 ### Interactive fallback
 If insufficient arguments are provided, ask the user via AskUserQuestion:
@@ -118,8 +115,8 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 Set `repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)`.
 
-If no document paths were provided, set `PULL_JIRA_DESIGN_SPEC=true` (Jira attachment pull via
-`source_key` after Step 4). Otherwise, for each new document path:
+If no document paths were provided, set `PULL_JIRA_DESIGN_SPEC=true` (fetch in Step 2 via
+`source_key`; feature-dir snapshot waits for Step 4). Otherwise, for each new document path:
 ```bash
 if [ ! -f "$doc_path" ]; then
     echo "❌ ERROR: Document not found: $doc_path"
@@ -158,12 +155,27 @@ For each new document path:
 4. If `kind` is `design_spec`, **stage** the path for later snapshot — do **not** write
    `.source-design-spec.md` or edit `additional_docs` yet (wait for Step 4 approval).
 
+If `PULL_JIRA_DESIGN_SPEC=true`, fetch the attachment into a **temp** dir before analysis (do not
+write `$feature_dir/.source-design-spec.md` yet):
+
+```bash
+tmp_ds_dir=$(mktemp -d)
+jira_ds=$(cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
+  --issue-key "$source_key" --feature-dir "$tmp_ds_dir" --snapshot) || exit 1
+if [ "$(echo "$jira_ds" | jq -r '.has_content')" = "true" ]; then
+  STAGED_DESIGN_SPEC_PATH="$tmp_ds_dir/.source-design-spec.md"
+fi
+```
+
+Read `$STAGED_DESIGN_SPEC_PATH` when set and label it **Design Spec** for Steps 3–5.
+
 ### Step 3: Re-analyze with New Material
 
 Invoke the three analyzer skills **in parallel** using the Skill tool, passing:
 - Original strategy content (from Jira via source_key, or from local cache)
 - Existing additional docs (from frontmatter `additional_docs`)
-- New documents (just read in Step 2)
+- New documents (just read in Step 2), including a Jira-fetched design spec at
+  `$STAGED_DESIGN_SPEC_PATH` when `PULL_JIRA_DESIGN_SPEC=true`
 
 - **`test-plan.analyze.endpoints`**: Re-extract feature scope and API endpoints
 - **`test-plan.analyze.risks`**: Re-determine test levels, types, priorities, risks
@@ -230,21 +242,14 @@ The merge sub-agent returns:
    > Proceed with these updates? [yes/no]
 
 3. If **no**: Stop without applying updates (TestPlan.md unchanged; discard staged design-spec
-   snapshot/frontmatter changes — nothing was written yet)
-4. If **yes**: Continue to apply updates. Snapshot a design spec from `$repo_root` when needed:
+   snapshot/frontmatter changes — nothing was written to `$feature_dir` yet)
+4. If **yes**: Continue to apply updates. If `$STAGED_DESIGN_SPEC_PATH` is set, snapshot it now:
    ```bash
-   if [ -n "$STAGED_DESIGN_SPEC_PATH" ]; then
-     (cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
-       --local-path "$STAGED_DESIGN_SPEC_PATH" \
-       --feature-dir "$feature_dir" --snapshot) || exit 1
-   elif [ "$PULL_JIRA_DESIGN_SPEC" = "true" ]; then
-     (cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
-       --issue-key "$source_key" \
-       --feature-dir "$feature_dir" --snapshot) || exit 1
-   fi
+   (cd "$repo_root" && uv run python scripts/resolve_design_spec.py \
+     --local-path "$STAGED_DESIGN_SPEC_PATH" \
+     --feature-dir "$feature_dir" --snapshot) || exit 1
    ```
-   Then add `.source-design-spec.md` to `additional_docs` when bumping frontmatter in Step 9
-   (skip if the resolve result has `source: none` / no snapshot).
+   Then add `.source-design-spec.md` to `additional_docs` when bumping frontmatter in Step 9.
 
 **Rationale**: Provides manual validation that merge preserved user edits and made sensible decisions. User can review the change summary before committing to the updates.
 
