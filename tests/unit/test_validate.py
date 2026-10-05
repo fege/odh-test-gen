@@ -739,6 +739,34 @@ class TestValidateInterfaceCoverage:
         assert_e2e_or_ui_diagnostic(result, [])
 
     @pytest.mark.parametrize(
+        "declared_interface, covered_interface",
+        [
+            pytest.param("/v1/*", "/v1/", id="parent-interface-does-not-cover-path-glob"),
+            pytest.param(
+                "/v1/model*name*",
+                "/v1/modelname",
+                id="concrete-interface-does-not-cover-intratoken-path-glob",
+            ),
+        ],
+    )
+    def test_path_wildcard_is_not_satisfied_by_its_parent_interface(
+        self, tmp_path, declared_interface, covered_interface
+    ):
+        testplan = tmp_path / "TestPlan.md"
+        content = TESTPLAN_INTERFACE_COVERAGE_FULL.replace(
+            "| /v1/models | REST | List models |", f"| {declared_interface} | REST | List models |"
+        ).replace("| `/v1/models` |", f"| `{covered_interface}` |")
+        testplan.write_text(content)
+
+        result = validate_interface_coverage(str(testplan))
+
+        assert result["valid"] is False
+        assert result["missing_in_9_2"] == [declared_interface]
+        assert result["missing_in_6_2"] == [declared_interface]
+        assert "**/v1/chat/completions**" not in result["missing_in_9_2"]
+        assert "**/v1/chat/completions**" not in result["missing_in_6_2"]
+
+    @pytest.mark.parametrize(
         "fixture",
         [TESTPLAN_INTERFACE_COVERAGE_UI_ONLY_6_2, TESTPLAN_INTERFACE_COVERAGE_FULL],
         ids=["ui-only", "e2e-only"],

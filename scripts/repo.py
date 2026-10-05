@@ -29,11 +29,11 @@ Usage:
     # Outputs JSON: {"feature_dir": "/path", "source_type": "local|github", "repo_owner": "...", "repo_name": "..."}
     # Exit code: 0 if success, 1 if failed
 
-    # Validate local path is not in skill repository (requires CLAUDE_SKILL_DIR env var)
+    # Validate local path is outside the plugin and inside a Fullsend target, if set.
     uv run python scripts/repo.py validate-local-path <path> [--force]
     # Exit code: 0 if valid, 1 if invalid (in skill repo)
 
-    # Validate remote repository is not skill repository (requires CLAUDE_SKILL_DIR env var)
+    # Validate remote repository is not the delivered skill repository.
     uv run python scripts/repo.py validate-remote <owner/repo>
     # Exit code: 0 if valid, 1 if invalid (is skill repo)
 
@@ -640,44 +640,42 @@ def _find_testplan_in_repo(repo_path, branch_hint=None):
 
 
 def cmd_validate_local_path(args):
-    """Validate that a local path is NOT inside the skill repository."""
+    """Validate a local path against protected package source and Fullsend artifacts."""
     path = args.path
     force = args.force
 
-    # If force flag is set, skip validation
-    if force:
-        return 0
+    runtime_root = os.environ.get("FULLSEND_TARGET_REPO_DIR")
 
-    # Get skill repo root (CLAUDE_SKILL_DIR must be set in environment)
+    # The script location identifies the delivered plugin when Claude's
+    # Markdown-only skill token is not exported into the process environment.
     skill_dir = os.environ.get("CLAUDE_SKILL_DIR")
-    if not skill_dir:
-        print("WARNING: CLAUDE_SKILL_DIR not set, skipping validation", file=sys.stderr)
-        return 0
-
-    # Navigate up from skill dir to repo root
-    skill_parent = Path(skill_dir).parent.parent
-    skill_root = get_git_root(str(skill_parent))
-
-    if not skill_root:
-        # Can't detect skill repo, allow
-        return 0
+    skill_root_path = Path(skill_dir).resolve().parent.parent if skill_dir else Path(__file__).resolve().parent.parent
 
     # Get absolute path of target directory
     path_abs = Path(os.path.expanduser(path)).resolve()
-    skill_root_path = Path(skill_root).resolve()
 
-    # Check if path is inside skill repo (using Path.is_relative_to for clarity)
-    try:
-        path_abs.relative_to(skill_root_path)
-        # If we get here, path is inside skill repo
-        print(f"❌ ERROR: Cannot create artifacts in skill repository ({skill_root})", file=sys.stderr)
+    if runtime_root:
+        output_root = Path(runtime_root).expanduser().resolve()
+        if (
+            output_root == skill_root_path
+            or output_root.is_relative_to(skill_root_path)
+            or skill_root_path.is_relative_to(output_root)
+            or not path_abs.is_relative_to(output_root)
+        ):
+            print("❌ ERROR: Output path must stay in the separate Fullsend target workspace", file=sys.stderr)
+            return 1
+
+    if path_abs.is_relative_to(skill_root_path):
+        print(f"❌ ERROR: Cannot create artifacts in skill repository ({skill_root_path})", file=sys.stderr)
         print("Please specify a different directory.", file=sys.stderr)
         print(file=sys.stderr)
         print("Tip: Use --output-dir flag to force creation in current directory if needed.", file=sys.stderr)
         return 1
-    except ValueError:
-        # Path is not inside skill repo - good to proceed
-        pass
+
+    # --force selects a contributor's output path; it never authorizes writes
+    # into the delivered plugin or outside a Fullsend target workspace.
+    if force:
+        return 0
 
     return 0
 
@@ -686,13 +684,9 @@ def cmd_validate_remote_repo(args):
     """Validate that a remote repository is NOT the skill repository."""
     repo = args.repo
 
-    # Get skill repo remote
+    # Preserve an explicit selected skill while supporting an unexported token.
     skill_dir = os.environ.get("CLAUDE_SKILL_DIR")
-    if not skill_dir:
-        print("WARNING: CLAUDE_SKILL_DIR not set, skipping validation", file=sys.stderr)
-        return 0
-
-    skill_parent = Path(skill_dir).parent.parent
+    skill_parent = Path(skill_dir).resolve().parent.parent if skill_dir else Path(__file__).resolve().parent.parent
     skill_root = get_git_root(str(skill_parent))
 
     if not skill_root:
@@ -809,7 +803,9 @@ def main():
         "validate-local-path", help="Validate that a local path is not inside the skill repository"
     )
     parser_validate_path.add_argument("path", help="Path to validate")
-    parser_validate_path.add_argument("--force", action="store_true", help="Force flag - skip validation")
+    parser_validate_path.add_argument(
+        "--force", action="store_true", help="Contributor override; safety checks still apply"
+    )
     parser_validate_path.set_defaults(func=cmd_validate_local_path)
 
     # validate-remote command

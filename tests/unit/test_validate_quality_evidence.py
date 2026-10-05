@@ -26,6 +26,7 @@ from tests.consts.validation_constants import (
     ACTIONABILITY_DELIMITED_DATA_PLACEHOLDER_PLAN,
     ACTIONABILITY_EG_CONCRETE_VALUE_PLAN,
     ACTIONABILITY_FOR_EXAMPLE_CONCRETE_VALUE_PLAN,
+    ACTIONABILITY_FORMATTED_RBAC_TABLE_PLANS,
     ACTIONABILITY_GENERIC_EXAMPLE_PLANS,
     ACTIONABILITY_GENERIC_TBD_CONFIGURATION_PLAN,
     ACTIONABILITY_GENERIC_PROSE_RBAC_PLAN,
@@ -466,6 +467,20 @@ class TestValidateActionability:
 
     @pytest.mark.parametrize(
         "plan_content",
+        ACTIONABILITY_FORMATTED_RBAC_TABLE_PLANS,
+        ids=("bold-resource-cell", "backticked-resource-cell"),
+    )
+    def test_accepts_markdown_formatted_rbac_table_resource_cells(self, tmp_path, plan_content):
+        plan = tmp_path / "TestPlan.md"
+        plan.write_text(plan_content)
+
+        result = validate_actionability(str(plan))
+
+        assert result["valid"] is True
+        assert result["missing_details"] == []
+
+    @pytest.mark.parametrize(
+        "plan_content",
         ACTIONABILITY_BROAD_RBAC_TABLE_PLANS,
         ids=(
             "all-namespaces",
@@ -473,6 +488,9 @@ class TestValidateActionability:
             "any-resources",
             "all-vector-store-resources",
             "every-service-account",
+            "table-literal-resource-wildcard-is-rejected",
+            "bold-wrapped-table-resource-wildcard-is-rejected",
+            "backticked-table-resource-wildcard-is-rejected",
         ),
     )
     def test_rejects_broad_rbac_table_resource_collections(self, tmp_path, plan_content):
@@ -507,6 +525,73 @@ class TestValidateActionability:
                 ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN,
                 True,
                 id="concrete-resource-prose-is-accepted",
+            ),
+            pytest.param(
+                ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN.replace(
+                    "The qe-test-user can create, get, and delete vector-store resources.",
+                    "**The qe-test-user can create, get, and delete vector-store resources.**",
+                ),
+                True,
+                id="bold-concrete-prose-is-accepted",
+            ),
+            pytest.param(
+                ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN.replace(
+                    "vector-store resources.", "**vector-store resources**."
+                ),
+                True,
+                id="bold-concrete-resource-name-is-accepted",
+            ),
+            pytest.param(
+                ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN.replace("vector-store resources.", "`vector-store resources`."),
+                True,
+                id="backticked-concrete-resource-name-is-accepted",
+            ),
+            pytest.param(
+                ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN.replace(
+                    "The qe-test-user can create, get, and delete vector-store resources.",
+                    "* The qe-test-user can create, get, and delete vector-store resources.",
+                ),
+                True,
+                id="star-bullet-concrete-prose-is-accepted",
+            ),
+            pytest.param(
+                ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN.replace(
+                    "The qe-test-user can create, get, and delete vector-store resources.",
+                    "The qe-test-user has permissions to create, get, and delete vector-store resources.",
+                ),
+                True,
+                id="plural-permissions-without-singular-alternative-is-accepted",
+            ),
+            pytest.param(
+                ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN.replace("vector-store resources.", "vector-store resources/*."),
+                False,
+                id="literal-resource-wildcard-is-rejected",
+            ),
+            pytest.param(
+                ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN.replace("vector-store resources.", "vector*store* resources."),
+                False,
+                id="intratoken-resource-wildcard-is-rejected",
+            ),
+            pytest.param(
+                ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN.replace(
+                    "vector-store resources.", "**vector-store resources/* scope**."
+                ),
+                False,
+                id="bold-wrapped-resource-wildcard-is-rejected",
+            ),
+            pytest.param(
+                ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN.replace(
+                    "vector-store resources.", "`vector-store resources/*`."
+                ),
+                False,
+                id="backticked-resource-wildcard-is-rejected",
+            ),
+            pytest.param(
+                ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN.replace(
+                    "vector-store resources.", "**all vector-store resources**."
+                ),
+                False,
+                id="bold-broad-resource-collection-is-rejected",
             ),
             pytest.param(
                 ACTIONABILITY_GENERIC_PROSE_RBAC_PLAN.replace("all resources", "the test-namespace namespace"),

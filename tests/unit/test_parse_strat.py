@@ -487,7 +487,7 @@ class TestWorkflowInputsCLI:
         # A directory, placed *inside* the permitted root, so this exercises the OSError-on-read
         # path specifically — distinct from test_strat_file_outside_permitted_roots_is_rejected,
         # which exercises the containment rejection (ValueError) path.
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
         strat_dir = tmp_path / "artifacts" / "strat-tasks"
         unreadable_dir = strat_dir / "not-a-file.md"
         unreadable_dir.mkdir(parents=True)
@@ -520,7 +520,7 @@ class TestLoadStratContentContainment:
         strat_dir.mkdir(parents=True)
         strat_file = strat_dir / "RHAISTRAT-1746.md"
         strat_file.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
 
         assert "Given X" in _load_strat_content(str(strat_file))
 
@@ -531,7 +531,7 @@ class TestLoadStratContentContainment:
         tmp_dir.mkdir(parents=True)
         strat_file = tmp_dir / "strategy.abc123.md"
         strat_file.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
 
         assert "Given X" in _load_strat_content(str(strat_file))
 
@@ -549,8 +549,8 @@ class TestLoadStratContentContainment:
             with pytest.raises(ValueError, match="strategy_file_not_permitted"):
                 _load_strat_content(f.name)
 
-    def test_no_repo_root_is_rejected(self, monkeypatch):
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: None)
+    def test_no_package_root_is_rejected(self, monkeypatch):
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: None)
 
         with pytest.raises(ValueError, match="strategy_file_not_permitted"):
             _load_strat_content("/etc/hosts")
@@ -560,7 +560,7 @@ class TestLoadStratContentContainment:
         strat_dir.mkdir(parents=True)
         secret_file = tmp_path / "artifacts" / "secret.md"
         secret_file.write_text("top secret")
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
 
         with pytest.raises(ValueError, match="strategy_file_not_permitted"):
             _load_strat_content(str(strat_dir / ".." / "secret.md"))
@@ -574,7 +574,7 @@ class TestLoadStratContentContainment:
         secret_file.write_text("top secret")
         link = strat_dir / "RHAISTRAT-1746.md"
         link.symlink_to(secret_file)
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
 
         with pytest.raises(ValueError, match="strategy_file_not_permitted"):
             _load_strat_content(str(link))
@@ -589,7 +589,7 @@ class TestLoadStratContentContainment:
         snapshot.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
         marker = feature_dir / ".test-plan-output-dir.json"
         marker.write_text(json.dumps({"output_dir": str(output_dir)}))
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
 
         assert "Given X" in _load_strat_content(str(snapshot))
 
@@ -599,7 +599,7 @@ class TestLoadStratContentContainment:
         feature_dir.mkdir(parents=True)
         snapshot = feature_dir / ".source-strategy.md"
         snapshot.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
 
         with pytest.raises(ValueError, match="strategy_file_not_permitted"):
             _load_strat_content(str(snapshot))
@@ -641,7 +641,7 @@ class TestLoadStratContentContainment:
         feature_dir.mkdir(parents=True)
         snapshot = feature_dir / ".source-strategy.md"
         snapshot.write_text("h3. Acceptance Criteria\n\n# Given X, then Y\n")
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
 
 
 class TestCmdResolveLocal:
@@ -651,7 +651,7 @@ class TestCmdResolveLocal:
     """
 
     def _run(self, jira_key, tmp_path, monkeypatch, run_cli, create_file=True):
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
         if create_file:
             strat_dir = tmp_path / "artifacts" / "strat-tasks"
             strat_dir.mkdir(parents=True)
@@ -698,7 +698,7 @@ class TestCmdNewStratTmp:
     """
 
     def test_creates_owned_tmp_dir_with_mode_0700(self, tmp_path, monkeypatch, run_cli):
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
 
         exit_code, output = run_cli(main, ["new-strat-tmp"])
 
@@ -711,7 +711,7 @@ class TestCmdNewStratTmp:
     def test_returned_file_is_inside_owned_tmp_dir_and_readable_by_load_strat_content(
         self, tmp_path, monkeypatch, run_cli
     ):
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
 
         _, output = run_cli(main, ["new-strat-tmp"])
 
@@ -724,15 +724,15 @@ class TestCmdNewStratTmp:
         assert "Given X" in _load_strat_content(str(strategy_file))
 
     def test_repeated_calls_produce_distinct_files(self, tmp_path, monkeypatch, run_cli):
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
 
         _, first = run_cli(main, ["new-strat-tmp"])
         _, second = run_cli(main, ["new-strat-tmp"])
 
         assert first["strategy_file"] != second["strategy_file"]
 
-    def test_no_repo_root_fails_cleanly(self, monkeypatch, run_cli):
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: None)
+    def test_no_package_root_fails_cleanly(self, monkeypatch, run_cli):
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: None)
 
         exit_code, output = run_cli(main, ["new-strat-tmp"])
 
@@ -743,7 +743,7 @@ class TestCmdNewStratTmp:
         # CWE-59/CWE-367: a path-based mkdir(exist_ok=True) + chmod + mkstemp(dir=...) would
         # silently follow a pre-existing symlink at .tmp, chmod'ing and writing into whatever
         # directory it points at. The O_NOFOLLOW dir_fd chain must reject this outright.
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
         attacker_dir = tmp_path / "attacker_dir"
         attacker_dir.mkdir()
         strat_dir = tmp_path / "artifacts" / "strat-tasks"
@@ -765,7 +765,7 @@ class TestCmdSaveSnapshot:
     """
 
     def test_temp_file_is_moved_not_left_behind(self, tmp_path, monkeypatch, run_cli):
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
         tmp_dir = tmp_path / "artifacts" / "strat-tasks" / ".tmp"
         tmp_dir.mkdir(parents=True)
         strategy_file = tmp_dir / "strategy.abc123.md"
@@ -785,7 +785,7 @@ class TestCmdSaveSnapshot:
         assert "Given X" in (feature_dir / ".source-strategy.md").read_text()
 
     def test_components_are_extracted_from_the_snapshot(self, tmp_path, monkeypatch, run_cli):
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
         strat_dir = tmp_path / "artifacts" / "strat-tasks"
         strat_dir.mkdir(parents=True)
         strategy_file = strat_dir / "RHAISTRAT-1746.md"
@@ -803,7 +803,7 @@ class TestCmdSaveSnapshot:
         assert output["components"] == ["AI Hub", "Model Serving"]
 
     def test_cache_file_is_copied_and_never_deleted(self, tmp_path, monkeypatch, run_cli):
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
         strat_dir = tmp_path / "artifacts" / "strat-tasks"
         strat_dir.mkdir(parents=True)
         strategy_file = strat_dir / "RHAISTRAT-1746.md"
@@ -820,7 +820,7 @@ class TestCmdSaveSnapshot:
         assert json.loads(marker.read_text()) == {"output_dir": str(feature_dir.parent.resolve())}
 
     def test_feature_dir_is_created_if_missing(self, tmp_path, monkeypatch, run_cli):
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
         strat_dir = tmp_path / "artifacts" / "strat-tasks"
         strat_dir.mkdir(parents=True)
         strategy_file = strat_dir / "RHAISTRAT-1746.md"
@@ -846,7 +846,7 @@ class TestCmdSaveSnapshot:
         # A pre-existing .source-strategy.md symlink could otherwise redirect the write to
         # overwrite an arbitrary file the process has write access to. The kernel must reject
         # this at open() time rather than the write silently following it.
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
         strat_dir = tmp_path / "artifacts" / "strat-tasks"
         strat_dir.mkdir(parents=True)
         strategy_file = strat_dir / "RHAISTRAT-1746.md"
@@ -865,7 +865,7 @@ class TestCmdSaveSnapshot:
         assert secret_file.read_text() == "TOP SECRET — must never be overwritten"
 
     def test_rejects_preexisting_symlink_at_output_dir_marker(self, tmp_path, monkeypatch, run_cli):
-        monkeypatch.setattr("scripts.parse_strat.get_git_root", lambda _: str(tmp_path))
+        monkeypatch.setattr("scripts.parse_strat._package_root", lambda: str(tmp_path))
         strat_dir = tmp_path / "artifacts" / "strat-tasks"
         strat_dir.mkdir(parents=True)
         strategy_file = strat_dir / "RHAISTRAT-1746.md"

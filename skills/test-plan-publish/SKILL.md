@@ -69,6 +69,7 @@ If no feature directory can be determined, ask the user via AskUserQuestion:
 
 Install the test-plan package (makes all scripts importable):
 ```bash
+bash "${CLAUDE_SKILL_DIR}/../../scripts/bootstrap.sh" --layout "${CLAUDE_SKILL_DIR}" || exit 1
 (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv sync --extra dev)
 ```
 
@@ -89,13 +90,13 @@ if [ $? -ne 0 ]; then
 fi
 
 # Parse JSON output
-feature_dir=$(echo "$result" | jq -r '.feature_dir')
-source_type=$(echo "$result" | jq -r '.source_type')
+feature_dir=$(printf '%s\n' "$result" | jq -r '.feature_dir')
+source_type=$(printf '%s\n' "$result" | jq -r '.source_type')
 
 # If GitHub source, extract repo info for auto-detecting --repo flag
 if [ "$source_type" = "github" ]; then
-    repo_owner=$(echo "$result" | jq -r '.repo_owner')
-    repo_name=$(echo "$result" | jq -r '.repo_name')
+    repo_owner=$(printf '%s\n' "$result" | jq -r '.repo_owner')
+    repo_name=$(printf '%s\n' "$result" | jq -r '.repo_name')
     # Auto-set target_repo if --repo flag wasn't provided
     [ -z "$target_repo" ] && target_repo="$repo_owner/$repo_name"
 fi
@@ -337,7 +338,7 @@ If the user declines, stop.
    if ! publish_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py publish-artifacts "$repo_root" "$feature_name" "test-plan(<source_key>): publish <feature> v<version>"); then
        echo "ERROR: publish-artifacts failed"; exit 1
    fi
-   committed=$(echo "$publish_result" | jq -r '.committed')
+   committed=$(printf '%s\n' "$publish_result" | jq -r '.committed')
    if [ "$committed" = "false" ]; then
        echo "⚠ No changes to commit - artifacts are already up to date"
        exit 0
@@ -396,8 +397,8 @@ If the user declines, stop.
 4. Create or detect existing PR:
    ```bash
    pr_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py pr-create "$target_repo" "test-plan/<source_key>" "Test Plan: <feature> (v<version>)" "<pr_body>" $([ -n "$reviewers" ] && echo "--reviewers $reviewers"))
-   pr_url=$(echo "$pr_result" | jq -r '.pr_url')
-   pr_created=$(echo "$pr_result" | jq -r '.created')
+   pr_url=$(printf '%s\n' "$pr_result" | jq -r '.pr_url')
+   pr_created=$(printf '%s\n' "$pr_result" | jq -r '.created')
    ```
 
    **Note**: When an existing PR is detected, the new commits are automatically added by the push. The PR title and body are NOT updated (preserving any manual edits reviewers may have made).

@@ -156,12 +156,55 @@ def parse_citations(text: str) -> list[dict]:
     return citations
 
 
+_INLINE_CODE_SPAN_RE = re.compile(r"(?P<delimiter>`+)(?P<content>.+?)(?P=delimiter)", re.DOTALL)
+_LIST_ITEM_MARKER_RE = re.compile(r"(?m)^[ \t]*(?:[-+*]|\d+[.)])[ \t]+")
+_STRONG_ASTERISK_RE = re.compile(r"(?<![\w*/])\*\*(?=\S)(?P<content>(?:(?!\*\*).)*?\S)(?<!/)\*\*(?![\w*])")
+_EMPHASIS_ASTERISK_RE = re.compile(r"(?<![\w*/])\*(?!\*)(?=\S)(?P<content>.*?\S)(?<!/)\*(?![\w*])")
+_STRONG_UNDERSCORE_RE = re.compile(r"(?<![\w_])__(?=\S)(?P<content>.*?\S)__(?![\w_])")
+_EMPHASIS_UNDERSCORE_RE = re.compile(r"(?<!\w)_(?!_)(?=\S)(?P<content>.*?\S)_(?![\w_])")
+
+
+def strip_markdown_presentation(text: str) -> str:
+    """Remove common Markdown presentation markers while preserving their contents.
+
+    This recognizes paired inline emphasis, backtick-delimited code spans, and line-leading list
+    markers. It does not parse document structure: unmatched markers and ambiguous recursive path
+    globs such as ``**/v1/**`` remain literal. Code-span contents are protected from emphasis
+    cleanup so identifiers and wildcard characters inside code stay intact.
+    """
+    code_spans = []
+
+    def protect_code_span(match: re.Match) -> str:
+        code_spans.append(match.group("content"))
+        return f"\x00{len(code_spans) - 1}\x00"
+
+    normalized = _INLINE_CODE_SPAN_RE.sub(protect_code_span, text)
+    normalized = _LIST_ITEM_MARKER_RE.sub("", normalized)
+
+    def strip_asterisk_emphasis(match: re.Match) -> str:
+        content = match.group("content")
+        # ``**/segment/**`` is both a syntactically plausible bold span and a recursive path glob.
+        # Preserve the ambiguous form so normalization cannot erase wildcard scope.
+        if match.group(0).startswith("**/") and content.endswith("/"):
+            return match.group(0)
+        return content
+
+    normalized = _STRONG_ASTERISK_RE.sub(strip_asterisk_emphasis, normalized)
+    normalized = _EMPHASIS_ASTERISK_RE.sub(lambda match: match.group("content"), normalized)
+    normalized = _STRONG_UNDERSCORE_RE.sub(lambda match: match.group("content"), normalized)
+    normalized = _EMPHASIS_UNDERSCORE_RE.sub(lambda match: match.group("content"), normalized)
+
+    for index, content in enumerate(code_spans):
+        normalized = normalized.replace(f"\x00{index}\x00", content)
+    return normalized
+
+
 def normalize_interface(name: str) -> str:
     """Normalize an interface/table-cell name for tolerant matching across sections.
 
     Sections are independently LLM-authored, so the same name can appear with or without
     backticks or bold, or with trailing punctuation. Strip that formatting and casefold so
-    cosmetic drift is not reported as a mismatch.
+    cosmetic drift is not reported as a mismatch. Literal path wildcards remain part of the name.
     """
-    cleaned = name.replace("`", "").replace("*", "").strip()
+    cleaned = strip_markdown_presentation(name).strip()
     return cleaned.rstrip(".,;:").strip().casefold()

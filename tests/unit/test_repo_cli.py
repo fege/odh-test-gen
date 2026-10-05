@@ -9,6 +9,8 @@ from io import StringIO
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
+
 from scripts import repo
 from tests.constants import TEST_SKILL_DIR
 
@@ -193,6 +195,124 @@ def test_validate_local_path_blocks_skill_repo():
         sys.stderr = old_stderr
         os.environ.clear()
         os.environ |= old_env
+
+
+def test_validate_local_path_allows_fullsend_output_under_a_distinct_target_root(tmp_path, monkeypatch):
+    """A separate Fullsend output workspace is writable without treating it as plugin source."""
+    plugin_root = tmp_path / "installed-plugin"
+    skill_dir = plugin_root / "skills" / "test-plan-create-cases"
+    skill_dir.mkdir(parents=True)
+    repo_script = plugin_root / "scripts" / "repo.py"
+    repo_script.parent.mkdir()
+    repo_script.touch()
+    output_root = tmp_path / "disposable-fullsend-workspace"
+    feature_dir = output_root / "artifacts" / "test-plans" / "fixture-key" / "fixture_feature"
+    feature_dir.mkdir(parents=True)
+    runtime_root_alias = output_root / "artifacts" / ".."
+
+    assert not (plugin_root / ".git").exists()
+    assert output_root.resolve() != plugin_root.resolve()
+    assert list(feature_dir.iterdir()) == []
+    assert runtime_root_alias.resolve() == output_root.resolve()
+    monkeypatch.setattr(repo, "__file__", str(repo_script))
+    monkeypatch.delenv("CLAUDE_SKILL_DIR", raising=False)
+    monkeypatch.setenv("FULLSEND_TARGET_REPO_DIR", str(runtime_root_alias))
+    monkeypatch.delenv("FULLSEND_TASK", raising=False)
+    monkeypatch.setattr(sys, "argv", ["repo.py", "validate-local-path", str(feature_dir)])
+
+    assert repo.main() == 0
+
+
+@pytest.mark.parametrize(
+    "protected_path",
+    ["", "scripts/repo.py", "artifacts/test-plans/fixture-key/fixture_feature"],
+    ids=["package-root", "package-source", "package-artifacts"],
+)
+def test_validate_local_path_still_blocks_package_source_and_artifacts(tmp_path, monkeypatch, protected_path):
+    """A distinct Fullsend output root does not make plugin files writable."""
+    plugin_root = tmp_path / "installed-plugin"
+    skill_dir = plugin_root / "skills" / "test-plan-create-cases"
+    skill_dir.mkdir(parents=True)
+    (plugin_root / "scripts").mkdir()
+    repo_script = plugin_root / "scripts" / "repo.py"
+    repo_script.touch()
+    (plugin_root / "artifacts" / "test-plans" / "fixture-key" / "fixture_feature").mkdir(parents=True)
+    path = plugin_root / protected_path if protected_path else plugin_root
+    output_root = tmp_path / "disposable-fullsend-workspace"
+    output_root.mkdir()
+
+    assert not (plugin_root / ".git").exists()
+    monkeypatch.setattr(repo, "__file__", str(repo_script))
+    monkeypatch.delenv("CLAUDE_SKILL_DIR", raising=False)
+    monkeypatch.setenv("FULLSEND_TARGET_REPO_DIR", str(output_root))
+    monkeypatch.delenv("FULLSEND_TASK", raising=False)
+    monkeypatch.setattr(sys, "argv", ["repo.py", "validate-local-path", str(path)])
+
+    assert repo.main() == 1
+
+
+@pytest.mark.parametrize(
+    "escape_mode",
+    ["outside-path", "symlink-outside", "symlink-to-package"],
+    ids=["outside-target", "symlink-escape", "symlink-into-plugin-source"],
+)
+def test_validate_local_path_rejects_paths_that_escape_fullsend_output_root(tmp_path, monkeypatch, escape_mode, capsys):
+    plugin_root = tmp_path / "installed-plugin"
+    skill_dir = plugin_root / "skills" / "test-plan-create-cases"
+    skill_dir.mkdir(parents=True)
+    (plugin_root / "scripts").mkdir()
+    repo_script = plugin_root / "scripts" / "repo.py"
+    repo_script.write_text("protected package source")
+    output_root = tmp_path / "disposable-fullsend-workspace"
+    output_root.mkdir()
+
+    if escape_mode == "outside-path":
+        path = tmp_path / "unmanaged-output" / "feature"
+        path.parent.mkdir()
+    else:
+        artifacts_root = output_root / "artifacts"
+        artifacts_root.mkdir()
+        link = artifacts_root / "redirect"
+        if escape_mode == "symlink-outside":
+            destination = tmp_path / "unmanaged-output"
+            destination.mkdir()
+            path = link / "feature"
+        else:
+            destination = plugin_root
+            path = link / "scripts" / "repo.py"
+        link.symlink_to(destination, target_is_directory=True)
+
+    monkeypatch.setattr(repo, "__file__", str(repo_script))
+    monkeypatch.delenv("CLAUDE_SKILL_DIR", raising=False)
+    monkeypatch.setenv("FULLSEND_TARGET_REPO_DIR", str(output_root))
+    monkeypatch.delenv("FULLSEND_TASK", raising=False)
+    monkeypatch.setattr(sys, "argv", ["repo.py", "validate-local-path", str(path)])
+
+    assert repo.main() == 1
+    assert "Output path must stay in the separate Fullsend target workspace" in capsys.readouterr().err
+
+
+def test_validate_local_path_blocks_artifacts_in_gitless_plugin_without_fullsend_target(tmp_path, monkeypatch, capsys):
+    """A gitless installed plugin rejects artifacts without a Fullsend target root."""
+    plugin_root = tmp_path / "installed-plugin"
+    skill_dir = plugin_root / "skills" / "test-plan-create-cases"
+    skill_dir.mkdir(parents=True)
+    repo_script = plugin_root / "scripts" / "repo.py"
+    repo_script.parent.mkdir()
+    repo_script.touch()
+    feature_dir = plugin_root / "artifacts" / "test-plans" / "fixture-key" / "fixture_feature"
+    feature_dir.mkdir(parents=True)
+
+    assert not (plugin_root / ".git").exists()
+    assert list(feature_dir.iterdir()) == []
+    monkeypatch.setattr(repo, "__file__", str(repo_script))
+    monkeypatch.delenv("CLAUDE_SKILL_DIR", raising=False)
+    monkeypatch.delenv("FULLSEND_TASK", raising=False)
+    monkeypatch.delenv("FULLSEND_TARGET_REPO_DIR", raising=False)
+    monkeypatch.setattr(sys, "argv", ["repo.py", "validate-local-path", str(feature_dir)])
+
+    assert repo.main() == 1
+    assert "Cannot create artifacts in skill repository" in capsys.readouterr().err
 
 
 def test_validate_remote_allows_external():

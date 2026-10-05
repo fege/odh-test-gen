@@ -3,7 +3,7 @@ name: test-plan-resolve-gaps
 description: Cross-reference existing test plan gaps with new analyzer findings and documentation to determine which gaps are resolved and which remain open. Use after adding new documentation to identify what questions have been answered and what's still missing.
 user-invocable: false
 context: fork
-model: sonnet
+model: claude-sonnet-4-6
 allowedTools:
   - Read
 ---

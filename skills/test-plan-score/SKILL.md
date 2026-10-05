@@ -37,7 +37,8 @@ Parse `$ARGUMENTS` to extract:
 
 Install the test-plan package (makes all scripts importable):
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv sync --extra dev)
+bash "${CLAUDE_SKILL_DIR}/../../scripts/bootstrap.sh" --layout "${CLAUDE_SKILL_DIR}" || exit 1
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv sync --extra dev)
 ```
 
 If installation fails, inform the user and do NOT proceed. Once installed, all Python scripts will work from any directory.
@@ -47,7 +48,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 1. Read `<feature_dir>/TestPlan.md`
 2. Read frontmatter to extract `source_key`:
    ```bash
-   source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+   source_key=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && \
                 uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md source_key)
    ```
 3. Resolve the source strategy via the shared resolver — snapshot-primary: reads
@@ -55,7 +56,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    from Jira and saves it there for next time. No degraded mode: if neither is available, this is
    a hard failure.
    ```bash
-   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+   repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
    resolve_result=$(cd "$repo_root" && uv run python scripts/resolve_strategy.py <feature_dir> "$source_key")
    resolve_exit=$?
 
@@ -65,7 +66,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
        exit 1
    fi
 
-   strategy_path=$(echo "$resolve_result" | jq -r '.strategy_file')
+   strategy_path=$(printf '%s\n' "$resolve_result" | jq -r '.strategy_file')
    ```
 
    The resolver is read-only with respect to Jira. It preserves typed Jira request failures and
@@ -74,7 +75,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
    `strategy_path` is the persistent, local-only snapshot — it is never deleted.
 
-4. Compute AC/NFR citation validity, coverage, bidirectional scope coverage, and actionability evidence deterministically (mirrors `test-plan.review` Step 1.5) via [`scripts/build_citation_inputs.py`](scripts/build_citation_inputs.py), which derives `ac_count`/`nfr_categories` from `strategy_path` and calls the validators directly:
+4. Compute AC/NFR citation validity, coverage, bidirectional scope coverage, and actionability evidence deterministically (mirrors `test-plan.review` Step 1.5) via [`scripts/build_citation_inputs.py`](../../scripts/build_citation_inputs.py), which derives `ac_count`/`nfr_categories` from `strategy_path` and calls the validators directly:
 
    ```bash
    gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> --strategy-file "$strategy_path") || {
@@ -83,11 +84,11 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
        exit 1
    }
 
-   interface_coverage_result=$(echo "$gate_result" | jq -c '.interface_coverage_result')
-   ac_citations_result=$(echo "$gate_result" | jq -c '.ac_citations_result')
-   ac_coverage_result=$(echo "$gate_result" | jq -c '.ac_coverage_result')
-   scope_coverage_result=$(echo "$gate_result" | jq -c '.scope_coverage_result')
-   actionability_result=$(echo "$gate_result" | jq -c '.actionability_result')
+   interface_coverage_result=$(printf '%s\n' "$gate_result" | jq -c '.interface_coverage_result')
+   ac_citations_result=$(printf '%s\n' "$gate_result" | jq -c '.ac_citations_result')
+   ac_coverage_result=$(printf '%s\n' "$gate_result" | jq -c '.ac_coverage_result')
+   scope_coverage_result=$(printf '%s\n' "$gate_result" | jq -c '.scope_coverage_result')
+   actionability_result=$(printf '%s\n' "$gate_result" | jq -c '.actionability_result')
    ```
 
    A nonzero exit means gate-input construction itself failed (unreadable strategy file, a parsing bug) — that's an execution failure, not data about the test plan, so stop rather than silently falling back to degraded mode. The interface coverage result distinguishes missing/blank Section 6.2 rows in `missing_in_6_2` from declared interfaces with a populated row that contains neither a `TC-E2E-*` nor a `TC-UI-*` reference in `missing_e2e_or_ui_in_6_2`; each populated Section 6.2 row must contain at least one `TC-E2E-*` or `TC-UI-*` reference. Use both fields in the consistency assessment. Empty pre-create-cases Section 6.2 remains valid and is skipped by the validator.
@@ -108,7 +109,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
        exit 1
    }
 
-   additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
+   additional_docs_result=$(printf '%s\n' "$additional_docs_raw" | jq -c '.docs')
    ```
 
 6. Compute scope/boilerplate results (mirrors `test-plan.review` Step 1):
@@ -149,8 +150,8 @@ calibration_raw=$(cd "$repo_root" && uv run python scripts/load_calibration.py \
     exit 1
 }
 
-calibration_text=$(echo "$calibration_raw" | jq -r '.calibration_text')
-echo "$calibration_raw" | jq -r '.warnings[]?' >&2
+calibration_text=$(printf '%s\n' "$calibration_raw" | jq -r '.calibration_text')
+printf '%s\n' "$calibration_raw" | jq -r '.warnings[]?' >&2
 ```
 
 Read the score agent prompt from `skills/test-plan-review/prompts/score-agent.md`.
@@ -186,7 +187,7 @@ Write the five rubric scores from the Score Table as a JSON object (use `scope_f
 Then pass to the deterministic validator:
 
 ```bash
-repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
 scores_json='{"specificity": N, "grounding": N, "scope_fidelity": N, "actionability": N, "consistency": N}'
 cap_result=$(cd "$repo_root" && uv run python scripts/cap_scope_fidelity.py \
     --scores-json "$scores_json" \
@@ -197,7 +198,7 @@ cap_result=$(cd "$repo_root" && uv run python scripts/cap_scope_fidelity.py \
     echo "$cap_result" >&2
     exit 1
 }
-cap_status=$(echo "$cap_result" | jq -r '.status')
+cap_status=$(printf '%s\n' "$cap_result" | jq -r '.status')
 if [ "$cap_status" = "error" ]; then
     echo "ERROR: scripts/cap_scope_fidelity.py returned error — stopping." >&2
     echo "$cap_result" >&2

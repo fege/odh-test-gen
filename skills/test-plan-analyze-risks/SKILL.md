@@ -3,7 +3,7 @@ name: test-plan-analyze-risks
 description: Analyzes strategy, optional ADR, and optional design spec to determine test levels, test types, priority definitions, non-functional requirements, and risks with mitigations. Use for identifying what needs testing, how to prioritize test coverage, and what risks to mitigate.
 context: fork
 allowedTools: Read
-model: sonnet
+model: claude-sonnet-4-6
 user-invocable: false
 ---
 

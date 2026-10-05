@@ -23,6 +23,17 @@ Examples:
 - `/test-plan-create-cases /path/to/feature_dir`
 - `/test-plan-create-cases mcp_catalog --output-dir .` (contributor override)
 
+## Runtime setup
+
+Prepare the caller workspace before running package helpers:
+
+**Command output:** Substitutions return stdout only; diagnostics remain visible on stderr. Proceed to parsing
+only when commands succeed; successful empty output is valid for an absent optional `--output-dir`.
+
+```bash
+bash "${CLAUDE_SKILL_DIR}/../../scripts/bootstrap.sh" --layout "${CLAUDE_SKILL_DIR}" || exit 1
+```
+
 ## Inputs
 
 If `$ARGUMENTS` is empty, set `FORCE_OUTPUT_DIR=false` and go to **Interactive fallback**.
@@ -30,16 +41,20 @@ If `$ARGUMENTS` is empty, set `FORCE_OUTPUT_DIR=false` and go to **Interactive f
 If `$ARGUMENTS` is non-empty, parse **after** Step 0.1. Consume `--output-dir` before the positional feature source:
 
 ```bash
-OUTPUT_DIR=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
-  uv run python scripts/parse_skill_args.py --output-dir "$ARGUMENTS")
+OUTPUT_DIR=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && \
+  uv run python scripts/parse_skill_args.py --output-dir "$ARGUMENTS") || {
+    echo "ERROR: scripts/parse_skill_args.py failed — stopping." >&2
+    exit 1
+}
 FORCE_OUTPUT_DIR=false
 if [ -n "$OUTPUT_DIR" ]; then
     FORCE_OUTPUT_DIR=true
 fi
 ```
 
-`--output-dir` is a contributor override. When `FORCE_OUTPUT_DIR=true`, run marker validation
-in Step 0.2.2 and omit skill-repository path validation in Step 0.2.3.
+`--output-dir` is a contributor override. When `FORCE_OUTPUT_DIR=true`, still run marker and
+path validation in Steps 0.2.2–0.2.3; the override never permits package writes or, in Fullsend,
+output outside `FULLSEND_TARGET_REPO_DIR`.
 `FEATURE_SOURCE` is the positional argument or the interactive answer; the flag's `PATH` only
 sets `FORCE_OUTPUT_DIR`. If the flag is present with no positional feature source, go to
 **Interactive fallback**.
@@ -74,31 +89,44 @@ If `$ARGUMENTS` is empty, or no positional feature source remains after flags, i
 
 Install the test-plan package (makes all scripts importable):
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv sync --extra dev)
+repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
+(cd "$repo_root" && uv sync --extra dev)
 ```
 
-If installation fails, inform the user and do NOT proceed. Once installed, all Python scripts will work from any directory.
+If installation fails, inform the user and do NOT proceed.
 
 #### 0.2 Locate Feature Directory
 
 1. **Use the shared locate-feature-dir utility** to resolve `FEATURE_SOURCE` (local path or GitHub branch/PR) into a local directory:
    ```bash
-   result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py locate-feature-dir "$FEATURE_SOURCE")
+   if [ -n "${FULLSEND_TARGET_REPO_DIR:-}" ] && [[ "$FEATURE_SOURCE" == https://github.com/* ]]; then
+       echo "ERROR: Fullsend case generation requires a local feature in the target workspace" >&2
+       exit 1
+   fi
+   if [[ "$FEATURE_SOURCE" != https://github.com/* ]]; then
+       FEATURE_SOURCE=$(python3 -c 'import os,sys; print(os.path.abspath(os.path.expanduser(sys.argv[1])))' "$FEATURE_SOURCE")
+   fi
+   result=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/repo.py locate-feature-dir "$FEATURE_SOURCE")
    if [ $? -ne 0 ]; then
        echo "$result"
        exit 1
    fi
 
    # Parse JSON output
-   feature_dir=$(echo "$result" | jq -r '.feature_dir')
-   source_type=$(echo "$result" | jq -r '.source_type')
+   feature_dir=$(printf '%s\n' "$result" | jq -r '.feature_dir')
+   source_type=$(printf '%s\n' "$result" | jq -r '.source_type')
    ```
 
 2. **For local sources, validate the feature directory is self-contained** (was created by
    `/test-plan-create`, which always writes `<feature_dir>/.test-plan-output-dir.json`):
    ```bash
    if [ "$source_type" = "local" ]; then
-       marker_result=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/discover_feature_dir.py "$feature_dir")
+       repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
+       discover_feature_dir_script="$repo_root/scripts/discover_feature_dir.py"
+       if [ "$(pwd -P)" != "$repo_root" ]; then
+           discover_feature_dir_script=".odh-test-gen/scripts/discover_feature_dir.py"
+       fi
+       marker_result=$(uv run --project "$repo_root" python "$discover_feature_dir_script" "$feature_dir")
        if [ $? -ne 0 ]; then
            echo "$marker_result"
            exit 1
@@ -106,11 +134,14 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    fi
    ```
 
-3. **Validate local paths against skill repository** unless `FORCE_OUTPUT_DIR=true`:
+3. **Validate local paths against skill repository and Fullsend output root**:
    ```bash
-   if [ "$FORCE_OUTPUT_DIR" != "true" ] && [ "$source_type" = "local" ]; then
-       export CLAUDE_SKILL_DIR
-       (cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/repo.py validate-local-path "$feature_dir") || exit 1
+   if [ "$source_type" = "local" ]; then
+       if [ -n "${FULLSEND_TARGET_REPO_DIR:-}" ]; then
+           FULLSEND_TARGET_REPO_DIR=$(cd "$FULLSEND_TARGET_REPO_DIR" && pwd -P) || exit 1
+           export FULLSEND_TARGET_REPO_DIR
+       fi
+       (cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/repo.py validate-local-path "$feature_dir") || exit 1
    fi
    ```
 
@@ -126,7 +157,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    - Section 3 (Test Environment) — preconditions and test data requirements
    - Section 5.2 (Test Case Naming Convention) — the `TC-<CATEGORY>-<NUMBER>` prefixes and their meanings
    - Section 1.2 (Scope) — in-scope vs out-of-scope boundaries
-   - Section 1.3 (Test Objectives) — numbered objectives, each citing an AC. These are the traceability anchors for every generated TC — every TC frontmatter must reference at least one objective from this section (see Step 3.1)
+   - Section 1.3 (Test Objectives) — numbered objectives, each citing an AC. Every generated TC must reference at least one objective here (see Step 3.1)
    - Section 6 (E2E Test Scenarios), if already populated from a prior run — existing flow priorities to preserve during regeneration. On a fresh run this section is empty; priority for new flows is assigned per Section 2.3 criteria as scenarios are generated in Step 3
 
 ### Step 1.5: Read Gaps (if available)
@@ -167,16 +198,16 @@ Prefer it for **TC-UI-*** (one `J-*`, `SCR-*`/`TU-*`/`DATA-*`, keep objectives).
 
 1. **Check for existing test cases**:
    ```bash
-   regen_check=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/tc_regeneration.py check <feature_dir>)
-   mode=$(echo "$regen_check" | jq -r '.mode')
-   existing_count=$(echo "$regen_check" | jq -r '.existing_count')
+   regen_check=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/tc_regeneration.py check <feature_dir>)
+   mode=$(printf '%s\n' "$regen_check" | jq -r '.mode')
+   existing_count=$(printf '%s\n' "$regen_check" | jq -r '.existing_count')
    ```
 
 2. **If `mode = "regenerate"`** (existing test cases found):
 
    a. **Read all existing TC files** using Read tool (satisfies Write tool requirement):
       ```bash
-      echo "$regen_check" | jq -r '.files[]' | while read file; do
+      printf '%s\n' "$regen_check" | jq -r '.files[]' | while read file; do
           # Read each existing TC file
       done
       ```
@@ -236,7 +267,6 @@ Process **one category at a time** from Section 5.2. For each category:
    - `last_updated`: MUST be quoted string (e.g., "2026-05-04"), not unquoted date
    - If the test plan's Section 7.2 is non-trivial, evaluate `upgrade_phase` for every TC before finalising its frontmatter — including TC-UI-*, TC-E2E-*, and all other categories, not just TC-UPG-*. The question is always the same: does this TC's expected behaviour differ between the old and new version? If yes, set the phase. Do not skip this evaluation for any TC.
    - Write the frontmatter directly — validation happens in Step 5.7
-   - **Important**: In regeneration mode, files were already read in Step 2.5, so Edit/Write will succeed
 
 3. **E2E/UI interface coverage (mandatory)**: After processing all categories, ensure every non-pending interface from Section 4 is represented in Section 6.2 with at least one `TC-E2E-*` or `TC-UI-*` reference:
    - Generate `TC-E2E-*.md` test cases for user journeys that require end-to-end system coverage
@@ -261,8 +291,6 @@ Process **one category at a time** from Section 5.2. For each category:
    **Apply `upgrade_phase` based on what the TC tests, not which category it belongs to.** Any TC in any category (TC-UI-*, TC-E2E-*, etc.) whose expected results or preconditions differ between versions must be tagged. The question is: "Would this TC pass on the old version AND the new version?" If yes to both → `both`. If only new → `post`. If only old → `pre`.
 
    Add upgrade TCs to their own **"Upgrade Testing"** section in INDEX.md.
-
-This category-by-category approach ensures cross-category awareness (no duplicate coverage) while keeping each batch focused.
 
 **Expected Results quality:** Each Expected Result must be an observable fact that directly confirms the test objective. Avoid vague conclusions ("works as expected", "renders successfully"). Name the specific page state, URL pattern, response code, element, or resource field.
 
@@ -312,7 +340,7 @@ A test that FAILs for the wrong reason is worse than no test at all. When in dou
 
 ### Step 4: Generate Index
 
-After all categories are complete (including upgrade TCs if generated):
+After all categories are complete:
 
 1. Create `<feature_dir>/test_cases/` directory if it doesn't already exist: `mkdir -p <feature_dir>/test_cases`
 2. Each test case file must be **self-contained** — a tester should be able to execute it without reading the test plan
@@ -344,7 +372,7 @@ Update `<feature_dir>/README.md` to add a link to the test cases index:
 
 ### Step 5.6: Coverage Validation
 
-After generating all test case files and updating the test plan, validate coverage:
+Run these coverage checks:
 
 1. **Interface coverage**: Run `uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md` (deterministic table diff — do not eyeball Section 9.2/6.2 yourself). If `missing_in_9_2` is non-empty, those interfaces lack test case coverage — flag them as gaps. Interfaces marked "pending details" in Section 4 are listed under `pending` and are already excluded from `missing_in_9_2`, `missing_in_6_2`, and `missing_e2e_or_ui_in_6_2` by the validator.
 2. **E2E-or-UI coverage**: From the same `interface-coverage` result, if `section_6_2_populated` is `true`, both `missing_in_6_2` and `missing_e2e_or_ui_in_6_2` must be empty. Each populated Section 6.2 row must contain at least one `TC-E2E-*` or `TC-UI-*` reference. For `missing_in_6_2`, generate the missing test case(s) and add the interface mapping; for `missing_e2e_or_ui_in_6_2`, add at least one appropriate `TC-E2E-*` or `TC-UI-*` reference to each populated row for every reported interface. Update Sections 6.2/9.2 and re-run the validator before proceeding. Both diagnostics already exclude `pending` interfaces, so this never regenerates cases for interfaces excluded by the anti-hallucination rule.
@@ -357,10 +385,10 @@ After generating all test case files and updating the test plan, validate covera
 
 ### Step 5.7: Validate Frontmatter, Counts, Scope, and Traceability
 
-After all test case files are written, validate frontmatter, TC counts, category scope, and objective traceability:
+Run:
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && \
  uv run python scripts/validate.py test-cases <feature_dir> && \
  uv run python scripts/validate.py tc-counts <feature_dir> && \
  uv run python scripts/validate.py tc-scope <feature_dir> && \

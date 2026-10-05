@@ -13,7 +13,7 @@ The rubric assessment is provided inline above. Parse the score table to extract
 ## Step 2: Read Schema
 
 ```bash
-uv run python {CLAUDE_SKILL_DIR}/scripts/frontmatter.py schema test-plan-review
+(cd "{CLAUDE_SKILL_DIR}/../.." && uv run python scripts/frontmatter.py schema test-plan-review)
 ```
 
 ## Step 3: Write Review File
@@ -77,7 +77,7 @@ arbitrary inline backticks and broad words such as `token` are insufficient.
 Read the test plan frontmatter to get the `feature` and `source_key` values:
 
 ```bash
-uv run python {CLAUDE_SKILL_DIR}/scripts/frontmatter.py read {FEATURE_DIR}/TestPlan.md
+(cd "{CLAUDE_SKILL_DIR}/../.." && uv run python scripts/frontmatter.py read "{FEATURE_DIR}/TestPlan.md")
 ```
 
 Then set review frontmatter. Determine `pass` as rubric pass:
@@ -85,21 +85,21 @@ Then set review frontmatter. Determine `pass` as rubric pass:
 - `false` otherwise
 
 ```bash
-uv run python {CLAUDE_SKILL_DIR}/scripts/frontmatter.py set {FEATURE_DIR}/TestPlanReview.md \
+(cd "{CLAUDE_SKILL_DIR}/../.." && uv run python scripts/frontmatter.py set "{FEATURE_DIR}/TestPlanReview.md" \
     feature=<feature> source_key=<source_key> \
     score=<total> pass=<true/false> verdict=<Ready/Revise/Rework> \
     scores.specificity=<n> scores.grounding=<n> scores.scope_fidelity=<n> \
-    scores.actionability=<n> scores.consistency=<n>
+    scores.actionability=<n> scores.consistency=<n>)
 ```
 
 If first pass ({FIRST_PASS}=true), also set before_score and before_scores with the same values:
 
 ```bash
-uv run python {CLAUDE_SKILL_DIR}/scripts/frontmatter.py set {FEATURE_DIR}/TestPlanReview.md \
+(cd "{CLAUDE_SKILL_DIR}/../.." && uv run python scripts/frontmatter.py set "{FEATURE_DIR}/TestPlanReview.md" \
     before_score=<total> \
     before_scores.specificity=<n> before_scores.grounding=<n> \
     before_scores.scope_fidelity=<n> before_scores.actionability=<n> \
-    before_scores.consistency=<n>
+    before_scores.consistency=<n>)
 ```
 
 If NOT first pass ({FIRST_PASS}=false), do NOT set before_score or before_scores — the orchestrator handles preserving these.

@@ -1083,6 +1083,22 @@ author: QE Team
 - Ollama for local LLM inference
 """
 
+VALID_TEST_PLAN_BODY_FOR_CASES_VALIDATION = f"""# Test Feature Test Plan
+
+{TEMPLATE_HEADINGS["1"]}
+
+{TEMPLATE_HEADINGS["1.3"]}
+
+1. Verify a test case is traceable (AC: #1 — "The generated case references an objective.")
+
+{TEMPLATE_HEADINGS["9.1"]}
+
+| Category | Count |
+| --- | ---: |
+| TC-E2E | 1 |
+| **Total** | **1** |
+"""
+
 VALID_TEST_PLAN_DATA = {
     "feature": "Test Feature",
     "source_key": "RHAISTRAT-400",

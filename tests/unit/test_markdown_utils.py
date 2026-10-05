@@ -4,6 +4,7 @@ import time
 
 import pytest
 
+from scripts.utils import markdown_utils
 from scripts.utils.markdown_utils import extract_section, has_citation, parse_citations
 from tests.consts.markdown_constants import (
     EXTRACT_GAPS_DUPLICATE_HEADING,
@@ -14,6 +15,54 @@ from tests.consts.markdown_constants import (
     EXTRACT_GAPS_WITH_PREFIX_SIBLING,
     EXTRACT_HEADING_HASH_IN_TITLE,
 )
+
+
+class TestStripMarkdownPresentation:
+    @pytest.mark.parametrize(
+        "text, expected",
+        [
+            pytest.param("**bold text**", "bold text", id="bold"),
+            pytest.param("*italic text*", "italic text", id="asterisk-italic"),
+            pytest.param("_italic text_", "italic text", id="underscore-italic"),
+            pytest.param("- **list item**", "list item", id="dash-list"),
+            pytest.param("* _list item_", "list item", id="asterisk-list"),
+            pytest.param("1. **numbered item**", "numbered item", id="numbered-list"),
+        ],
+    )
+    def test_removes_ordinary_markdown_presentation(self, text, expected):
+        assert markdown_utils.strip_markdown_presentation(text) == expected
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            pytest.param("request_id", id="identifier-underscore"),
+            pytest.param("/v1/*", id="single-path-glob"),
+            pytest.param("**/v1/*", id="recursive-and-single-path-globs"),
+            pytest.param("/v1/* and /v2/*", id="multiple-path-globs"),
+            pytest.param("vector*store* resources", id="intratoken-single-asterisk"),
+            pytest.param("vector**store** resources", id="intratoken-double-asterisk"),
+            pytest.param("GET /v1/models uses request_id.", id="plain-text"),
+        ],
+    )
+    def test_preserves_meaningful_characters_and_plain_text(self, text):
+        assert markdown_utils.strip_markdown_presentation(text) == text
+
+    def test_removes_inline_code_delimiters_without_changing_code_contents(self):
+        text = "`/v1/*_pod_id_`"
+
+        assert markdown_utils.strip_markdown_presentation(text) == "/v1/*_pod_id_"
+
+    @pytest.mark.parametrize(
+        "text, expected",
+        [
+            pytest.param("**path /v1/* route**", "path /v1/* route", id="bold-wrapped-glob"),
+            pytest.param("_path /v1/* route_", "path /v1/* route", id="italic-wrapped-glob"),
+            pytest.param("**/v1/***", "/v1/*", id="bold-wrapped-trailing-glob"),
+            pytest.param("*/v1/**", "/v1/*", id="italic-wrapped-trailing-glob"),
+        ],
+    )
+    def test_removes_emphasis_without_removing_wrapped_globs(self, text, expected):
+        assert markdown_utils.strip_markdown_presentation(text) == expected
 
 
 class TestExtractSectionHeadingMatch:

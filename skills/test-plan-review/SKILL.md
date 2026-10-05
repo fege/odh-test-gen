@@ -36,7 +36,8 @@ If no arguments provided and `test-plan.create` just generated a test plan in th
 
 Install the test-plan package (makes all scripts importable):
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv sync --extra dev)
+bash "${CLAUDE_SKILL_DIR}/../../scripts/bootstrap.sh" --layout "${CLAUDE_SKILL_DIR}" || exit 1
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv sync --extra dev)
 ```
 
 If installation fails, inform the user and do NOT proceed. Once installed, all Python scripts will work from any directory.
@@ -46,7 +47,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 1. Read `<feature_dir>/TestPlan.md`
 2. Read frontmatter to extract `source_key`:
    ```bash
-   source_key=$(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && \
+   source_key=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && \
                 uv run python scripts/frontmatter.py read <feature_dir>/TestPlan.md source_key)
    ```
 3. Resolve the source strategy via the shared resolver — snapshot-primary: reads
@@ -54,7 +55,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    from Jira and saves it there for next time. No degraded mode: if neither is available, this is
    a hard failure.
    ```bash
-   repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+   repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
    resolve_result=$(cd "$repo_root" && uv run python scripts/resolve_strategy.py <feature_dir> "$source_key")
    resolve_exit=$?
 
@@ -64,7 +65,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
        exit 1
    fi
 
-   strategy_file_path=$(echo "$resolve_result" | jq -r '.strategy_file')
+   strategy_file_path=$(printf '%s\n' "$resolve_result" | jq -r '.strategy_file')
    ```
 
    The resolver is read-only with respect to Jira. It preserves typed Jira request failures and
@@ -74,7 +75,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
    `strategy_file_path` is the persistent, local-only snapshot — it is never removed (not at Step
    5, not across any re-score cycle) and is reused as-is on every re-score in Step 4e.
 
-4. Compute interface coverage, AC/NFR citation validity, bidirectional scope coverage, and actionability evidence deterministically (these are mechanical checks — none is an LLM judgment call). This is delegated to [`scripts/build_citation_inputs.py`](scripts/build_citation_inputs.py), which derives `ac_count`/`nfr_categories` from `strategy_file_path` and calls the validators directly:
+4. Compute interface coverage, AC/NFR citation validity, bidirectional scope coverage, and actionability evidence deterministically (these are mechanical checks — none is an LLM judgment call). This is delegated to [`scripts/build_citation_inputs.py`](../../scripts/build_citation_inputs.py), which derives `ac_count`/`nfr_categories` from `strategy_file_path` and calls the validators directly:
 
    ```bash
    gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> --strategy-file "$strategy_file_path") || {
@@ -83,11 +84,11 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
        exit 1
    }
 
-   interface_coverage_result=$(echo "$gate_result" | jq -c '.interface_coverage_result')
-   ac_citations_result=$(echo "$gate_result" | jq -c '.ac_citations_result')
-   ac_coverage_result=$(echo "$gate_result" | jq -c '.ac_coverage_result')
-   scope_coverage_result=$(echo "$gate_result" | jq -c '.scope_coverage_result')
-   actionability_result=$(echo "$gate_result" | jq -c '.actionability_result')
+   interface_coverage_result=$(printf '%s\n' "$gate_result" | jq -c '.interface_coverage_result')
+   ac_citations_result=$(printf '%s\n' "$gate_result" | jq -c '.ac_citations_result')
+   ac_coverage_result=$(printf '%s\n' "$gate_result" | jq -c '.ac_coverage_result')
+   scope_coverage_result=$(printf '%s\n' "$gate_result" | jq -c '.scope_coverage_result')
+   actionability_result=$(printf '%s\n' "$gate_result" | jq -c '.actionability_result')
    ```
 
    A nonzero exit means gate-input construction itself failed (unreadable strategy file, a parsing bug) — that's an execution failure, not data about the test plan, so stop rather than silently falling back to degraded mode. With the pre-create-cases guards, `valid: true` is expected before test cases exist — both Section 9.2 (Test Cases column blank) and Section 6.2 are recognized as not-yet-populated and skipped. Once Section 6.2 is populated, `missing_e2e_or_ui_in_6_2` identifies declared, non-pending interfaces with a populated row that lacks both a `TC-E2E-*` and a `TC-UI-*` reference; each populated row must contain at least one `TC-E2E-*` or `TC-UI-*` reference. `missing_in_6_2` continues to identify absent or blank/placeholder interface rows. The actionability payload's `valid` field reflects only blocking evidence (`bare_tbd` and `missing_details`); `advisory_gaps` records missing or vague versions and incomplete test-data examples for visibility. Pass both kinds of actionability evidence to the score agent. Section 3.1 must contain substantive environment/configuration evidence; a heading or vague/unavailable-only statement remains blocking even when it is non-empty. The validator applies the same occurrence-level TBD classifier to Sections 3.1, 3.2, and 3.3: a grounded `TBD — Resolution: ...` path is allowed, including `derive` from a named overlay requirement, but a bare or unresolved TBD remains blocking. RBAC evidence must identify a role, permissions, and a concrete resource; `all`/`any`/`every` collections and wildcard resources are not concrete. Examples count only in explicit example labels/table columns or `e.g.,`/`for example` clauses.
@@ -101,7 +102,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
        exit 1
    }
 
-   additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
+   additional_docs_result=$(printf '%s\n' "$additional_docs_raw" | jq -c '.docs')
    ```
 
 6. Run the deterministic scope and boilerplate checks. These flag out-of-scope test levels
@@ -152,7 +153,7 @@ calibration_raw=$(cd "$repo_root" && uv run python scripts/load_calibration.py \
 }
 
 calibration_text=$(printf '%s\n' "$calibration_raw" | jq -r '.calibration_text')
-echo "$calibration_raw" | jq -r '.warnings[]?' >&2
+printf '%s\n' "$calibration_raw" | jq -r '.warnings[]?' >&2
 ```
 
 Read the score agent prompt from `${CLAUDE_SKILL_DIR}/prompts/score-agent.md`.
@@ -200,6 +201,7 @@ The score agent evaluates the test plan against a 5-criterion rubric (specificit
 Read the review agent prompt from `${CLAUDE_SKILL_DIR}/prompts/review-agent.md`.
 
 Launch a **forked** review agent with these substitutions:
+- `{CLAUDE_SKILL_DIR}` = `${CLAUDE_SKILL_DIR}` (the selected review skill directory)
 - `{FEATURE_DIR}` = feature directory path
 - `{ASSESSMENT_TEXT}` = full output from the score agent (Step 2)
 - `{FIRST_PASS}` = `true` (first assessment cycle)
@@ -223,12 +225,12 @@ exits 0 and reports outcome as JSON. Blocking Actionability evidence caps a reco
 is true only when that blocking cap changes the score.
 
 ```bash
-repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
 gate_result=$(cd "$repo_root" && uv run python scripts/enforce_citation_gate.py <feature_dir> \
     --ac-citations-result "$ac_citations_result" --ac-coverage-result "$ac_coverage_result" \
     --scope-check-result "$scope_check_result" --boilerplate-result "$boilerplate_result" \
     --scope-coverage-result "$scope_coverage_result" --actionability-result "$actionability_result")
-gate_status=$(echo "$gate_result" | jq -r '.status')
+gate_status=$(printf '%s\n' "$gate_result" | jq -r '.status')
 
 case "$gate_status" in
     overridden|ok|skip) ;;
@@ -247,7 +249,7 @@ If `overridden`, Step 4 evaluates the corrected scores/feedback note, not the re
 After the review agent completes, read the review frontmatter:
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <feature_dir>/TestPlanReview.md)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/frontmatter.py read <feature_dir>/TestPlanReview.md)
 ```
 
 If all five criteria in `scores.*` are `2`, proceed to Step 5 (done). This can be a Ready result
@@ -265,7 +267,7 @@ Initialize cycle counter: `reassess_cycle=0`
 **4a. Filter for revision:**
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/filter_for_revision.py <feature_dir>)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/filter_for_revision.py <feature_dir>)
 ```
 
 If output is `SKIP`, stop the loop and proceed to Step 5.
@@ -275,6 +277,7 @@ If output is `SKIP`, stop the loop and proceed to Step 5.
 Read the revise agent prompt from `${CLAUDE_SKILL_DIR}/prompts/revise-agent.md`.
 
 Launch with substitutions:
+- `{CLAUDE_SKILL_DIR}` = `${CLAUDE_SKILL_DIR}` (the selected review skill directory)
 - `{FEATURE_DIR}` = feature directory path
 - `{STRATEGY_FILE_PATH}` = `strategy_file_path` from Step 1
 - `{ADDITIONAL_DOCS_CONTENT}` = `additional_docs_result` from Step 1 (refreshed by Step 4e on later cycles)
@@ -284,7 +287,7 @@ The revise agent edits TestPlan.md (only sections mapped to failing criteria) an
 **4c. Check if reassessment is needed:**
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/frontmatter.py read <feature_dir>/TestPlanReview.md)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/frontmatter.py read <feature_dir>/TestPlanReview.md)
 ```
 
 If `auto_revised` is `false`, the revise agent found nothing to change — stop the loop.
@@ -294,7 +297,7 @@ Increment `reassess_cycle`. If `reassess_cycle >= 2`, stop — max cycles reache
 **4d. Save cumulative state:**
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/preserve_review_state.py save <feature_dir>)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/preserve_review_state.py save <feature_dir>)
 ```
 
 **4e. Re-score:**
@@ -307,18 +310,18 @@ rm <feature_dir>/TestPlanReview.md
 Recompute validation results against the revised `TestPlan.md` — the revise agent (4b) may have edited Section 4, 6.2, 9.2, or citations, so all four must be refreshed before re-scoring:
 
 ```bash
-repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
 gate_result=$(cd "$repo_root" && uv run python scripts/build_citation_inputs.py <feature_dir> --strategy-file "$strategy_file_path") || {
     echo "ERROR: scripts/build_citation_inputs.py failed — stopping review." >&2
     echo "$gate_result" >&2
     exit 1
 }
 
-interface_coverage_result=$(echo "$gate_result" | jq -c '.interface_coverage_result')
-ac_citations_result=$(echo "$gate_result" | jq -c '.ac_citations_result')
-ac_coverage_result=$(echo "$gate_result" | jq -c '.ac_coverage_result')
-scope_coverage_result=$(echo "$gate_result" | jq -c '.scope_coverage_result')
-actionability_result=$(echo "$gate_result" | jq -c '.actionability_result')
+interface_coverage_result=$(printf '%s\n' "$gate_result" | jq -c '.interface_coverage_result')
+ac_citations_result=$(printf '%s\n' "$gate_result" | jq -c '.ac_citations_result')
+ac_coverage_result=$(printf '%s\n' "$gate_result" | jq -c '.ac_coverage_result')
+scope_coverage_result=$(printf '%s\n' "$gate_result" | jq -c '.scope_coverage_result')
+actionability_result=$(printf '%s\n' "$gate_result" | jq -c '.actionability_result')
 
 additional_docs_raw=$(cd "$repo_root" && uv run python scripts/resolve_additional_docs.py <feature_dir>) || {
     echo "ERROR: scripts/resolve_additional_docs.py failed — stopping review." >&2
@@ -326,7 +329,7 @@ additional_docs_raw=$(cd "$repo_root" && uv run python scripts/resolve_additiona
     exit 1
 }
 
-additional_docs_result=$(echo "$additional_docs_raw" | jq -c '.docs')
+additional_docs_result=$(printf '%s\n' "$additional_docs_raw" | jq -c '.docs')
 
 team_list=$(cd "$repo_root" && uv run python scripts/get_component_test_dir.py --teams-only <feature_dir>) || {
     echo "ERROR: scripts/get_component_test_dir.py --teams-only failed — stopping review." >&2
@@ -358,7 +361,7 @@ Repeat Step 3 (review agent) with `{FIRST_PASS}=false`, then repeat Step 3.5 (En
 **4g. Restore before_scores and revision history:**
 
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/preserve_review_state.py restore <feature_dir>)
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/preserve_review_state.py restore <feature_dir>)
 ```
 
 **4h. Check criteria again:**

@@ -3,7 +3,7 @@ name: test-plan-analyze-infra
 description: Analyzes strategy, optional ADR, and optional design spec to identify test environment configuration, test data, test users, infrastructure, and tooling requirements. Use for determining test execution prerequisites and infrastructure setup needs.
 context: fork
 allowedTools: Read
-model: sonnet
+model: claude-sonnet-4-6
 user-invocable: false
 ---
 

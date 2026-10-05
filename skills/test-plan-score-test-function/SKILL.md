@@ -3,7 +3,7 @@ name: test-plan-score-test-function
 description: Score generated test function code for completeness, quality, and convention adherence using a 5-criteria rubric. Use for validating generated test code quality before including in the final implementation.
 context: fork
 allowedTools: Read, Write
-model: sonnet
+model: claude-sonnet-4-6
 user-invocable: false
 ---
 

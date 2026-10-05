@@ -347,6 +347,15 @@ ACTIONABILITY_CONCRETE_PROSE_RBAC_PLAN = _build_actionability_plan(
     "The qe-test-user can create, get, and delete vector-store resources.",
 )
 
+ACTIONABILITY_FORMATTED_RBAC_TABLE_PLANS = tuple(
+    _build_actionability_plan(
+        _ACTIONABILITY_CONCRETE_INFRASTRUCTURE,
+        _ACTIONABILITY_CONCRETE_DATA,
+        _ACTIONABILITY_CONCRETE_RBAC.replace("vector-store resources", resource),
+    )
+    for resource in ("**vector-store resources**", "`vector-store resources`")
+)
+
 ACTIONABILITY_RBAC_WITHOUT_RESOURCE_PLAN = _build_actionability_plan(
     _ACTIONABILITY_CONCRETE_INFRASTRUCTURE,
     'Registration payload: JSON object; Example: {"name": "orders"}',
@@ -367,6 +376,9 @@ ACTIONABILITY_BROAD_RBAC_TABLE_PLANS = tuple(
         "any resources",
         "all vector-store resources",
         "every service account",
+        "vector-store* resources",
+        "**vector-store resources/* scope**",
+        "`vector-store resources/*`",
     )
 )
 

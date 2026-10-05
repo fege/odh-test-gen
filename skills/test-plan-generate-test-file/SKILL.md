@@ -51,6 +51,14 @@ Parse this JSON from `$ARGUMENTS` to extract all needed variables.
 
 ## Process
 
+### Shared helper path
+
+Before running any test-plan helper, prepare the caller workspace:
+
+```bash
+bash "${CLAUDE_SKILL_DIR}/../../scripts/bootstrap.sh" --layout "${CLAUDE_SKILL_DIR}" || exit 1
+```
+
 ### Step 0: Extract Data from Prompt
 
 Extract JSON data block from `$ARGUMENTS`. Parse to get:
@@ -76,7 +84,7 @@ Get full file path: `<target_repo_path>/<file_path>`
 
 If file exists, list existing functions:
 ```bash
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/list_test_functions.py "$full_file_path")
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/list_test_functions.py "$full_file_path")
 ```
 
 Returns JSON: `{"functions": [{"name": "...", "line": 42, "docstring": "..."}]}`
@@ -215,7 +223,7 @@ it via a temp file. Fail closed on nonzero exit. Adding a pair is dropping a fil
 `skills/test-plan-score-test-function/calibration/core/`, `calibration/ui/`, or a team dir.
 
 ```bash
-repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
 team_list=$(cd "$repo_root" && uv run python scripts/get_component_test_dir.py \
     --teams-only "$feature_dir") || {
     echo "ERROR: scripts/get_component_test_dir.py --teams-only failed — stopping." >&2
@@ -231,8 +239,8 @@ calibration_raw=$(cd "$repo_root" && uv run python scripts/load_calibration.py \
     exit 1
 }
 
-echo "$calibration_raw" | jq -r '.calibration_text' > /tmp/calibration_${file_index}.md
-echo "$calibration_raw" | jq -r '.warnings[]?' >&2
+printf '%s\n' "$calibration_raw" | jq -r '.calibration_text' > /tmp/calibration_${file_index}.md
+printf '%s\n' "$calibration_raw" | jq -r '.warnings[]?' >&2
 ```
 
 For each function, invoke in parallel:
@@ -278,7 +286,7 @@ cat > /tmp/file_metadata_${file_index}.json << EOF
 EOF
 
 # Format and write complete result (reads /tmp/test_file_${file_index}.py, embeds content)
-(cd $(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel) && uv run python scripts/format_file_result.py /tmp/file_metadata_${file_index}.json) > /tmp/test_plan_results/file_${file_index}.json
+(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/format_file_result.py /tmp/file_metadata_${file_index}.json) > /tmp/test_plan_results/file_${file_index}.json
 
 # Output tiny confirmation (NOT full JSON - keeps context clean)
 echo '{"status": "complete", "file_index": '${file_index}', "result_file": "/tmp/test_plan_results/file_'${file_index}'.json"}'

@@ -10,7 +10,13 @@ import re
 from pathlib import Path
 
 from scripts.utils.consolidate_gaps import ACTIONABILITY_TEST_DATA_GAP, ACTIONABILITY_VERSION_LABELS
-from scripts.utils.markdown_utils import extract_section, parse_citations, parse_numbered_objectives, parse_table_rows
+from scripts.utils.markdown_utils import (
+    extract_section,
+    parse_citations,
+    parse_numbered_objectives,
+    parse_table_rows,
+    strip_markdown_presentation,
+)
 from scripts.utils.schemas import TEMPLATE_HEADINGS
 from scripts.utils.strat_utils import parse_acceptance_criteria, parse_nfr
 
@@ -702,17 +708,17 @@ def _actionability_for_users(section_text: str, lines: list[str]) -> bool:
         re.search(r"\b(?:role|users?|service account)\b", section_text, re.I)
         and _CONCRETE_PERMISSION_RE.search(section_text)
         and _has_concrete_prose_resource(section_text)
-        and re.search(r"\b(?:can|may|allowed|permission)\b", section_text, re.I)
+        and re.search(r"\b(?:can|may|allowed|permissions?)\b", section_text, re.I)
     )
     return table_has_rbac or prose_has_rbac
 
 
 def _is_concrete_resource(value: str) -> bool:
-    normalized = value.strip().casefold()
+    normalized = strip_markdown_presentation(value).strip()
     return (
         not _is_placeholder(value)
-        and normalized not in _GENERIC_RESOURCE_VALUES
-        and not _is_broad_resource_collection(value)
+        and normalized.casefold() not in _GENERIC_RESOURCE_VALUES
+        and not _is_broad_resource_collection(normalized)
     )
 
 
@@ -724,7 +730,8 @@ def _is_broad_resource_collection(value: str) -> bool:
 
 def _has_concrete_prose_resource(value: str) -> bool:
     """Require a named resource kind and reject broad resource collections in prose RBAC."""
-    return not _is_broad_resource_collection(value) and bool(_CONCRETE_PROSE_RESOURCE_RE.search(value))
+    normalized = strip_markdown_presentation(value)
+    return not _is_broad_resource_collection(normalized) and bool(_CONCRETE_PROSE_RESOURCE_RE.search(normalized))
 
 
 def validate_actionability_result(result: object, name: str = "actionability_result") -> None:

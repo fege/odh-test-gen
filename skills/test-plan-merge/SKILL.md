@@ -3,7 +3,7 @@ name: test-plan-merge
 description: Intelligently merge new analyzer findings into an existing test plan, preserving user edits while incorporating updates from new documentation. Use for test plan updates when re-analysis produces new findings that need to be integrated without overwriting human modifications.
 user-invocable: false
 context: fork
-model: sonnet
+model: claude-sonnet-4-6
 allowedTools:
   - Read
   - Write

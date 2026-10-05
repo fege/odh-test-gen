@@ -3,7 +3,7 @@ name: test-plan-analyze-endpoints
 description: Analyzes strategy, optional ADR, and optional design spec to extract feature scope, AC-traced test objectives, and interfaces under test. Use for extracting technical scope and e2e/UI test surface from requirements documents.
 context: fork
 allowedTools: Read
-model: sonnet
+model: claude-sonnet-4-6
 user-invocable: false
 ---
 
