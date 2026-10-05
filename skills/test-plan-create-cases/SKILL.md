@@ -153,7 +153,7 @@ If installation fails, inform the user and do NOT proceed.
 ### Step 1.6: Read Design Spec / Additional Docs (if available)
 
 ```bash
-repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)
+repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
 additional_docs_raw=$(cd "$repo_root" && \
   uv run python scripts/resolve_additional_docs.py "$feature_dir") || {
     echo "ERROR: resolve_additional_docs.py failed — stopping." >&2
@@ -182,7 +182,7 @@ Prefer it for **TC-UI-*** (one `J-*`, `SCR-*`/`TU-*`/`DATA-*`, keep objectives).
 
 1. **Check for existing test cases**:
    ```bash
-   regen_check=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/tc_regeneration.py check <feature_dir>)
+   regen_check=$(cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && uv run python scripts/tc_regeneration.py check "$feature_dir")
    mode=$(printf '%s\n' "$regen_check" | jq -r '.mode')
    existing_count=$(printf '%s\n' "$regen_check" | jq -r '.existing_count')
    ```
@@ -368,11 +368,11 @@ Run:
 
 ```bash
 (cd "$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)" && \
- uv run python scripts/validate.py test-cases <feature_dir> && \
- uv run python scripts/validate.py tc-counts <feature_dir> && \
- uv run python scripts/validate.py tc-scope <feature_dir> && \
- uv run python scripts/validate.py tc-traceability <feature_dir> && \
- uv run python scripts/validate.py interface-coverage <feature_dir>/TestPlan.md)
+ uv run python scripts/validate.py test-cases "$feature_dir" && \
+ uv run python scripts/validate.py tc-counts "$feature_dir" && \
+ uv run python scripts/validate.py tc-scope "$feature_dir" && \
+ uv run python scripts/validate.py tc-traceability "$feature_dir" && \
+ uv run python scripts/validate.py interface-coverage "$feature_dir/TestPlan.md")
 ```
 
 If any check fails, fix the issue and re-run.

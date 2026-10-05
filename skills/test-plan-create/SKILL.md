@@ -15,9 +15,7 @@ allowedTools:
 
 # Test Plan Generator
 
-Generate a complete test plan for a RHOAI feature from a refined strategy, with optional ADR
-and/or design-spec companions.
-Generate a RHOAI test plan from a refined strategy, with an optional ADR for technical depth.
+Generate a RHOAI test plan from a refined strategy, with optional ADR and/or design-spec companions.
 
 ## Usage
 
@@ -37,21 +35,17 @@ Parse `$ARGUMENTS` as:
    `uv run python scripts/resolve_design_spec.py --classify "$path"` → `kind` is
    `design_spec` (set `LOCAL_DESIGN_SPEC_PATH`), `adr`, or `other`.
 
-With no arguments, use a strategy from `/strat.create` or `/strat.refine` and proceed to Step 1.
-If none is available, ask for the Jira key, optional companion paths, optional ADR/design-spec URL
+With no arguments, use this session's `/strat.create` or `/strat.refine` strategy and continue at
+Step 1. If none exists, ask for a Jira key, optional companion paths, optional ADR/design-spec URL
 (metadata only; never fetched), and optional snake_case feature-directory name.
 
-**Design spec (UI):** Prefer screens (`SCR-*` HTML), journeys (`J-*`), and optional `TU-*`/`DATA-*`
-tables when present. Local `design_spec` path wins; else Step 1.5 discovers a Jira attachment
-(`{KEY}-design-spec.md` or newest `*design-spec*.md`). Do not invent UI absent from STRAT/spec.
-With no arguments, use this session's `/strat.create` or `/strat.refine` strategy and continue at
-Step 1. If none exists, ask for a Jira key, optional local ADR path, ADR URL (metadata only; never
-fetch), and optional snake_case directory name (default: feature name).
+**Design spec (UI):** Prefer `SCR-*` HTML, `J-*` journeys, and optional `TU-*`/`DATA-*` when present.
+Local `design_spec` wins; else Step 1.5 discovers a Jira attachment (`{KEY}-design-spec.md` or
+newest `*design-spec*.md`). Do not invent UI absent from STRAT/spec.
 
 ## Process
 
-**Command output:** Substitutions return stdout only; diagnostics remain visible on stderr. Proceed to parsing
-only when commands succeed; successful empty output is valid for an absent optional `--output-dir`.
+Stdout is for substitutions; stderr is diagnostics. Stop on nonzero exit.
 
 ### Step 0: Pre-flight Checks
 
@@ -217,41 +211,31 @@ If `$gate_status` is `no_acceptance_criteria` (no ACs or count 0), **STOP**:
 
 ### Step 2: Analyze (Parallel Sub-Agents)
 
-**Scope and traceability**: Generate e2e/system and UI plans only; Section 2.1 excludes unit,
-integration, and component levels. Every Section 1.3 objective must cite a grounded AC/NFR. Every
-meaningful in-scope entry in Sections 1.2, 2.3, 7.1–7.5, and 8 must end with `(Objective: #N)`
-linking it to a grounded objective; do not guess `N`. A Section 7.1–7.5 category with no concrete
-AC/NFR grounding is **Not Applicable** and needs no marker. Step 3.2 validates this deterministically.
+**Scope and traceability**: e2e/system and UI only (Section 2.1). Every Section 1.3 objective must
+cite a grounded AC/NFR. In-scope entries in 1.2, 2.3, 7.1–7.5, and 8 end with `(Objective: #N)`;
+do not guess `N`. Ungrounded 7.1–7.5 categories are **Not Applicable**. Step 3.2 validates this.
 
-The endpoint analyzer owns disclosure of every in-scope Section 1.2 item it omits from Section 1.3
-solely because it lacks a backing AC. Pass that analyzer output through unchanged and collect its
-required `## Gaps` output into `TestPlanGaps.md` at Step 3.5. The parent must not be responsible for
-adding a concise entry in the analyzer `## Gaps` material passed to Step 3.5, inventing an objective,
-or using a free-text matcher to infer further exclusions.
+The endpoint analyzer discloses Section 1.2 items omitted from 1.3 for lack of AC. Pass its
+output through and collect `## Gaps` into `TestPlanGaps.md` at Step 3.5; do not invent objectives.
 
-Invoke the three forked analyzer skills **in parallel** using the Skill tool. Each runs in isolation
-and reads supplied strategy/ADR/design-spec paths. Pass `<feature_name>/.source-strategy.md`, any
-ADR, and `<feature_name>/.source-design-spec.md` (when present) as paths, never inline; pass the
-Step 1.5 JSON extractions as ground truth and do not re-derive them.
+Invoke the three analyzer skills **in parallel**. Pass strategy, ADR, and
+`<feature_name>/.source-design-spec.md` (when present) as paths (never inline); pass Step 1.5 JSON
+as ground truth.
 
-- **`test-plan.analyze.endpoints`**: Pass strategy, ADR, design spec (if any), `ac_json`,
-  `oos_json`, and `nfr_json`. Prefer `SCR-*`/`J-*` for UI interfaces when a design spec exists.
-- **`test-plan.analyze.risks`**: Pass strategy, ADR, design spec (if any), `ac_json`, and
-  `nfr_json`. Produce e2e/UI levels, types, priorities, risks, and NFR assessments.
-- **`test-plan.analyze.infra`**: Pass strategy, ADR, and design spec (if any). Prefer design-spec
-  `TU-*`/`DATA-*` tables for Section 3 users/data when present.
+- **endpoints**: strategy, ADR, design spec (if any), `ac_json`, `oos_json`, `nfr_json`. Prefer
+  `SCR-*`/`J-*` for UI when a design spec exists.
+- **risks**: strategy, ADR, design spec (if any), `ac_json`, `nfr_json` → e2e/UI levels, types,
+  priorities, risks, NFR assessments.
+- **infra**: strategy, ADR, design spec (if any). Prefer `TU-*`/`DATA-*` for Section 3 when present.
 
-After all three return, merge their findings into the template and collect `## Gaps` for Step 3.5. Add
-no information absent from all three outputs.
+After all three return, merge findings and collect `## Gaps` for Step 3.5. Add nothing absent from
+all three outputs.
 
-**Evidence policy:** Apply one occurrence-level rule independently to Sections 3.1–3.3: a bare or
-unresolved `TBD` is blocking; a genuinely unknown value is non-blocking only with an explicit resolution path
-in the form `TBD — Resolution: {concrete action} from/with/by/before/after/using
-{named source or timing}`. `derive` is valid when the named overlay or other source grounds it.
-For test data, count examples only in explicit `Example`/`Sample`/`Fixture` labels or table columns,
-or `e.g.,`/`for example` clauses; arbitrary backticks and broad words such as `token` are not enough.
-Valid actionability may be `actionability == 2` with advisories; only `bare_tbd`/`missing_details`
-block scoring.
+**Evidence policy:** For Sections 3.1–3.3, bare/unresolved `TBD` blocks; unknown values need
+`TBD — Resolution: {action} from/with/by/before/after/using {source}`. `derive` is valid when the
+named overlay grounds it. Count test-data examples only in `Example`/`Sample`/`Fixture` labels or
+`e.g.,`/`for example` clauses. Advisories may yield `actionability == 2`; only
+`bare_tbd`/`missing_details` block scoring.
 
 ### Step 3: Generate Files
 

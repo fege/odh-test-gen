@@ -117,7 +117,7 @@ If installation fails, inform the user and do NOT proceed. Once installed, all P
 
 #### 0.3 Verify new documents exist
 
-Set `repo_root=$(git -C ${CLAUDE_SKILL_DIR} rev-parse --show-toplevel)`.
+Set `repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)`.
 
 If no document paths were provided, set `PULL_JIRA_DESIGN_SPEC=true` (fetch in Step 2 via
 `source_key`; feature-dir snapshot waits for Step 4). Otherwise, for each new document path:
