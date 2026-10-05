@@ -25,10 +25,8 @@ Examples:
 
 ## Runtime setup
 
-Prepare the caller workspace before running package helpers:
-
-**Command output:** Substitutions return stdout only; diagnostics remain visible on stderr. Proceed to parsing
-only when commands succeed; successful empty output is valid for an absent optional `--output-dir`.
+Bootstrap before helpers. Use stdout for substitutions; stderr is diagnostics. Empty stdout is
+valid for an absent `--output-dir`. Stop on nonzero exit.
 
 ```bash
 bash "${CLAUDE_SKILL_DIR}/../../scripts/bootstrap.sh" --layout "${CLAUDE_SKILL_DIR}" || exit 1
@@ -52,12 +50,10 @@ if [ -n "$OUTPUT_DIR" ]; then
 fi
 ```
 
-`--output-dir` is a contributor override. When `FORCE_OUTPUT_DIR=true`, still run marker and
-path validation in Steps 0.2.2–0.2.3; the override never permits package writes or, in Fullsend,
-output outside `FULLSEND_TARGET_REPO_DIR`.
-`FEATURE_SOURCE` is the positional argument or the interactive answer; the flag's `PATH` only
-sets `FORCE_OUTPUT_DIR`. If the flag is present with no positional feature source, go to
-**Interactive fallback**.
+`--output-dir` is a contributor override. Still run marker and path validation in Steps 0.2.2–0.2.3;
+it never permits package writes or Fullsend output outside `FULLSEND_TARGET_REPO_DIR`.
+`FEATURE_SOURCE` is the positional argument or interactive answer; the flag's `PATH` only sets
+`FORCE_OUTPUT_DIR`. No positional source → **Interactive fallback**.
 
 ### From arguments (optional)
 
@@ -70,16 +66,9 @@ After flags are consumed, if a remaining argument does not start with `--`, it i
 
 ### Interactive fallback (no positional feature source)
 
-If `$ARGUMENTS` is empty, or no positional feature source remains after flags, invoke AskUserQuestion:
-
-> **Where is the feature directory containing your test plan?**
->
-> You can provide:
-> - **Local directory path** (e.g., `/Users/username/Code/ai-hub-test-plans/mcp_catalog`)
-> - **GitHub branch URL** (e.g., `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`)
-> - **GitHub PR URL** (e.g., `https://github.com/org/repo/pull/5`)
-
-**Action:** Capture the user's selection as `FEATURE_SOURCE` and proceed to Step 0.2.
+If `$ARGUMENTS` is empty, or no positional feature source remains after flags, ask via
+AskUserQuestion for a local path, GitHub branch URL, or PR URL. Capture as `FEATURE_SOURCE`
+and proceed to Step 0.2.
 
 ## Process
 
@@ -150,15 +139,10 @@ If installation fails, inform the user and do NOT proceed.
 ### Step 1: Read the Test Plan
 
 1. Read `<feature_dir>/TestPlan.md` using the Read tool
-2. Extract the `source_key` from the YAML frontmatter — this will be used in Step 3.1 to set frontmatter on each test case file
-3. Extract:
-   - Section 4 (Interfaces Under Test) — the interface catalog (Interface, Type, Purpose)
-   - Section 2 (Test Strategy) — test levels, types, priorities to guide test case depth
-   - Section 3 (Test Environment) — preconditions and test data requirements
-   - Section 5.2 (Test Case Naming Convention) — the `TC-<CATEGORY>-<NUMBER>` prefixes and their meanings
-   - Section 1.2 (Scope) — in-scope vs out-of-scope boundaries
-   - Section 1.3 (Test Objectives) — numbered objectives, each citing an AC. Every generated TC must reference at least one objective here (see Step 3.1)
-   - Section 6 (E2E Test Scenarios), if already populated from a prior run — existing flow priorities to preserve during regeneration. On a fresh run this section is empty; priority for new flows is assigned per Section 2.3 criteria as scenarios are generated in Step 3
+2. Extract `source_key` from YAML frontmatter (used in Step 3.1)
+3. Extract: Section 4 interfaces; Section 2 strategy; Section 3 environment; Section 5.2 naming;
+   Section 1.2 scope; Section 1.3 objectives (every TC must cite at least one); Section 6 E2E
+   scenarios if populated (preserve flow priorities on regen; else assign per Section 2.3)
 
 ### Step 1.5: Read Gaps (if available)
 
@@ -265,7 +249,8 @@ Process **one category at a time** from Section 5.2. For each category:
    - `source_key`: use the value extracted from the test plan's frontmatter in Step 1
    - `objectives`: list of Section 1.3 objective numbers this TC validates (e.g., `[1, 3]`) — required, must be non-empty
    - `last_updated`: MUST be quoted string (e.g., "2026-05-04"), not unquoted date
-   - If the test plan's Section 7.2 is non-trivial, evaluate `upgrade_phase` for every TC before finalising its frontmatter — including TC-UI-*, TC-E2E-*, and all other categories, not just TC-UPG-*. The question is always the same: does this TC's expected behaviour differ between the old and new version? If yes, set the phase. Do not skip this evaluation for any TC.
+   - If Section 7.2 is non-trivial, set `upgrade_phase` on every TC whose expected behaviour differs
+     between versions (all categories, not only TC-UPG-*)
    - Write the frontmatter directly — validation happens in Step 5.7
 
 3. **E2E/UI interface coverage (mandatory)**: After processing all categories, ensure every non-pending interface from Section 4 is represented in Section 6.2 with at least one `TC-E2E-*` or `TC-UI-*` reference:
@@ -276,21 +261,15 @@ Process **one category at a time** from Section 5.2. For each category:
 
 4. **NFR test cases (conditional)**: Only create a standalone TC-NFR when the NFR requires dedicated infrastructure or setup that no E2E scenario covers (e.g., a disconnected cluster for air-gap testing, a performance benchmark harness). If an NFR is naturally exercised during an E2E flow — such as RBAC (use different user personas in E2E steps), mTLS (verify certs on pods created by E2E), or namespace isolation (already covered by NEG scenarios) — add it as assertions within the relevant TC-E2E or TC-NEG, not as a separate TC-NFR.
 
-5. **Upgrade test cases (conditional)**: Read **Section 7.2 (Upgrade/Migration)** of the TestPlan.md. If Section 7.2 describes meaningful upgrade-specific behaviour (not just "Not Applicable" or a single sentence disclaimer), generate upgrade-aware TCs:
-
-   First, identify what kind of upgrade scenario this is — it determines the dominant phase:
-   - **Feature introducing an upgrade change** (new API, new route, new auth model): primarily `post` TCs for new behaviour, `pre` TCs for state that disappears after upgrade, `both` for regressions
-   - **Bug discovered during upgrade** (something that worked before upgrade now breaks): primarily `both` TCs — the goal is to establish a PASS baseline before upgrade and detect a REGRESSION after
-
-   Phase values and when to use them:
-   - **`upgrade_phase: pre`** — behaviour or state that only exists on the old version. Expected to FAIL or be N/A on the new version. Preconditions must state the source version.
-   - **`upgrade_phase: post`** — behaviour that only exists after upgrade (new feature, new resource, new route). Expected to FAIL on the old version. Preconditions must state the target version.
-   - **`upgrade_phase: both`** — behaviour that should work on both versions. Use for any TC that establishes a pre-upgrade baseline and validates the same behaviour post-upgrade. E2E TCs spanning the full upgrade journey also use `both` — even if their steps cross both versions, they need to run on both clusters. Always include at least one UI-capable TC with `both` so the pre-upgrade run has browser content to execute.
-   - **No `upgrade_phase`** — reserve for TCs that are genuinely unrelated to the upgrade scenario — TCs that would exist identically in a non-upgrade test plan. Within an upgrade-focused test plan, if a TC's expected results should be the same on both versions, use `upgrade_phase: both` (not no phase) to make its role in the regression suite explicit. "No phase" and `both` are functionally equivalent in filtering, but `both` signals intent.
-
-   **Apply `upgrade_phase` based on what the TC tests, not which category it belongs to.** Any TC in any category (TC-UI-*, TC-E2E-*, etc.) whose expected results or preconditions differ between versions must be tagged. The question is: "Would this TC pass on the old version AND the new version?" If yes to both → `both`. If only new → `post`. If only old → `pre`.
-
-   Add upgrade TCs to their own **"Upgrade Testing"** section in INDEX.md.
+5. **Upgrade test cases (conditional)**: If Section 7.2 has real upgrade behaviour (not N/A),
+   generate upgrade-aware TCs. New-feature upgrades: mostly `post`, `pre` for disappearing state,
+   `both` for regressions. Upgrade bugs: mostly `both` (pre baseline + post regression).
+   - `pre`: old-version only (state source version). `post`: new-version only (state target).
+   - `both`: should pass on both versions; E2E spanning upgrade uses `both`; include ≥1 UI TC with
+     `both`. Omit phase only for TCs identical to a non-upgrade plan; in an upgrade plan, same
+     expected results on both versions → `both` (signals intent).
+   Tag by what the TC tests, not category. Pass old and new → `both`; new only → `post`; old only
+   → `pre`. Put upgrade TCs under **"Upgrade Testing"** in INDEX.md.
 
 **Expected Results quality:** Each Expected Result must be an observable fact that directly confirms the test objective. Avoid vague conclusions ("works as expected", "renders successfully"). Name the specific page state, URL pattern, response code, element, or resource field.
 
