@@ -3,7 +3,7 @@ name: test-plan-create
 description: Generate a test plan from a strategy (RHAISTRAT or RHOAIENG), with optional ADR and/or design-spec companions. Use when starting test planning for a new RHOAI feature with a defined Jira strategy.
 argument-hint: <JIRA_KEY> [COMPANION_DOC_PATH...]
 user-invocable: true
-model: opus
+model: claude-opus-4-6
 allowedTools:
   - Read
   - Write

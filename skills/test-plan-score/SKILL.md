@@ -3,7 +3,7 @@ name: test-plan-score
 description: Score an existing test plan using the quality rubric without triggering auto-revision. Use for standalone quality assessment of test plans or evaluating test plans created outside the automated generation pipeline.
 argument-hint: <feature_dir>
 user-invocable: true
-model: sonnet
+model: claude-sonnet-4-6
 allowedTools:
   - Read
   - Bash

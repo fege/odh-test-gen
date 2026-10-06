@@ -3,7 +3,7 @@ name: test-plan-create-cases
 description: Generate individual test case files from an existing test plan. Use after plan approval to produce TC specs with preconditions, steps, and expected results by category and priority.
 argument-hint: "[FEATURE_SOURCE] [--output-dir PATH]"
 user-invocable: true
-model: opus
+model: claude-opus-4-6
 allowedTools: Read, Write, Edit, Bash, AskUserQuestion
 ---
 

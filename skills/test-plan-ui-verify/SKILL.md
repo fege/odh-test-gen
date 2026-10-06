@@ -3,6 +3,7 @@ name: test-plan-ui-verify
 description: Browser-based UI test execution against live ODH/RHOAI clusters. Loads TCs from a GitHub PR or repo folder via ui_prepare.py, executes each via a persistent Playwright browser, and produces a visual HTML report with PASS/FAIL/BLOCKED/INCOMPLETE verdicts and screenshots. Use for verifying UI test cases against live clusters with visual evidence and screenshot capture.
 argument-hint: "(run after ui_prepare.py - no arguments)"
 user-invocable: true
+model: claude-opus-4-6
 allowedTools:
   # Security note: ui_assert.py accepts --js with arbitrary JavaScript that
   # executes in the authenticated browser session. This is intentional — TC

@@ -3,7 +3,7 @@ name: test-plan-case-implement
 description: "Generate executable test automation code from test case specifications (default target: opendatahub-tests; override with --target-repo). Skips TC-UI-*. Use after test cases are reviewed to create production-ready pytest code that follows repository conventions."
 argument-hint: "<FEATURE_SOURCE> [--test-cases TC-ID,TC-ID] [--target-repo PATH]"
 user-invocable: true
-model: opus
+model: claude-opus-4-6
 allowedTools:
   - Read
   - Write

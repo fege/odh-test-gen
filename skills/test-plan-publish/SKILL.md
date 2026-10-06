@@ -3,7 +3,7 @@ name: test-plan-publish
 description: Publish test plan artifacts to GitHub — creates a branch, commits all artifacts, and opens a PR with optional reviewer assignment. Use after test plan review to make artifacts available for team collaboration and formal review feedback.
 argument-hint: "[FEATURE_SOURCE] [--repo owner/repo] [--reviewers user1,user2]"
 user-invocable: true
-model: sonnet
+model: claude-sonnet-4-6
 allowedTools:
   - Read
   - Bash

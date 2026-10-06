@@ -3,7 +3,7 @@ name: test-plan-generate-test-file
 description: Generate one complete test file with all functions for assigned test cases, including quality scoring and auto-revision
 user-invocable: false
 context: fork
-model: opus
+model: claude-opus-4-6
 allowedTools:
   - Read
   - Bash

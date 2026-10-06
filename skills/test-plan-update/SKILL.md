@@ -3,7 +3,7 @@ name: test-plan-update
 description: Update an existing test plan with new documentation (ADR, API specs, design specs, design docs). Re-analyzes, updates artifacts, bumps version, and optionally regenerates test cases. Use when requirements evolve or new technical documentation becomes available after initial test plan creation.
 argument-hint: "<SOURCE> [<NEW_DOC_PATH>...]"
 user-invocable: true
-model: opus
+model: claude-opus-4-6
 allowedTools:
   - Read
   - Write

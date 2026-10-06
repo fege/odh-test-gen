@@ -2,7 +2,7 @@
 name: test-plan-review
 description: Reviews a generated test plan for completeness, consistency, and quality using a 5-criteria rubric. Scores, auto-revises, and re-scores (max 2 cycles). Use for automated quality assessment and iterative improvement of generated test plans.
 user-invocable: false
-model: opus
+model: claude-opus-4-6
 allowedTools:
   - Read
   - Write
