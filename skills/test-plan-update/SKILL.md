@@ -41,11 +41,14 @@ Parse `$ARGUMENTS` to extract:
    - GitHub branch: `https://github.com/org/repo/tree/test-plan/RHAISTRAT-400`
    - GitHub PR: `https://github.com/org/repo/pull/5`
 2. **Remaining arguments** (optional): Paths to new documentation files (ADR, API
-   spec, design spec, design doc, etc.). Classify each path with the deterministic CLI
-   (`uv run python scripts/resolve_design_spec.py --classify <path>`); use `kind` to decide
-   labeling and whether to snapshot as a design spec. If no paths are given, set
-   `PULL_JIRA_DESIGN_SPEC=true` to fetch the newest design-spec attachment via `source_key`
-   into a temp file in Step 2 (analyzers see it; feature-dir snapshot waits for Step 4).
+   spec, design spec, design doc, etc.). After setting
+   `repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)`, classify each path with the
+   deterministic CLI
+   (`uv run --project "$repo_root" python "$repo_root/scripts/resolve_design_spec.py" --classify <path>`);
+   use `kind` to decide labeling and whether to snapshot as a design spec. If no paths are
+   given, set `PULL_JIRA_DESIGN_SPEC=true` to fetch the newest design-spec attachment via
+   `source_key` into a temp file in Step 2 (analyzers see it; feature-dir snapshot waits for
+   Step 4).
 
 When a new design-spec path is provided:
 1. Classify/read it in Step 2, but **do not** snapshot or edit frontmatter yet
@@ -152,8 +155,9 @@ fi
 ### Step 2: Read New Documents
 
 For each new document path:
-1. Classify with `uv run python scripts/resolve_design_spec.py --classify "$doc_path"` and use
-   `kind` (`design_spec` | `adr` | `other`) for labeling — do not inspect content yourself.
+1. Classify with
+   `uv run --project "$repo_root" python "$repo_root/scripts/resolve_design_spec.py" --classify "$doc_path"`
+   and use `kind` (`design_spec` | `adr` | `other`) for labeling — do not inspect content yourself.
 2. Read the document using Read tool (for binary ADR PDFs, rely on classify + path metadata).
 3. Store content with label mapped from kind (`Design Spec`, `ADR`, or inferred other label).
 4. If `kind` is `design_spec`, **stage** the path for later snapshot — do **not** write

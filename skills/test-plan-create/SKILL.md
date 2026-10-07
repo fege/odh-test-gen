@@ -31,9 +31,11 @@ Examples:
 
 Parse `$ARGUMENTS` as:
 1. Required Jira key: a `RHAISTRAT-*` strategy or `RHOAIENG-*` issue.
-2. Optional companion paths. Classify each with the CLI (do not inspect content yourself):
-   `uv run python scripts/resolve_design_spec.py --classify "$path"` → `kind` is
-   `design_spec` (set `LOCAL_DESIGN_SPEC_PATH`), `adr`, or `other`.
+2. Optional companion paths. After setting
+   `repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)`, classify each with the CLI
+   (do not inspect content yourself):
+   `uv run --project "$repo_root" python "$repo_root/scripts/resolve_design_spec.py" --classify "$path"`
+   → `kind` is `design_spec` (set `LOCAL_DESIGN_SPEC_PATH`), `adr`, or `other`.
 
 With no arguments, use this session's `/strat.create` or `/strat.refine` strategy and continue at
 Step 1. If none exists, ask for a Jira key, optional companion paths, optional ADR/design-spec URL

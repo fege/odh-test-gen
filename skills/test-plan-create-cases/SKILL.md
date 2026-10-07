@@ -154,6 +154,8 @@ If installation fails, inform the user and do NOT proceed.
 
 ```bash
 repo_root=$(cd "${CLAUDE_SKILL_DIR}/../.." && pwd -P)
+source_key=$(cd "$repo_root" && uv run python scripts/frontmatter.py read \
+  "$feature_dir/TestPlan.md" source_key) || exit 1
 additional_docs_raw=$(cd "$repo_root" && \
   uv run python scripts/resolve_additional_docs.py "$feature_dir") || {
     echo "ERROR: resolve_additional_docs.py failed — stopping." >&2
