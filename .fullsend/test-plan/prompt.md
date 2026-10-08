@@ -12,8 +12,10 @@ The host supplies one of these forms:
 - `/test-plan-create-cases <local-feature-dir>`
 
 Follow the invoked skill's existing instructions, analysis and review workflow,
-and normal Jira behavior. Do not discover or batch Jira issues, decide case
-eligibility, invoke publishing, or start another top-level task.
+and normal Jira behavior. When `TEST_PLAN_DRY_RUN=true`, the shared label helper
+skips Jira label writes; inference and local artifact creation still run. Do
+not discover or batch Jira issues, decide case eligibility, invoke publishing,
+or start another top-level task.
 
 For `/test-plan-create`, finish its plan generation and review flow, then stop.
 If the skill offers automatic case generation, choose its review-only path. The

@@ -20,6 +20,18 @@ fullsend run test-plan --fullsend-dir .fullsend --target-repo . --output-dir "$R
 Replace `RHAISTRAT-XXX` with the strategy issue. If credentials are stored in an env file, add
 `--env-file .env`; add `--keep-sandbox` when you need to inspect a failed run.
 
+## Compare without Jira label writes
+
+This still runs inference and creates plan/review artifacts. The comparison harness sets
+`TEST_PLAN_DRY_RUN=true` and enforces read-only Jira access; artifacts stay under
+`$RUN_OUTPUT/plans/<feature>/`.
+
+```bash
+RUN_OUTPUT=$(mktemp -d /tmp/fullsend-test-plan.XXXXXX)
+export FULLSEND_TASK='/test-plan-create RHAISTRAT-XXX --output-dir plans'
+fullsend run test-plan-dry-run --fullsend-dir .fullsend --target-repo . --output-dir "$RUN_OUTPUT"
+```
+
 ## Generate cases for an eligible plan
 
 The post-hook prints the absolute feature directory: `$RUN_OUTPUT/plans/<feature>`.
