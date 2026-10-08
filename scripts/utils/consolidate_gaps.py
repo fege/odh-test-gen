@@ -5,7 +5,7 @@ per-missing-document groups.
 Each analyzer (`endpoints`, `risks`, `infra`) reports its own `## Gaps` markdown
 section using the fixed bullet shape:
 
-    - **{gap description}** — would be resolved by: {ADR / API spec / feature refinement / design doc}
+    - **{gap description}** — would be resolved by: {ADR / API spec / feature refinement / design doc / design spec}
 
 Two analyzers frequently flag the same missing artifact in different wording. This
 script groups gap bullets by their normalized `resolved-by` document type — the
@@ -20,7 +20,7 @@ from collections.abc import Callable
 
 from scripts.utils.markdown_utils import extract_section
 
-CANONICAL_DOC_TYPES = ["ADR", "API spec", "feature refinement", "design doc"]
+CANONICAL_DOC_TYPES = ["ADR", "API spec", "feature refinement", "design doc", "design spec"]
 
 UNSPECIFIED = "(unspecified)"
 
@@ -38,6 +38,9 @@ _SYNONYMS = {
     "feature refinement": "feature refinement",
     "design doc": "design doc",
     "design document": "design doc",
+    "design spec": "design spec",
+    "design-spec": "design spec",
+    "design specification": "design spec",
 }
 
 # Matches: - **{desc}** — would be resolved by: {type}  (tolerates em-dash/hyphen,

@@ -11,9 +11,9 @@ gates and automated rubrics.
 
 | Skill | Description |
 |-------|-------------|
-| `/test-plan-create` | Generate a test plan from a strategy (RHAISTRAT or RHOAIENG), with optional ADR |
+| `/test-plan-create` | Generate a test plan from a strategy (RHAISTRAT or RHOAIENG), with optional ADR and/or design spec |
 | `/test-plan-create-cases` | Generate individual test case files from an existing test plan |
-| `/test-plan-update` | Update test plan with new docs (ADR, API specs), re-analyze, bump version |
+| `/test-plan-update` | Update test plan with new docs (ADR, API specs, design specs), re-analyze, bump version |
 | `/test-plan-case-implement` | Generate executable test automation code from TC specifications (default target: opendatahub-tests; skips TC-UI-*) |
 | `/test-plan-ui-verify` | Verify UI test cases from a PR against a live ODH/RHOAI cluster via Playwright |
 | `/test-plan-publish` | Publish test plan artifacts to GitHub — branch, commit, and open a PR |
@@ -214,6 +214,16 @@ export CLAUDE_NON_INTERACTIVE=true
 # Generate test plan with ADR for extra technical depth
 /test-plan-create RHAISTRAT-400 /path/to/adr.pdf
 
+# Generate test plan with a local design spec (UI screens + journeys)
+/test-plan-create RHAISTRAT-400 ./path/to/design-spec.md
+
+# Design specs can also be attached on the Jira STRAT as
+# {KEY}-design-spec.md (or *design-spec*.md); create auto-discovers them
+/test-plan-create RHAISTRAT-400
+
+# ADR + design spec together
+/test-plan-create RHAISTRAT-400 /path/to/adr.pdf ./design-spec.md
+
 # Generate test cases from a GitHub PR (for /test-plan-resolve-feedback workflow)
 /test-plan-create-cases https://github.com/opendatahub-io/opendatahub-test-plans/pull/5
 
@@ -401,6 +411,7 @@ scripts/
 ├── strategy_source.py      # Shared Jira issue-to-strategy formatting helpers
 ├── fetch_issue.py          # Fetch Jira issues, save as markdown, extract components
 ├── parse_strat.py          # Parse STRAT sections; snapshot strategy files for test-plan-create
+├── resolve_design_spec.py  # Discover design-spec (local path or Jira attachment); snapshot into feature dir
 ├── resolve_strategy.py     # Snapshot-primary strategy resolution for test-plan-review/score
 ├── build_citation_inputs.py # Build citation gate inputs (AC/NFR/interface coverage) from a strategy
 ├── validate_quality_evidence.py # Produce scope coverage and actionability evidence payloads

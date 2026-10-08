@@ -37,11 +37,11 @@ def test_stages_required_and_skips_optional(git_repo):
 
 
 def test_stages_optional_files_when_exist(git_repo):
-    """TestPlanGaps.md and TestPlanReview.md are staged when present."""
+    """TestPlanGaps.md, TestPlanReview.md, and .source-design-spec.md are staged when present."""
     add_feature(
         git_repo,
         "feat",
-        ["TestPlan.md", "README.md", "TestPlanGaps.md", "TestPlanReview.md"],
+        ["TestPlan.md", "README.md", "TestPlanGaps.md", "TestPlanReview.md", ".source-design-spec.md"],
     )
 
     exit_code, result = stage_artifacts(str(git_repo), "feat")
@@ -49,9 +49,11 @@ def test_stages_optional_files_when_exist(git_repo):
     assert exit_code == 0
     assert "feat/TestPlanGaps.md" in result["staged_files"]
     assert "feat/TestPlanReview.md" in result["staged_files"]
+    assert "feat/.source-design-spec.md" in result["staged_files"]
     staged = _staged_files(git_repo)
     assert "feat/TestPlanGaps.md" in staged
     assert "feat/TestPlanReview.md" in staged
+    assert "feat/.source-design-spec.md" in staged
 
 
 def test_stages_test_cases_when_dir_exists(git_repo):

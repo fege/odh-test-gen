@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Design spec ingest**: `/test-plan-create`, analyzers, `/test-plan-create-cases`, and
+  `/test-plan-update` treat a STRAT design spec as a first-class companion for UI planning.
+  - Discover via local path or Jira attachment (`{KEY}-design-spec.md`, else newest
+    `*design-spec*.md`) through `scripts/resolve_design_spec.py`
+  - Snapshot to `<feature_dir>/.source-design-spec.md` and list in `additional_docs`
+  - Prefer screens (`SCR-*` HTML) and journeys (`J-*`) when shaping Section 4 UI interfaces and
+    `TC-UI-*` cases; prefer Roles / Sample data tables for Section 3 when present
+  - Gap consolidator accepts **design spec** as a distinct canonical document type
+
 ## [2.0.0] - 2026-08-31
 
 ### Breaking Changes

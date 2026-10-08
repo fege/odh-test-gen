@@ -58,7 +58,8 @@ Examples:
     parser.add_argument("labels", nargs="*", help="One or more labels to add")
 
     try:
-        args = parser.parse_args()
+        # Intermixed so `ISSUE --verdict Ready label` keeps trailing labels (parse_args drops them).
+        args = parser.parse_intermixed_args()
     except SystemExit as e:
         if e.code != 0:
             exit_error_with_json(json_output={"status": "failed", "error": "invalid_arguments"})
