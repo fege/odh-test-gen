@@ -5,17 +5,22 @@ description: >
   Fullsend target workspace.
 ---
 
-Read `FULLSEND_TASK` and execute its single top-level skill invocation once.
-The host supplies one of these forms:
+Read `FULLSEND_TASK`, split the slash-command name from its remaining arguments,
+and call the native `Skill` tool exactly once. The host supplies one of these
+forms:
 
 - `/test-plan-create <JIRA_KEY> --output-dir <relative-path>`
 - `/test-plan-create-cases <local-feature-dir>`
 
-Follow the invoked skill's existing instructions, analysis and review workflow,
-and normal Jira behavior. When `TEST_PLAN_DRY_RUN=true`, the shared label helper
-skips Jira label writes; inference and local artifact creation still run. Do
-not discover or batch Jira issues, decide case eligibility, invoke publishing,
-or start another top-level task.
+Set `skill` to the command name without its leading slash and `args` to the
+exact remainder of `FULLSEND_TASK`. Follow the invoked skill's existing
+instructions, analysis and review workflow, and normal Jira behavior. Do not
+start this task with a generic `Agent`, reconstruct the skill workflow in this
+prompt, or substitute inline analysis if a native skill call fails. When
+`TEST_PLAN_DRY_RUN=true`, the shared label helper skips Jira label writes;
+inference and local artifact creation still run. Do not discover or batch Jira
+issues, decide case eligibility, invoke publishing, or start another
+top-level task.
 
 For `/test-plan-create`, finish its plan generation and review flow, then stop.
 If the skill offers automatic case generation, choose its review-only path. The

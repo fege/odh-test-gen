@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import json
 import os
+import re
 import shutil
 import stat
 import tempfile
@@ -58,6 +59,21 @@ def write_atomic(path, source):
             os.unlink(temp)
 
 
+def indexed_case_names(markdown):
+    names = set()
+    links = re.finditer(
+        r"(?<!!)\[[^\]\n]*\]\(([^)\s]+)(?:[ \t]+[^)\n]*)?\)",
+        markdown,
+    )
+    for match in links:
+        name = match.group(1)
+        if name.startswith("./"):
+            name = name[2:]
+        if name.startswith("TC-") and name.endswith(".md") and "/" not in name and "\\" not in name:
+            names.add(name)
+    return names
+
+
 validated_iteration = os.environ.get("FULLSEND_VALIDATED_ITERATION_DIR")
 repo_dir = os.environ.get("REPO_DIR")
 task_words = os.environ.get("FULLSEND_TASK", "").split(maxsplit=1)
@@ -102,6 +118,7 @@ optional = (
     "README.md",
     "TestPlanGaps.md",
     ".analysis-endpoints.md",
+    ".source-design-spec.md",
     ".analysis-risks.md",
     ".analysis-infra.md",
 )
@@ -144,9 +161,37 @@ marker["output_dir"] = str(target_dir.parent)
 with BytesIO((json.dumps(marker) + "\n").encode()) as stream:
     write_atomic(target_dir / ".test-plan-output-dir.json", stream)
 
+stale_case_paths = []
+if task == "/test-plan-create-cases":
+    target_cases = target_dir / "test_cases"
+    if target_cases.exists() or target_cases.is_symlink():
+        directory(target_cases)
+        previous_index = target_cases / "INDEX.md"
+        if previous_index.exists() or previous_index.is_symlink():
+            if not stat.S_ISREG(previous_index.lstat().st_mode):
+                raise ValueError(f"expected a regular file: {previous_index}")
+            with open_regular(previous_index) as stream:
+                previous_names = indexed_case_names(stream.read().decode("utf-8"))
+            current_names = {path.name for path in files if path.name.startswith("TC-") and path.suffix == ".md"}
+            for name in sorted(previous_names - current_names):
+                stale_path = target_cases / name
+                if stale_path.exists() or stale_path.is_symlink():
+                    if not stat.S_ISREG(stale_path.lstat().st_mode):
+                        raise ValueError(f"refusing to remove non-file: {stale_path}")
+                    with open_regular(stale_path):
+                        pass
+                    stale_case_paths.append(stale_path)
+
 if files:
     target_cases = child_dir(target_dir, ["test_cases"], create=True)
     for path in files:
         with open_regular(path) as stream:
             write_atomic(target_cases / path.name, stream)
+    if task == "/test-plan-create-cases":
+        for stale_path in stale_case_paths:
+            if not stat.S_ISREG(stale_path.lstat().st_mode):
+                raise ValueError(f"refusing to remove non-file: {stale_path}")
+            with open_regular(stale_path):
+                pass
+            stale_path.unlink()
 print(f"Copied test-plan handoff: {target_dir}")

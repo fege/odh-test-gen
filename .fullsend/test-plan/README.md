@@ -48,6 +48,8 @@ This Fullsend harness chooses review only; its prompt leaves the eligibility dec
 cases invocation to the host. A separate Fullsend invocation requires the existing feature directory
 inside its sandbox target workspace. `--output-dir` collects host results; it does not supply those
 results as input to the next sandbox. The current descriptor does not automate that transfer.
+Before running cases, copy `$RUN_OUTPUT/plans/<feature>` to `plans/<feature>` in the checkout passed
+to `--target-repo`.
 
 When the feature is available as `plans/<feature>` in the target checkout, run:
 
