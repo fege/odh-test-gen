@@ -44,6 +44,6 @@ kubeconfig
 */test_implementation_conventions.md
 */test_scores/
 
-.claude
-.plans
-.planning
+/.claude/
+/.plans/
+/.planning/
